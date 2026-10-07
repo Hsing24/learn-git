@@ -1,4 +1,4 @@
-"""Automated test suite verifying all 10 scenarios setup and verification logic."""
+"""Automated test suite verifying all 11 scenarios setup and verification logic."""
 
 import sys
 import unittest
@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from lab.engine import GitEngine
+from lab.scenarios.s00_config import Scenario00
 from lab.scenarios.s01_basics import Scenario01
 from lab.scenarios.s02_branching import Scenario02
 from lab.scenarios.s03_merge_conflict import Scenario03
@@ -27,6 +28,34 @@ class TestAllScenarios(unittest.TestCase):
 
     def tearDown(self):
         self.engine.clean_workspace()
+
+    def test_scenario_00_config(self):
+        sc = Scenario00()
+        sc.setup(self.engine)
+
+        self.assertTrue((self.engine.repo_dir / "SETUP_GUIDE.md").exists())
+
+        # Verification fails when push.autoSetupRemote is false
+        self.engine.run_git("config", "push.autoSetupRemote", "false")
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # Verification fails when user.name is empty
+        self.engine.run_git("config", "push.autoSetupRemote", "true")
+        self.engine.run_git("config", "user.name", "")
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # Verification fails when user.email is empty
+        self.engine.run_git("config", "user.name", "Test Student")
+        self.engine.run_git("config", "user.email", "")
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # Verification succeeds when all three are properly configured
+        self.engine.run_git("config", "user.email", "student@example.com")
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
 
     def test_scenario_01_basics(self):
         sc = Scenario01()

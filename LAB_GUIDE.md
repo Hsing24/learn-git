@@ -1,4 +1,4 @@
-# 🚀 Git Scenario Lab 使用手冊 & 實戰指南
+# 🚀 Git Scenario Lab 使用手冊 & 現代實戰指南
 
 歡迎來到 **Git Scenario Lab**！這是一套專為「單人自學 Git」量身打造的本地終端機實戰情境實驗室。
 你可以直接在真實的終端機環境中，像玩闖關遊戲一樣鍛鍊 Git 肌肉記憶，掌握個人與團隊開發的必備技能。
@@ -8,6 +8,7 @@
 ## 🎯 為什麼需要這套工具？
 
 學習 Git 最困難的往往不是基本指令，而是當面對以下情境時的無助感：
+- **第一次使用 Git 不知道怎麼配帳號、每次 push 都要輸密碼、每次新分支都要加 `--set-upstream`**
 - **多人協作時的分支衝突 (Merge Conflict)**
 - **保持歷史乾淨整齊的變基 (Git Rebase)**
 - **整理雜亂 commits 的互動式變基 (Interactive Rebase `rebase -i`)**
@@ -16,7 +17,6 @@
 - **不想 stash、避免中斷 IDE 與編譯快取的平行開發 (Git Worktree)**
 - **在龐大歷史中秒殺神秘問題 (Git Bisect)**
 
-平常一個人自學時，很難體會這些需要「第二個同事」或「龐大歷史拓撲」的情境。
 **Git Scenario Lab** 只要一行指令，就能在獨立的練習目錄中自動搭建出最真實的專案現場！
 
 ---
@@ -29,8 +29,8 @@
 # 1. 查看所有關卡清單
 ./git-lab list
 
-# 2. 啟動指定關卡 (例如啟動第 1 關或第 9 關)
-./git-lab start 01
+# 2. 啟動指定關卡 (例如啟動第 00 關或第 03 關)
+./git-lab start 00
 # 啟動後切換到練習目錄：
 cd workspace
 
@@ -52,12 +52,13 @@ cd workspace
 
 ---
 
-## 📚 10 大實戰關卡地圖 (Curriculum)
+## 📚 11 大實戰關卡地圖 (Curriculum)
 
 | 關卡 ID | 難度 | 關卡名稱 | 核心學習技能 |
 | :---: | :---: | :--- | :--- |
+| **00** | 新手必備 🔰 | 起點裝備：Git 身分、SSH 憑證與自動建立遠端分支 | `user.name/email`, `push.autoSetupRemote`, SSH 免密金鑰 |
 | **01** | 入門 ⭐ | 工作區、暫存區與第一個 Commit | `git status`, `git add`, `git commit` |
-| **02** | 初階 ⭐⭐ | 分支流動：建立、切換與 Fast-Forward 合併 | `git branch`, `git checkout` / `switch`, `git merge` |
+| **02** | 初階 ⭐⭐ | 分支流動：建立、切換與 Fast-Forward 合併 | `git branch`, `git switch`, `git merge` |
 | **03** | 進階 ⭐⭐⭐ | 迎戰衝突：手動解決 Merge Conflict | 雙分支修改同一檔案、解讀衝突標記、完成合併 |
 | **04** | 進階 ⭐⭐⭐ | 變基藝術：使用 git rebase 保持線性歷史 | 保持分支歷史整潔一條線，避免多餘 merge commit |
 | **05** | 進階 ⭐⭐⭐ | 歷史整形：Interactive Rebase 整理零碎 Commit | `git rebase -i`、`squash` 與 `fixup` 整理提交訊息 |
@@ -69,63 +70,36 @@ cd workspace
 
 ---
 
-## 深入探討：工作中個人與團隊高頻使用的 Git 核心技能
+## 🛠️ 現代 Git 指令演進：經典舊指令 vs. 現代更優實現速查表
 
-### 1. 深度解析：Git Worktree vs Git Stash
+許多早期的教學書籍充斥著容易混淆、承擔過多職責的舊指令。現代 Git（2.23+）進行了大幅現代化升級，以下為業界推薦的現代更優替代方案：
 
-在日常工作中，工程師經常會遇到這種緊急狀況：
-> 「你正在分支 `feature-ai` 上開發新功能，寫到一半尚未 commit，本地跑著 dev server 與編譯快取；突然線上伺服器出現緊急 P0 故障，需要你立即在 `main` 開分支修復！」
-
-這時候工程師有兩種選擇：
-
-#### 傳統做法：`git stash`
-```bash
-git stash push -m "wip feature ai"
-git checkout main
-git checkout -b hotfix-p0
-# ... 修復、測試、commit、push ...
-git checkout feature-ai
-git stash pop # 容易發生衝突！
-```
-- **缺點**：
-  - 切換分支會刷新工作區檔案，導致 Node.js (`node_modules`)、Docker 或 C++/Rust 的**編譯快取失效**，切換回來時必須重新 build 很久。
-  - `git stash pop` 若與分支有重疊改動容易爆發衝突。
-  - 多個 stash 容易被遺忘在堆疊裡。
-
-#### 現代做法：`git worktree`（雙軌並行）
-```bash
-# 在獨立資料夾檢出 main 分支
-git worktree add ../project-hotfix -b hotfix-p0 main
-
-# 開另一個終端機分頁或新 IDE 視窗進入修復
-cd ../project-hotfix
-# ... 修復、commit、push ...
-
-# 修完後乾淨移除
-cd ../project
-git worktree remove ../project-hotfix
-```
-- **優勢**：
-  - **完全不打擾原分支**：原本的 feature 分支、未存檔的檔案、運行中的 Dev Server 絲毫不受影響！
-  - **平行測試**：可以兩個分支各自開著服務對比行為。
-  - **零硬碟浪費**：兩個目錄共享底層同一個 `.git` 儲存庫，不需要像 `git clone` 一樣重複下載完整歷史。
+| 功能情境 | 傳統舊指令 | 現代更優替代指令 | 為什麼現代實現更好？ |
+| :--- | :--- | :--- | :--- |
+| **切換分支** | `git checkout <branch>` | `git switch <branch>` | `checkout` 承擔太多功能（切分支/復原檔案），打錯容易覆蓋檔案；`switch` 專注於分支切換，安全明確。 |
+| **建立並切換新分支** | `git checkout -b <new>` | `git switch -c <new>` | 語意清晰對稱（`-c` 代表 create），避免混淆。 |
+| **放棄工作區檔案修改** | `git checkout -- <file>` | `git restore <file>` | `checkout --` 語法晦澀難記；`restore` 顧名思義就是還原，直觀自然。 |
+| **將檔案移出暫存區 (Unstage)**| `git reset HEAD <file>` | `git restore --staged <file>` | 不再需要搬出危險的 `reset` 指令，`restore --staged` 語意精準。 |
+| **跨分支平行任務 (Hotfix)** | `git stash` ➜ 切換 ➜ pop | `git worktree add <dir> <branch>` | `stash` 會破壞 node_modules、編譯快取與 IDE 索引，且 pop 容易衝突；`worktree` 目錄實體隔離，平行開發互不干擾。 |
+| **新分支首次推送** | `git push -u origin <branch>` | `git config --global push.autoSetupRemote true` 後直接 `git push` | 設定一次一勞永逸，任何新分支直接敲 `git push`，Git 自動在遠端建同名分支並追蹤。 |
+| **修復前次 Commit (Typo)** | 手動 `rebase -i` 逐行改 squash | `git commit --fixup <hash>`<br>+ `git rebase -i --autosquash` | Git 自動將 fixup 提交搬移到目標下方並自動合併，零手動編輯風險。修補最後一筆更可直接用 `git commit --amend --no-edit`。 |
+| **拉取遠端最新代碼** | `git pull`（預設 merge） | `git pull --rebase`<br>（或 `git config --global pull.rebase true`） | 消除團隊中雜亂無章的 "Merge branch 'main' of github.com" 交叉菱形節點，保持乾淨線性歷史。 |
+| **二分搜尋定位 Bug** | 手動反覆測試打 `good/bad` | `git bisect run <測試腳本>` | 例如 `git bisect run pytest`，Git 全自動在幾秒內執行腳本並鎖定第一個壞掉的 Commit。 |
+| **安全的後悔藥** | 危險的 `git reset --hard` | 團隊協作用 `git revert`；<br>本地重整用 `git reset --soft` | `reset --hard` 會直接拋棄代碼；`revert` 安全向前推進，`reset --soft` 保留改動在暫存區以供重組。 |
+| **分支樹狀圖檢視** | 密密麻麻長指令 `git log --graph...` | `git config --global alias.lg "log --graph --all --decorate --oneline"` | 設定別名後隨時敲 `git lg`，一秒看清所有分支交錯關係。 |
 
 ---
 
-### 2. 個人與團隊必備高階指令速查
+## ⚡ 深入剖析：Git Worktree vs. Git Stash 的正確分工
 
-| 指令 | 情境與用途 |
-| :--- | :--- |
-| **`git worktree add <dir> <branch>`** | 並行檢出多個分支到不同目錄，零干擾處理 Hotfix 或 Code Review。 |
-| **`git bisect start / bad / good`** | 二分搜尋排查 Bug，在數百個 Commit 中幾步內找出是誰引入了錯誤。 |
-| **`git switch <branch>`** | 現代 Git 取代 `git checkout` 切換分支的專門指令。 |
-| **`git restore <file>`** | 現代 Git 取代 `git checkout -- <file>` 放棄工作區修改的指令。 |
-| **`git restore --staged <file>`** | 將暫存區檔案移回工作區（取消 `git add`）。 |
-| **`git commit --amend`** | 快速修改剛提交的最後一個 Commit（修改訊息或追加漏掉的檔案）。 |
-| **`git pull --rebase origin <branch>`** | 同步遠端更新時保持歷史線性，避免產生雜亂的 Merge Commit。 |
-| **`git log -S "<關鍵字>"`** | （鶴嘴鋤搜尋 Pickaxe）搜尋在歷史中**何時新增或刪除**了某個特定的函數或字串。 |
-| **`git blame -L 10,20 <file>`** | 追查特定行號是哪一個 Commit、由誰在何時修改的。 |
-| **`git reflog`** | 終端黑盒子，記錄本機所有 HEAD 移動軌跡，救回被 hard reset 或刪除的 commit。 |
+### 該用 `git worktree` 的時機：
+1. **緊急 Hotfix 插單**：當前正在開發大功能，工作區檔案正在被本地伺服器監聽，不想重開 Dev Server 或刷新編譯快取。
+2. **Code Review 同事的分支**：在獨立目錄打開同事的 PR 分支，甚至能同時跑兩個 port 進行行為對比。
+3. **避免建構快取失效**：在大型前端 (React/Vite) 或後端 (Java/Rust/Go) 專案中，切換分支往往需要重新執行 `npm install` 或整包 rebuild，worktree 完全避免了這項耗時操作。
+
+### 什麼時候 `git stash` 依然是好工具？
+1. **同分支短暫暫存 (< 5 分鐘)**：例如你寫了兩行除錯用的 `console.log`，想暫存起來看一下原本的效果，確認完馬上 `git stash pop`。
+2. **快速拉取遠端最新代碼**：本地有未提交的草稿，同事推了新版，快速 `git stash` ➜ `git pull --rebase` ➜ `git stash pop`。
 
 ---
 

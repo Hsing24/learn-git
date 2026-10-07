@@ -23,10 +23,19 @@ class Scenario09(BaseScenario):
     story = (
         "你正在分支 feature-ai 上開發大型推薦系統，工作區裡充斥著未完成的草稿代碼與測試快取。\n"
         "突然間！線上伺服器爆發緊急 P0 故障！主管要求你立刻切回 main 開發熱修復 (Hotfix)。\n"
-        "但你的 feature-ai 正在運算，不想 git stash 冒衝突風險，也不想破壞 IDE 專案索引。\n"
-        "業界高手的極速解法：使用 git worktree 在獨立目錄開闢第二工作樹，零干擾平行開發！"
+        "許多人會下意識執行 git stash，但在現代大型工程專案中，切換分支往往會導致 node_modules 重裝、\n"
+        "編譯快取失效、IDE 索引重建，且事後 stash pop 容易產生可怕衝突！\n\n"
+        "【現代業界的最佳時機指引：Worktree vs. Stash】\n"
+        "• 該用 git worktree 的時機：\n"
+        "  1. 跨分支平行開發與緊急 Hotfix（不中斷當前任務與除錯進度）\n"
+        "  2. Code Review 同事的分支（可在獨立目錄同時啟動兩個服務對照）\n"
+        "  3. 避免編譯快取、構建產物與 node_modules 失效或重新安裝\n"
+        "• git stash 依然有其定位的時機：\n"
+        "  1. 同一分支內 < 5 分鐘的微小暫存\n"
+        "  2. 本地有未提交零星修改，想快速 git pull --rebase 拉取遠端最新代碼後立刻 pop 恢復"
     )
     goals = [
+        "理解現代前端/後端專案中 git worktree 與 git stash 的核心定位與選擇時機",
         "確認自己在 feature-ai 分支上，保留未完成的 ai_notes.txt 草稿狀態",
         "使用 git worktree add hotfix-dir -b hotfix-p0 main 建立獨立平行目錄",
         "進入 hotfix-dir 目錄，將 server.py 的錯誤修復為正常狀態並完成 Commit",
@@ -44,6 +53,9 @@ class Scenario09(BaseScenario):
         "驗收成果：./git-lab verify"
     ]
     hints = [
+        "【何時用 Worktree vs. 何時用 Stash？】\n"
+        "• 使用 git worktree：跨分支平行開發、緊急 Hotfix、Code Review、避免編譯快取/node_modules 重建。\n"
+        "• 使用 git stash：同一分支內 < 5 分鐘的臨時小暫存、快速 pull 遠端代碼。\n"
         "建立新工作樹指令：git worktree add hotfix-dir -b hotfix-p0 main（這會在當前目錄下建立 hotfix-dir 資料夾，並檢出 hotfix-p0 分支）。",
         "進入 hotfix-dir 後，編輯 server.py 將 status 改為正常，再執行 git commit 完成提交。",
         "完成後 cd .. 回到上一層，切換到 main 分支執行 git merge hotfix-p0，最後執行 git worktree remove hotfix-dir 即可！"
@@ -78,4 +90,4 @@ class Scenario09(BaseScenario):
         if "hotfix-dir" in out:
             return False, "臨時工作樹 hotfix-dir 尚未清理，請執行 git worktree remove hotfix-dir。"
 
-        return True, "太強了！你掌握了專業團隊必備的 git worktree，從此告別繁瑣的 git stash，實現從容優雅的平行開發！"
+        return True, "太強了！你掌握了專業團隊必備的 git worktree，清楚分清 worktree 與 stash 的現代應用時機，實現從容優雅的平行開發！"

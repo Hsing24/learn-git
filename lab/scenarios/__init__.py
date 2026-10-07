@@ -2,6 +2,7 @@
 
 from typing import Dict, List, Optional
 from lab.base import BaseScenario
+from lab.scenarios.s00_config import Scenario00
 from lab.scenarios.s01_basics import Scenario01
 from lab.scenarios.s02_branching import Scenario02
 from lab.scenarios.s03_merge_conflict import Scenario03
@@ -14,6 +15,7 @@ from lab.scenarios.s09_worktree import Scenario09
 from lab.scenarios.s10_bisect import Scenario10
 
 SCENARIOS: List[BaseScenario] = [
+    Scenario00(),
     Scenario01(),
     Scenario02(),
     Scenario03(),
@@ -29,6 +31,11 @@ SCENARIOS: List[BaseScenario] = [
 SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in SCENARIOS}
 
 ALIASES = {
+    "0": "00",
+    "00": "00",
+    "config": "00",
+    "setup": "00",
+    "ssh": "00",
     "1": "01",
     "basics": "01",
     "2": "02",
