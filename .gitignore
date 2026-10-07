@@ -1,0 +1,14 @@
+# Git Scenario Lab Workspace and state ignores
+/workspace/
+/.git-lab-remote/
+/.git-lab-state.json
+/hotfix-rescue/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# System files
+.DS_Store
+Thumbs.db

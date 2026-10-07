@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Git Scenario Lab - CLI Entrypoint."""
+
+import sys
+import os
+from pathlib import Path
+
+# Add current directory to sys.path so 'lab' package is found
+REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from lab.engine import GitEngine
+from lab.visualizer import (
+    print_banner,
+    print_scenarios_table,
+    print_scenario_briefing,
+    print_success_card,
+    print_fail_card,
+    print_card
+)
+from lab.colors import bold, green, red, yellow, cyan, blue, magenta, dim
+from lab.scenarios import SCENARIOS, SCENARIO_MAP, get_scenario
+
+def cmd_list(engine: GitEngine):
+    state = engine.get_state()
+    active_id = state.get("active_scenario")
+    completed = set(state.get("completed_scenarios", []))
+
+    info_list = []
+    for sc in SCENARIOS:
+        if sc.id in completed:
+            st = "PASSED"
+        elif sc.id == active_id:
+            st = "ACTIVE"
+        else:
+            st = "TODO"
+        info_list.append({
+            "id": sc.id,
+            "title": sc.title,
+            "difficulty": sc.difficulty,
+            "status": st
+        })
+    print_scenarios_table(info_list)
+
+def cmd_start(engine: GitEngine, target: str):
+    sc = get_scenario(target)
+    if not sc:
+        print(f"\n{red('❌ 找不到關卡：')} {target}")
+        print(f"{dim('請輸入')} {yellow('./git-lab list')} {dim('查看可用關卡列表。')}\n")
+        return
+
+    print(f"\n{dim('正在為你建置情境環境... 關卡：')}{bold(sc.id)} - {sc.title}")
+    try:
+        sc.setup(engine)
+        engine.set_active_scenario(sc.id)
+    except Exception as e:
+        print(f"{red('❌ 建立情境時發生錯誤：')} {e}")
+        return
+
+    print_scenario_briefing(
+        sc.id,
+        sc.title,
+        sc.difficulty,
+        sc.story,
+        sc.goals,
+        sc.next_steps
+    )
+    print(f"  {yellow(bold('👉 請切換至練習目錄開始操作：'))} {green(bold('cd workspace'))}")
+    print(f"  {dim('(在 workspace 內可直接使用任何原生 Git 指令，亦可執行 ./git-lab verify)')}\n")
+
+def cmd_status(engine: GitEngine):
+    state = engine.get_state()
+    active_id = state.get("active_scenario")
+    if not active_id:
+        print_banner()
+        print(f"\n{dim('目前尚未啟動任何關卡。')}")
+        print(f"{dim('輸入')} {yellow('./git-lab list')} {dim('挑選關卡，或輸入')} {yellow('./git-lab start 01')} {dim('開始第一關！')}\n")
+        return
+
+    sc = SCENARIO_MAP.get(active_id)
+    if not sc:
+        print(f"{red('❌ 關卡資料異常，請重新 start。')}")
+        return
+
+    print_scenario_briefing(
+        sc.id,
+        sc.title,
+        sc.difficulty,
+        sc.story,
+        sc.goals,
+        sc.next_steps
+    )
+
+def cmd_hint(engine: GitEngine):
+    state = engine.get_state()
+    active_id = state.get("active_scenario")
+    if not active_id:
+        print(f"\n{dim('目前尚未啟動任何關卡。請先使用')} {yellow('./git-lab start <ID>')}\n")
+        return
+
+    sc = SCENARIO_MAP.get(active_id)
+    if not sc or not sc.hints:
+        print(f"\n{dim('本關卡暫無額外提示。')}\n")
+        return
+
+    count = engine.increment_hint_count(sc.id)
+    hint_idx = min(count - 1, len(sc.hints) - 1)
+    
+    hint_text = sc.hints[hint_idx]
+    lines = [
+        f"{yellow(bold(f'提示 ({hint_idx + 1}/{len(sc.hints)}):'))}",
+        f"  {hint_text}",
+    ]
+    if hint_idx + 1 < len(sc.hints):
+        lines.append("")
+        lines.append(f"{dim('如果還需要更具體的指引，可以再次輸入')} {yellow(bold('./git-lab hint'))}")
+
+    print()
+    print_card(f"💡 闖關提示 — {sc.title}", lines, border_color=yellow)
+    print()
+
+def cmd_verify(engine: GitEngine):
+    state = engine.get_state()
+    active_id = state.get("active_scenario")
+    if not active_id:
+        print(f"\n{dim('目前尚未啟動任何關卡。請先使用')} {yellow('./git-lab start <ID>')}\n")
+        return
+
+    sc = SCENARIO_MAP.get(active_id)
+    if not sc:
+        print(f"{red('❌ 找不到當前關卡資料。')}")
+        return
+
+    passed, message = sc.verify(engine)
+    print()
+    if passed:
+        engine.mark_scenario_passed(sc.id)
+        # Find next scenario
+        idx = next((i for i, s in enumerate(SCENARIOS) if s.id == sc.id), -1)
+        next_cmd = None
+        if idx != -1 and idx + 1 < len(SCENARIOS):
+            next_sc = SCENARIOS[idx + 1]
+            next_cmd = f"./git-lab start {next_sc.id}"
+        print_success_card(sc.title, message, next_cmd)
+    else:
+        print_fail_card(sc.title, message)
+    print()
+
+def cmd_reset(engine: GitEngine):
+    state = engine.get_state()
+    active_id = state.get("active_scenario")
+    if not active_id:
+        print(f"\n{dim('目前尚未啟動任何關卡。')}\n")
+        return
+
+    sc = SCENARIO_MAP.get(active_id)
+    if not sc:
+        print(f"{red('❌ 關卡資料異常。')}")
+        return
+
+    print(f"\n{yellow('🔄 正在重設當前關卡至初始情境...')} {bold(sc.id)} - {sc.title}")
+    try:
+        sc.setup(engine)
+    except Exception as e:
+        print(f"{red('❌ 重設時發生錯誤：')} {e}")
+        return
+
+    print_scenario_briefing(
+        sc.id,
+        sc.title,
+        sc.difficulty,
+        sc.story,
+        sc.goals,
+        sc.next_steps
+    )
+    print(f"{green('✔ 環境已重設！你可以重新嘗試操作。')}\n")
+
+def cmd_tree(engine: GitEngine):
+    if not (engine.repo_dir / ".git").exists():
+        print(f"\n{dim('目前尚未初始化 Git 倉庫。')}\n")
+        return
+
+    print(f"\n{bold('🌲 當前 Git Commit 拓撲圖：')}\n")
+    code, out, _ = engine.run_git(
+        "log",
+        "--graph",
+        "--all",
+        "--decorate",
+        "--oneline",
+        "--color=always",
+        check=False
+    )
+    if code != 0 or not out.strip():
+        print(dim("  (目前尚無 Commit 紀錄)"))
+    else:
+        for line in out.splitlines():
+            print(f"  {line}")
+    print()
+
+def print_help():
+    print_banner()
+    help_text = f"""
+{bold('💡 使用方式 (Usage):')}
+  {yellow('./git-lab list')}            {dim('列出所有關卡與目前挑戰狀態')}
+  {yellow('./git-lab start <ID>')}      {dim('進入指定關卡，建立模擬情境 (例: ./git-lab start 03)')}
+  {yellow('./git-lab status')}          {dim('查看目前關卡的任務目標與故事')}
+  {yellow('./git-lab hint')}            {dim('獲取逐步提示與指令指引')}
+  {yellow('./git-lab verify')}          {dim('驗證目前的 Git 狀態是否達成通關目標')}
+  {yellow('./git-lab reset')}           {dim('如果不小心搞砸了，一鍵重設當前關卡')}
+  {yellow('./git-lab tree')}            {dim('視覺化查看目前的分支與 Commit 樹狀結構')}
+"""
+    print(help_text)
+
+def main():
+    engine = GitEngine(REPO_ROOT)
+    engine.init_repo_if_needed()
+
+    args = sys.argv[1:]
+    if not args:
+        state = engine.get_state()
+        if state.get("active_scenario"):
+            cmd_status(engine)
+        else:
+            print_help()
+        return
+
+    cmd = args[0].lower()
+    if cmd in ["list", "ls"]:
+        cmd_list(engine)
+    elif cmd in ["start", "init", "run"]:
+        if len(args) < 2:
+            print(f"\n{red('請指定關卡 ID')}，例如：{yellow('./git-lab start 01')}\n")
+        else:
+            cmd_start(engine, args[1])
+    elif cmd in ["status", "info"]:
+        cmd_status(engine)
+    elif cmd in ["hint", "hints", "help-me"]:
+        cmd_hint(engine)
+    elif cmd in ["verify", "check", "test"]:
+        cmd_verify(engine)
+    elif cmd in ["reset", "restart"]:
+        cmd_reset(engine)
+    elif cmd in ["tree", "log", "graph"]:
+        cmd_tree(engine)
+    elif cmd in ["--help", "-h", "help"]:
+        print_help()
+    else:
+        print(f"\n{red('未知的指令：')} {args[0]}")
+        print_help()
+
+if __name__ == "__main__":
+    main()
