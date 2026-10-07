@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Git Scenario Lab 🚀 | 單人自學 Git 的終端機實戰實驗室</title>
-  <meta name="description" content="專為單人開發者打造的 Git 本地終端機情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks 等 12 大真實專案現場。">
+  <meta name="description" content="專為單人開發者打造的 Git 本地終端機情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Tags、Rerere 等 18 大真實專案現場。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -322,14 +322,14 @@
   <header>
     <div class="badge">🚀 100% 本地終端機實戰 • 零額外依賴</div>
     <h1>Git Scenario Lab</h1>
-    <p class="subtitle">專為單人開發者打造的情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks 等 12 大真實專案現場。</p>
+    <p class="subtitle">專為單人開發者打造的情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Tags、Rerere 等 18 大真實專案現場。</p>
     
     <div class="cta-buttons">
       <a href="https://github.com/Hsing24/learn-git" class="btn btn-primary">
         <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
         GitHub Repository
       </a>
-      <a href="#scenarios" class="btn btn-secondary">瀏覽 12 大實戰關卡</a>
+      <a href="#scenarios" class="btn btn-secondary">瀏覽 18 大實戰關卡</a>
       <a href="#modern-git" class="btn btn-secondary">現代 Git 替代指令速查</a>
     </div>
   </header>
@@ -348,7 +348,7 @@
         <p class="comment"># 1. 複製專案並進入目錄</p>
         <p class="cmd">$ git clone https://github.com/Hsing24/learn-git.git && cd learn-git</p>
         <br>
-        <p class="comment"># 2. 查看所有 12 個實戰關卡清單</p>
+        <p class="comment"># 2. 查看所有 18 個實戰關卡清單</p>
         <p class="cmd">$ ./git-lab list</p>
         <br>
         <p class="comment"># 3. 進入第 00 關：配備身分、SSH 與神級 push.autoSetupRemote</p>
@@ -364,7 +364,7 @@
 
     <!-- Scenarios Section -->
     <section id="scenarios">
-      <h2 class="section-title">📚 12 大全方位實戰關卡</h2>
+      <h2 class="section-title">📚 18 大全方位實戰關卡</h2>
       <p class="section-desc">從最一開始的帳號配置、暫存區流動，到業界資深工程師愛用的 Worktree 與 Bisect，每關皆具備獨立沙盒與自動驗收邏輯。</p>
 
       <div class="scenario-grid">
@@ -525,6 +525,84 @@
           <div class="card-cmd"><code>./git-lab start 11</code></div>
         </div>
 
+        <!-- 12 -->
+        <div class="scenario-card">
+          <div>
+            <div class="card-top">
+              <span class="card-id">LEVEL 12</span>
+              <span class="card-diff">進階 ⭐⭐⭐</span>
+            </div>
+            <h3 class="card-title">原子暫存：git add -p 區塊暫存</h3>
+            <p class="card-desc">同檔多處修改不盲目全包！以 Hunk 為單位精確暫存，鍛鍊單一職責與 Atomic Commit 乾淨歷史。</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 12</code></div>
+        </div>
+
+        <!-- 13 -->
+        <div class="scenario-card" style="border-color: #d29922;">
+          <div>
+            <div class="card-top">
+              <span class="card-id" style="color: #d29922; background: rgba(210, 153, 34, 0.1);">LEVEL 13</span>
+              <span class="card-diff">初階 ⭐⭐</span>
+            </div>
+            <h3 class="card-title">.gitignore 追蹤失效與 rm --cached</h3>
+            <p class="card-desc">誤將 .env 提交進庫後補寫 ignore 為何沒效？使用 git rm --cached 自索引除名並保全本地檔案。</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 13</code></div>
+        </div>
+
+        <!-- 14 -->
+        <div class="scenario-card" style="border-color: #f85149;">
+          <div>
+            <div class="card-top">
+              <span class="card-id" style="color: #f85149; background: rgba(248, 81, 73, 0.1);">LEVEL 14</span>
+              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
+            </div>
+            <h3 class="card-title">線上緊急回滾：Revert Merge (-m 1)</h3>
+            <p class="card-desc">剛合進 main 的 PR 造成生產事故！解密雙親節點拓撲，以 git revert -m 1 安全平息災難。</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 14</code></div>
+        </div>
+
+        <!-- 15 -->
+        <div class="scenario-card">
+          <div>
+            <div class="card-top">
+              <span class="card-id">LEVEL 15</span>
+              <span class="card-diff">初階 ⭐⭐</span>
+            </div>
+            <h3 class="card-title">版本里程碑：Git Tag 與語意化發布</h3>
+            <p class="card-desc">掌握 Lightweight vs. Annotated 附註標籤，給歷史 Commit 補簽版號，並推送到遠端釋出發布。</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 15</code></div>
+        </div>
+
+        <!-- 16 -->
+        <div class="scenario-card">
+          <div>
+            <div class="card-top">
+              <span class="card-id">LEVEL 16</span>
+              <span class="card-diff">進階 ⭐⭐⭐</span>
+            </div>
+            <h3 class="card-title">代碼考古學：git log -S 與 blame</h3>
+            <p class="card-desc">關鍵變數憑空消失？運用鶴嘴鎬 Pickaxe 搜尋次數變動，搭配 git blame -w 秒速鎖定元凶。</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 16</code></div>
+        </div>
+
+        <!-- 17 -->
+        <div class="scenario-card" style="border-color: #bc8cff;">
+          <div>
+            <div class="card-top">
+              <span class="card-id" style="color: #bc8cff; background: rgba(188, 140, 255, 0.1);">LEVEL 17</span>
+              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
+            </div>
+            <h3 class="card-title">重複衝突終結者：git rerere 黑魔法</h3>
+            <p class="card-desc">Rebase 跨越十個 commit 衝突解到崩潰？開啟 rerere 自動快取解法，後續相同衝突 0 秒套用！</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 17</code></div>
+        </div>
+
       </div>
     </section>
 
@@ -603,6 +681,36 @@
               <td>手動複製腳本到 <code>.git/hooks/</code></td>
               <td><span class="tag-better">git config core.hooksPath .githooks</span></td>
               <td><code>.git/hooks</code> 不受版本控制；<code>core.hooksPath</code> 或 Husky/Lefthook 讓全團隊自動共享守門員防線。</td>
+            </tr>
+            <tr>
+              <td><strong>同檔局部暫存 (Atomic)</strong></td>
+              <td>盲目全包 <code>git add .</code></td>
+              <td><span class="tag-better">git add -p &lt;file&gt;</span></td>
+              <td>依 Hunk 逐塊挑選（y/n/s），確保每個 Commit 具備單一職責，大幅提升 CR 品質。</td>
+            </tr>
+            <tr>
+              <td><strong>停止追蹤機密檔案</strong></td>
+              <td>刪除本地實體檔案再加 ignore</td>
+              <td><span class="tag-better">git rm --cached &lt;file&gt;</span></td>
+              <td>只從 Git 索引除名，完整保全本地環境變數 (.env) 與開發資料。</td>
+            </tr>
+            <tr>
+              <td><strong>線上回滾 Merge PR</strong></td>
+              <td>危險覆蓋主線的 force push</td>
+              <td><span class="tag-better">git revert -m 1 &lt;hash&gt;</span></td>
+              <td>向前推進產生反轉提交，清楚保留審計歷史，不破壞團隊他人進度。</td>
+            </tr>
+            <tr>
+              <td><strong>重用衝突解法 (Rebase)</strong></td>
+              <td>每次 rebase 手動解 10 次</td>
+              <td><span class="tag-better">rerere.enabled true</span></td>
+              <td>Git 自動記憶衝突解決方案，後續相同衝突區塊 0 秒全自動填入！</td>
+            </tr>
+            <tr>
+              <td><strong>精確代碼考古</strong></td>
+              <td>大海撈針盲翻提交訊息</td>
+              <td><span class="tag-better">git log -S "&lt;字串&gt;" --oneline</span></td>
+              <td>鶴嘴鎬 (Pickaxe) 精準鎖定增減該字串次數的提交，比文字搜尋精準百倍。</td>
             </tr>
           </tbody>
         </table>
@@ -683,6 +791,39 @@
               <td><strong>Lefthook</strong></td>
               <td>Go 撰寫的高效能多語言 Hook 管理工具</td>
               <td><span class="tag-better">推薦（多語言專案）</span>：平行極速執行，單一 YAML 設定檔乾淨俐落。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    <!-- Deep Dive: Advanced Rescue -->
+    <section>
+      <h2 class="section-title">🚨 深度專題：線上生產救援 (Revert -m 1) 與 重複衝突終結者 (rerere)</h2>
+      <p class="section-desc">面對複雜生產事故與跨分支 Rebase，資深工程師如何從容應對？</p>
+
+      <div class="compare-box">
+        <table>
+          <thead>
+            <tr>
+              <th>技術專題</th>
+              <th>痛點情境</th>
+              <th>最佳解決方案與原理</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Revert Merge Commit</strong></td>
+              <td>PR 合併進 main 後引發線上事故，<code>git revert</code> 報錯缺少 <code>-m</code></td>
+              <td><span class="tag-better">git revert -m 1 &lt;hash&gt;</span>：指定以 Parent 1 (主線) 為基準，精準反轉該 PR 的改動並保留審計紀錄。</td>
+            </tr>
+            <tr>
+              <td><strong>Git rerere</strong></td>
+              <td>在長壽分支上 Rebase，同一個衝突在 10 個 Commit 都要反覆手動解</td>
+              <td><span class="tag-better">git config rerere.enabled true</span>：自動記憶解法，下次遇到完全相同的衝突區塊自動秒速套用！</td>
+            </tr>
+            <tr>
+              <td><strong>.gitignore 失效救援</strong></td>
+              <td>誤把 <code>.env</code> commit 進去，後續加進 <code>.gitignore</code> 依然緊追不捨</td>
+              <td><span class="tag-better">git rm --cached .env</span>：已追蹤檔案不受 ignore 約束；透過 <code>--cached</code> 僅自索引除名，本地實體檔案完好無損。</td>
             </tr>
           </tbody>
         </table>

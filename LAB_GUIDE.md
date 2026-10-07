@@ -52,7 +52,7 @@ cd workspace
 
 ---
 
-## 📚 12 大實戰關卡地圖 (Curriculum)
+## 📚 18 大實戰關卡地圖 (Curriculum)
 
 | 關卡 ID | 難度 | 關卡名稱 | 核心學習技能 |
 | :---: | :---: | :--- | :--- |
@@ -68,6 +68,12 @@ cd workspace
 | **09** | 實戰 ⭐⭐⭐⭐ | 雙軌並行：Git Worktree 免 Stash 零干擾平行開發 | `git worktree add/list/remove` 享受多目錄並行檢出 |
 | **10** | 實戰 ⭐⭐⭐⭐⭐ | 時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug | `git bisect start/bad/good` 在 O(log N) 步內找出元凶 |
 | **11** | 實戰 ⭐⭐⭐⭐ | 守門神器：Git Hooks 自動化品管與敏感金鑰攔截 | `pre-commit`, `commit-msg`, `core.hooksPath` 敏感詞防護 |
+| **12** | 進階 ⭐⭐⭐ | 精準原子暫存：git add -p 局部區塊暫存 (Patch Staging) | `git add -p` (hunk split, y/n), `git diff --staged` 實現 Atomic Commit |
+| **13** | 初階 ⭐⭐ | 亡羊補牢：.gitignore 追蹤失效救援與 git rm --cached | `.gitignore` 生效原理、`git rm --cached` 索引除名保全本地檔案 |
+| **14** | 實戰 ⭐⭐⭐⭐ | 線上緊急回滾：解救生產事故的 Revert Merge (git revert -m 1) | Merge Commit 雙親拓撲、`-m 1` 基準線指定、Re-revert 心法 |
+| **15** | 初階 ⭐⭐ | 版本里程碑：Git Tag 與語意化版號發布 (Semantic Versioning) | 輕量標籤 vs 附註標籤 (`git tag -a`), 歷史補簽, `git push --tags` |
+| **16** | 進階 ⭐⭐⭐ | 代碼考古學：git log -S 語意搜尋與 git blame 責任溯源 | `git log -S` (Pickaxe) 增減檢索、`git blame -w` 忽略格式排版 |
+| **17** | 實戰 ⭐⭐⭐⭐ | 重複衝突終結者：git rerere 記錄與自動重用解法 | `git config rerere.enabled true`, 自動記憶衝突解法、Rebase 省時黑魔法 |
 
 ---
 
@@ -83,6 +89,11 @@ cd workspace
 | **將檔案移出暫存區 (Unstage)**| `git reset HEAD <file>` | `git restore --staged <file>` | 不再需要搬出危險的 `reset` 指令，`restore --staged` 語意精準。 |
 | **跨分支平行任務 (Hotfix)** | `git stash` ➜ 切換 ➜ pop | `git worktree add <dir> <branch>` | `stash` 會破壞 node_modules、編譯快取與 IDE 索引，且 pop 容易衝突；`worktree` 目錄實體隔離，平行開發互不干擾。 |
 | **新分支首次推送** | `git push -u origin <branch>` | `git config --global push.autoSetupRemote true` 後直接 `git push` | 設定一次一勞永逸，任何新分支直接敲 `git push`，Git 自動在遠端建同名分支並追蹤。 |
+| **同檔局部暫存 (Atomic)** | 盲目整檔 `git add .` | `git add -p <file>` | 依 Hunk 逐塊選擇（y/n/s），確保每個 Commit 具備單一職責，大幅提升 Code Review 品質。 |
+| **停止追蹤敏感檔案** | 刪除本機實體檔案再加 ignore | `git rm --cached <file>` | 僅從 Git 索引除名，完全保全本機開發所需的配置資料與環境變數。 |
+| **線上回滾 Merge PR** | 覆蓋歷史的危險 force push | `git revert -m 1 <merge_hash>` | 向前推進產生反轉提交，清楚保留審計紀錄，不破壞團隊他人歷史。 |
+| **重用衝突解法 (Rebase)** | 每次 rebase 手動解 10 次 | `git config --global rerere.enabled true` | Git 自動記憶衝突解決方案，後續相同衝突區塊 0 秒全自動填入！ |
+| **代碼精確考古** | 盲翻數百個 log 提交訊息 | `git log -S "<字串>" --oneline` | 鶴嘴鎬 (Pickaxe) 只列出『變更該字串出現次數』的提交，精準度百倍。 |
 | **修復前次 Commit (Typo)** | 手動 `rebase -i` 逐行改 squash | `git commit --fixup <hash>`<br>+ `git rebase -i --autosquash` | Git 自動將 fixup 提交搬移到目標下方並自動合併，零手動編輯風險。修補最後一筆更可直接用 `git commit --amend --no-edit`。 |
 | **拉取遠端最新代碼** | `git pull`（預設 merge） | `git pull --rebase`<br>（或 `git config --global pull.rebase true`） | 消除團隊中雜亂無章的 "Merge branch 'main' of github.com" 交叉菱形節點，保持乾淨線性歷史。 |
 | **二分搜尋定位 Bug** | 手動反覆測試打 `good/bad` | `git bisect run <測試腳本>` | 例如 `git bisect run pytest`，Git 全自動在幾秒內執行腳本並鎖定第一個壞掉的 Commit。 |
@@ -133,6 +144,87 @@ git commit -m "hotfix: emergency patch" --no-verify
 ```
 > [!CAUTION]
 > `--no-verify` 會跳過所有守門員驗證，可能導致未檢查的代碼或敏感金鑰漏出，非緊急情況切勿隨意濫用！
+
+---
+
+## 🧩 深度探索：`git add -p` 與原子提交 (Atomic Commits)
+
+### 為什麼工程師討厭「巨大混合提交」？
+當一個 Commit 同時包含：1 個 Bug 修復、1 個新功能、3 處縮排排版修改時，Code Reviewer 很難看出哪個改動屬於哪項需求。更可怕的是：日後若該新功能出問題想要 `git revert`，你會連同 Bug 修復一起被撤銷！
+
+### `git add -p` 的威力：
+以代碼塊 (Hunk) 為單位互動暫存：
+- `y`：暫存此區塊 (Stage this hunk)
+- `n`：跳過此區塊 (Do not stage this hunk)
+- `s`：拆分區塊 (Split into smaller hunks)
+- `q`：退出 (Quit)
+- `e`：手動編輯區塊 (Manually edit hunk)
+
+搭配 `git diff --staged` 審查，確保進入暫存區的只有單一職責的變更，這就是頂尖工程師的「原子提交藝術」。
+
+---
+
+## ⚠️ 深度探索：`.gitignore` 追蹤失效與 `git rm --cached`
+
+### 核心真相：
+**`.gitignore` 只能忽略「未被追蹤 (Untracked)」的檔案！**
+若一個檔案（如 `.env`）在加入 `.gitignore` 之前就已經被 `git add` 或 `commit`，它就已經進入了 Git 的索引 (Index/Stage)。後續即使修改 `.gitignore`，Git 依然會持續追蹤其變更。
+
+### 正確處方籤：
+```bash
+# 1. 僅從 Git 索引除名（硬碟本機實體檔案完好無損）
+git rm --cached .env
+
+# 2. 確保 .gitignore 包含該檔案
+echo ".env" >> .gitignore
+
+# 3. 提交變更
+git commit -m "chore: stop tracking .env and add to .gitignore"
+```
+
+> [!WARNING]
+> 切勿使用一般系統指令 `rm .env` 或直接執行 `git rm .env`（沒有 `--cached`），那會連同你本機辛苦配置的資料庫連線密碼一併永久刪除！
+
+---
+
+## 🚨 深度探索：Revert Merge Commit (`git revert -m 1`) 與 Re-Revert 難題
+
+### 為什麼回滾 Merge Commit 需要 `-m 1`？
+一般 Commit 只有 1 個父節點，回滾只需直接還原該變更。
+但 Merge Commit 具有 **雙親 (Two Parents)**：
+- **Parent 1 (`-m 1`)**：合併前你原本所在的主線分支（例如 `main`）
+- **Parent 2 (`-m 2`)**：被合併進來的特徵分支（例如 `feature`）
+
+Git 必須知道你想以誰作為基準線。因此：
+```bash
+git revert -m 1 <merge-commit-hash>
+```
+意思是：「以主線為基準，將該次合併所引入的所有差異完全反轉！」
+
+### 「Re-revert 難題」：日後修好 bug 想要重新合回該分支？
+如果你日後修好 feature 分支想再次 `git merge feature`，你會震驚地發現：先前被 revert 掉的代碼**不會被合進來**！因為 Git 認為那些 commit 早已存在於歷史中。
+**正確解法**：先對當時的 Revert Commit 做一次 Revert（即 Re-revert）：
+```bash
+git revert <revert-commit-hash>
+git merge feature
+```
+
+---
+
+## 🧙‍♂️ 深度探索：`git rerere` 重用已記錄的衝突解決方案
+
+### 什麼是 rerere？
+`rerere` 全名為 **Reuse Recorded Resolution**（重用已記錄的衝突解法）。
+當你在一個包含多個 Commit 的特徵分支上進行 Rebase 時，同一個衝突可能會在每個 Step 不斷重複出現，迫使你反覆手動解 10 次一模一樣的衝突！
+
+### 一鍵啟用黑魔法：
+```bash
+git config --global rerere.enabled true
+```
+啟用後：
+1. 第一次遇到衝突時，Git 在背景自動記錄衝突前的代碼外觀 (Preimage)。
+2. 你手動解決並提交後，Git 自動記錄你的最終解法 (Recorded resolution)。
+3. 下一次（甚至幾週後）遇到完全相同的衝突區塊時，Git 自動套用你的解法：`Resolved 'file' using previous resolution`！
 
 ---
 

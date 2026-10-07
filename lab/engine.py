@@ -15,6 +15,11 @@ class GitEngine:
         self.repo_dir = self.workspace_dir
         self.state_file = project_root / ".git-lab-state.json"
 
+    @property
+    def workspace(self) -> Path:
+        """Alias for workspace_dir."""
+        return self.workspace_dir
+
     def _ensure_workspace_symlink(self):
         """Create symlink in workspace so user can run ./git-lab inside workspace."""
         self.workspace_dir.mkdir(parents=True, exist_ok=True)

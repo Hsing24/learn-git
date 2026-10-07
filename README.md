@@ -21,7 +21,7 @@ Git 最關鍵的核心技能（例如 **帳號配置與 SSH 免密連線**、**M
 git clone https://github.com/Hsing24/learn-git.git
 cd learn-git
 
-# 2. 列出所有 12 個實戰關卡
+# 2. 列出所有 18 個實戰關卡
 ./git-lab list
 
 # 3. 進入第 00 關：配備身分、SSH 免密金鑰與自動建立遠端分支
@@ -36,7 +36,7 @@ cd workspace
 
 ---
 
-## 📚 12 大實戰關卡
+## 📚 18 大實戰關卡
 
 | ID | 難度 | 關卡名稱 | 實戰重點 |
 | :---: | :---: | :--- | :--- |
@@ -52,6 +52,12 @@ cd workspace
 | **09** | 實戰 ⭐⭐⭐⭐ | 雙軌並行：Git Worktree 免 Stash 零干擾平行開發 | `git worktree add/list/remove` 享受多目錄並行檢出 |
 | **10** | 實戰 ⭐⭐⭐⭐⭐ | 時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug | `git bisect start/bad/good` 在 O(log N) 步內找出元凶 |
 | **11** | 實戰 ⭐⭐⭐⭐ | 守門神器：Git Hooks 自動化品管與敏感金鑰攔截 | `pre-commit`, `commit-msg`, `core.hooksPath` 敏感詞防護 |
+| **12** | 進階 ⭐⭐⭐ | 精準原子暫存：git add -p 局部區塊暫存 (Patch Staging) | `git add -p` (hunk split, y/n), `git diff --staged` 實現 Atomic Commit |
+| **13** | 初階 ⭐⭐ | 亡羊補牢：.gitignore 追蹤失效救援與 git rm --cached | `.gitignore` 生效原理、`git rm --cached` 索引除名保全本地檔案 |
+| **14** | 實戰 ⭐⭐⭐⭐ | 線上緊急回滾：解救生產事故的 Revert Merge (git revert -m 1) | Merge Commit 雙親拓撲、`-m 1` 基準線指定、Re-revert 心法 |
+| **15** | 初階 ⭐⭐ | 版本里程碑：Git Tag 與語意化版號發布 (Semantic Versioning) | 輕量標籤 vs 附註標籤 (`git tag -a`), 歷史補簽, `git push --tags` |
+| **16** | 進階 ⭐⭐⭐ | 代碼考古學：git log -S 語意搜尋與 git blame 責任溯源 | `git log -S` (Pickaxe) 增減檢索、`git blame -w` 忽略格式排版 |
+| **17** | 實戰 ⭐⭐⭐⭐ | 重複衝突終結者：git rerere 記錄與自動重用解法 | `git config rerere.enabled true`, 自動記憶衝突解法、Rebase 省時黑魔法 |
 
 ---
 
@@ -64,6 +70,11 @@ cd workspace
 - **移出暫存**：`git reset HEAD <file>` ➜ 推薦 **`git restore --staged <file>`**（無危險性取消暫存）
 - **跨分支平行開發**：`git stash` ➜ 推薦 **`git worktree`**（實體目錄隔離，避免編譯快取失效與 pop 衝突）
 - **新分支推送**：`--set-upstream` ➜ 推薦 **`push.autoSetupRemote true`**（一次配置，直接 `git push`）
+- **局部暫存 / 拆分**：盲目 `git add .` ➜ 推薦 **`git add -p`**（依代碼塊精準組織 Atomic Commit）
+- **停止追蹤敏感檔**：刪除本地檔 ➜ 推薦 **`git rm --cached`**（保全本地檔案同時自 Git 索引除名）
+- **緊急回滾 Merge PR**：暴力 force push ➜ 推薦 **`git revert -m 1`**（向前推進產生反轉提交，保留審計紀錄）
+- **重複衝突免解**：每次手動重解 ➜ 推薦 **`git config --global rerere.enabled true`**（自動記憶並重用解法）
+- **精準代碼考古**：盲翻提交訊息 ➜ 推薦 **`git log -S "<字串>" --oneline`**（鶴嘴鎬只看次數變動）
 - **修正歷史提交**：手動 `rebase -i` ➜ 推薦 **`git commit --fixup` + `--autosquash`**（全自動嫁接合併）
 - **拉取遠端最新**：預設 `git pull` ➜ 推薦 **`git pull --rebase`**（避免產生多餘菱形 Merge Commit）
 - **Hook 團隊共享**：手動貼 `.git/hooks` ➜ 推薦 **`core.hooksPath` / Husky / Lefthook**（納入版本控制自動同步）
@@ -74,7 +85,7 @@ cd workspace
 
 ## 🧪 執行自動化測試
 
-本專案自帶完整的 12 關自動化測試套件：
+本專案自帶完整的 18 關自動化測試套件：
 
 ```bash
 python3 tests/test_all_scenarios.py

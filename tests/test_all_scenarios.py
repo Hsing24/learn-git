@@ -20,6 +20,12 @@ from lab.scenarios.s08_reflog_rescue import Scenario08
 from lab.scenarios.s09_worktree import Scenario09
 from lab.scenarios.s10_bisect import Scenario10
 from lab.scenarios.s11_hooks import Scenario11
+from lab.scenarios.s12_patch import Scenario12, INITIAL_SHOPPING_CODE, MODIFIED_SHOPPING_CODE
+from lab.scenarios.s13_gitignore import Scenario13
+from lab.scenarios.s14_revert_merge import Scenario14
+from lab.scenarios.s15_tags import Scenario15
+from lab.scenarios.s16_archaeology import Scenario16
+from lab.scenarios.s17_rerere import Scenario17
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
@@ -258,6 +264,132 @@ exit 0
         import os
         os.chmod(hook_path, 0o755)
         self.engine.run_git("config", "core.hooksPath", ".githooks")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_12_patch(self):
+        sc = Scenario12()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # Simulate staging only hunk 1 (discount)
+        partial_code = '''def calculate_total(items, discount_rate=0.1):
+    # 計算購物車總金額（套用九折優惠 Bugfix）
+    subtotal = sum(item["price"] * item.get("quantity", 1) for item in items)
+    discount = subtotal * discount_rate
+    return round(subtotal - discount, 2)
+
+
+# ---------------------------------------------
+# 下方為收據列印模組（相隔足夠行數以形成獨立 Hunk）
+# ---------------------------------------------
+
+
+def print_receipt(customer_name, items, total):
+    # 列印客戶收據
+    print("=== 收據 ===")
+    print(f"客戶: {customer_name}")
+    for item in items:
+        print(f"- {item['name']}: {item['price']}")
+    print(f"總計: {total}")
+    print("============")
+'''
+        shopping_path = self.engine.workspace / "shopping.py"
+        shopping_path.write_text(partial_code, encoding="utf-8")
+        self.engine.run_git("add", "shopping.py")
+        self.engine.run_git("commit", "-m", "fix: apply discount in total calculation")
+
+        # Now write full modified code leaving hunk 2 unstaged
+        shopping_path.write_text(MODIFIED_SHOPPING_CODE, encoding="utf-8")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_13_gitignore(self):
+        sc = Scenario13()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: add .env to .gitignore, git rm --cached .env, commit
+        self.engine.create_file(".gitignore", ".env\n")
+        self.engine.run_git("rm", "--cached", ".env")
+        self.engine.run_git("add", ".gitignore")
+        self.engine.run_git("commit", "-m", "chore: stop tracking .env and add to .gitignore")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_14_revert_merge(self):
+        sc = Scenario14()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: git revert -m 1 HEAD
+        code, out, err = self.engine.run_git("revert", "-m", "1", "HEAD", "--no-edit")
+        self.assertEqual(code, 0)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_15_tags(self):
+        sc = Scenario15()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: annotated tag v1.0.0, and annotated tag v0.9.0 on auth commit
+        self.engine.run_git("tag", "-a", "v1.0.0", "-m", "Release v1.0.0")
+        code, out, _ = self.engine.run_git("log", "--all", "--grep=user authentication", "--format=%H")
+        auth_hash = out.strip().splitlines()[0]
+        self.engine.run_git("tag", "-a", "v0.9.0", auth_hash, "-m", "Beta v0.9.0")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_16_archaeology(self):
+        sc = Scenario16()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: find hash with git log -S and save to ANSWER_COMMIT.txt
+        code, out, _ = self.engine.run_git("log", "-S", "CRITICAL_SECRET_TOKEN", "--format=%H")
+        culprit_hash = out.strip().splitlines()[0][:7]
+        self.engine.create_file("ANSWER_COMMIT.txt", culprit_hash)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_17_rerere(self):
+        sc = Scenario17()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: enable rerere, merge feature/modern-api, resolve conflict, commit
+        self.engine.run_git("config", "rerere.enabled", "true")
+        self.engine.run_git("merge", "feature/modern-api", check=False)
+
+        server_path = self.engine.workspace / "server.py"
+        server_path.write_text(
+            "# API Gateway Core (FastAPI Enterprise)\n"
+            "API_VERSION = '2.0-async-lts'\n\n"
+            "def route_request(path):\n"
+            "    return f'Enterprise async handler for {path}'\n",
+            encoding="utf-8"
+        )
+        self.engine.run_git("add", "server.py")
+        self.engine.run_git("commit", "-m", "merge: resolve server.py with rerere")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)

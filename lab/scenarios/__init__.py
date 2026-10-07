@@ -14,6 +14,12 @@ from lab.scenarios.s08_reflog_rescue import Scenario08
 from lab.scenarios.s09_worktree import Scenario09
 from lab.scenarios.s10_bisect import Scenario10
 from lab.scenarios.s11_hooks import Scenario11
+from lab.scenarios.s12_patch import Scenario12
+from lab.scenarios.s13_gitignore import Scenario13
+from lab.scenarios.s14_revert_merge import Scenario14
+from lab.scenarios.s15_tags import Scenario15
+from lab.scenarios.s16_archaeology import Scenario16
+from lab.scenarios.s17_rerere import Scenario17
 
 SCENARIOS: List[BaseScenario] = [
     Scenario00(),
@@ -28,6 +34,12 @@ SCENARIOS: List[BaseScenario] = [
     Scenario09(),
     Scenario10(),
     Scenario11(),
+    Scenario12(),
+    Scenario13(),
+    Scenario14(),
+    Scenario15(),
+    Scenario16(),
+    Scenario17(),
 ]
 
 SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in SCENARIOS}
@@ -73,6 +85,27 @@ ALIASES = {
     "hooks": "11",
     "precommit": "11",
     "pre-commit": "11",
+    "12": "12",
+    "patch": "12",
+    "add-p": "12",
+    "13": "13",
+    "ignore": "13",
+    "gitignore": "13",
+    "rm-cached": "13",
+    "14": "14",
+    "revert": "14",
+    "revert-merge": "14",
+    "rollback": "14",
+    "15": "15",
+    "tag": "15",
+    "tags": "15",
+    "release": "15",
+    "16": "16",
+    "archaeology": "16",
+    "pickaxe": "16",
+    "blame": "16",
+    "17": "17",
+    "rerere": "17",
 }
 
 def get_scenario(key: str) -> Optional[BaseScenario]:
