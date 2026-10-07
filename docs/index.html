@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Git Scenario Lab 🚀 | 單人自學 Git 的終端機實戰實驗室</title>
-  <meta name="description" content="專為單人開發者打造的 Git 本地終端機情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect 等 11 大真實專案現場。">
+  <meta name="description" content="專為單人開發者打造的 Git 本地終端機情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks 等 12 大真實專案現場。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -322,14 +322,14 @@
   <header>
     <div class="badge">🚀 100% 本地終端機實戰 • 零額外依賴</div>
     <h1>Git Scenario Lab</h1>
-    <p class="subtitle">專為單人開發者打造的情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect 等 11 大真實專案現場。</p>
+    <p class="subtitle">專為單人開發者打造的情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks 等 12 大真實專案現場。</p>
     
     <div class="cta-buttons">
       <a href="https://github.com/Hsing24/learn-git" class="btn btn-primary">
         <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
         GitHub Repository
       </a>
-      <a href="#scenarios" class="btn btn-secondary">瀏覽 11 大實戰關卡</a>
+      <a href="#scenarios" class="btn btn-secondary">瀏覽 12 大實戰關卡</a>
       <a href="#modern-git" class="btn btn-secondary">現代 Git 替代指令速查</a>
     </div>
   </header>
@@ -348,7 +348,7 @@
         <p class="comment"># 1. 複製專案並進入目錄</p>
         <p class="cmd">$ git clone https://github.com/Hsing24/learn-git.git && cd learn-git</p>
         <br>
-        <p class="comment"># 2. 查看所有 11 個實戰關卡清單</p>
+        <p class="comment"># 2. 查看所有 12 個實戰關卡清單</p>
         <p class="cmd">$ ./git-lab list</p>
         <br>
         <p class="comment"># 3. 進入第 00 關：配備身分、SSH 與神級 push.autoSetupRemote</p>
@@ -364,7 +364,7 @@
 
     <!-- Scenarios Section -->
     <section id="scenarios">
-      <h2 class="section-title">📚 11 大全方位實戰關卡</h2>
+      <h2 class="section-title">📚 12 大全方位實戰關卡</h2>
       <p class="section-desc">從最一開始的帳號配置、暫存區流動，到業界資深工程師愛用的 Worktree 與 Bisect，每關皆具備獨立沙盒與自動驗收邏輯。</p>
 
       <div class="scenario-grid">
@@ -512,6 +512,19 @@
           <div class="card-cmd"><code>./git-lab start 10</code></div>
         </div>
 
+        <!-- 11 -->
+        <div class="scenario-card" style="border-color: #2ea043;">
+          <div>
+            <div class="card-top">
+              <span class="card-id" style="color: #2ea043; background: rgba(46, 160, 67, 0.1);">LEVEL 11</span>
+              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
+            </div>
+            <h3 class="card-title">Git Hooks：守門神器與敏感金鑰攔截</h3>
+            <p class="card-desc">配置 pre-commit 與 commit-msg 鉤子，掌握 core.hooksPath 團隊共享與 API 金鑰攔截防護。</p>
+          </div>
+          <div class="card-cmd"><code>./git-lab start 11</code></div>
+        </div>
+
       </div>
     </section>
 
@@ -585,6 +598,12 @@
               <td><span class="tag-better">git bisect run &lt;test_script&gt;</span></td>
               <td>全自動化執行測試腳本，數十秒內直接揪出第一個壞掉的提交。</td>
             </tr>
+            <tr>
+              <td><strong>Git Hooks 團隊共享</strong></td>
+              <td>手動複製腳本到 <code>.git/hooks/</code></td>
+              <td><span class="tag-better">git config core.hooksPath .githooks</span></td>
+              <td><code>.git/hooks</code> 不受版本控制；<code>core.hooksPath</code> 或 Husky/Lefthook 讓全團隊自動共享守門員防線。</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -624,6 +643,46 @@
               <td><strong>硬碟空間效益</strong></td>
               <td>低（單一工作區）</td>
               <td><span class="tag-better">極高</span>（共享同一個底層 .git 庫，非重複 clone）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Deep Dive: Git Hooks -->
+    <section>
+      <h2 class="section-title">🛡️ 深度專題：Git Hooks 自動化守門員與工程化防線</h2>
+      <p class="section-desc">如何透過 pre-commit 與 commit-msg 自動攔截 API Key 敏感金鑰、格式化代碼並規範團隊 Commit 訊息？</p>
+
+      <div class="compare-box">
+        <table>
+          <thead>
+            <tr>
+              <th>方案機制</th>
+              <th>運作方式與特點</th>
+              <th>優缺點評估</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>原生 .git/hooks</strong></td>
+              <td>存放在本機 <code>.git/hooks/</code> 私有目錄</td>
+              <td><span class="tag-poor">缺點：不納入 Git 追蹤</span>，每位工程師需手動配置，極易遺漏。</td>
+            </tr>
+            <tr>
+              <td><strong>git config core.hooksPath</strong></td>
+              <td>將 hooks 路徑指向專案版本控管目錄（如 <code>.githooks/</code>）</td>
+              <td><span class="tag-better">推薦（原生零依賴）</span>：腳本隨 Git 庫同步版控，團隊一鍵生效。</td>
+            </tr>
+            <tr>
+              <td><strong>Husky + lint-staged</strong></td>
+              <td>Node.js 生態標配，於 npm install 時自動掛載 hooks</td>
+              <td><span class="tag-better">推薦（前端生態）</span>：只檢查暫存區檔案 (Staged)，大幅加速檢查。</td>
+            </tr>
+            <tr>
+              <td><strong>Lefthook</strong></td>
+              <td>Go 撰寫的高效能多語言 Hook 管理工具</td>
+              <td><span class="tag-better">推薦（多語言專案）</span>：平行極速執行，單一 YAML 設定檔乾淨俐落。</td>
             </tr>
           </tbody>
         </table>

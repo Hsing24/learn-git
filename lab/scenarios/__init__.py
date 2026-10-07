@@ -13,6 +13,7 @@ from lab.scenarios.s07_cherry_pick import Scenario07
 from lab.scenarios.s08_reflog_rescue import Scenario08
 from lab.scenarios.s09_worktree import Scenario09
 from lab.scenarios.s10_bisect import Scenario10
+from lab.scenarios.s11_hooks import Scenario11
 
 SCENARIOS: List[BaseScenario] = [
     Scenario00(),
@@ -26,6 +27,7 @@ SCENARIOS: List[BaseScenario] = [
     Scenario08(),
     Scenario09(),
     Scenario10(),
+    Scenario11(),
 ]
 
 SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in SCENARIOS}
@@ -66,6 +68,11 @@ ALIASES = {
     "10": "10",
     "bisect": "10",
     "debug": "10",
+    "11": "11",
+    "hook": "11",
+    "hooks": "11",
+    "precommit": "11",
+    "pre-commit": "11",
 }
 
 def get_scenario(key: str) -> Optional[BaseScenario]:

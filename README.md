@@ -21,7 +21,7 @@ Git 最關鍵的核心技能（例如 **帳號配置與 SSH 免密連線**、**M
 git clone https://github.com/Hsing24/learn-git.git
 cd learn-git
 
-# 2. 列出所有 11 個實戰關卡
+# 2. 列出所有 12 個實戰關卡
 ./git-lab list
 
 # 3. 進入第 00 關：配備身分、SSH 免密金鑰與自動建立遠端分支
@@ -36,7 +36,7 @@ cd workspace
 
 ---
 
-## 📚 11 大實戰關卡
+## 📚 12 大實戰關卡
 
 | ID | 難度 | 關卡名稱 | 實戰重點 |
 | :---: | :---: | :--- | :--- |
@@ -51,6 +51,7 @@ cd workspace
 | **08** | 實戰 ⭐⭐⭐⭐ | 起死回生：Git Reflog 拯救失蹤的 Commit | 救回 `git reset --hard` 誤刪的心血程式碼 |
 | **09** | 實戰 ⭐⭐⭐⭐ | 雙軌並行：Git Worktree 免 Stash 零干擾平行開發 | `git worktree add/list/remove` 享受多目錄並行檢出 |
 | **10** | 實戰 ⭐⭐⭐⭐⭐ | 時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug | `git bisect start/bad/good` 在 O(log N) 步內找出元凶 |
+| **11** | 實戰 ⭐⭐⭐⭐ | 守門神器：Git Hooks 自動化品管與敏感金鑰攔截 | `pre-commit`, `commit-msg`, `core.hooksPath` 敏感詞防護 |
 
 ---
 
@@ -65,6 +66,7 @@ cd workspace
 - **新分支推送**：`--set-upstream` ➜ 推薦 **`push.autoSetupRemote true`**（一次配置，直接 `git push`）
 - **修正歷史提交**：手動 `rebase -i` ➜ 推薦 **`git commit --fixup` + `--autosquash`**（全自動嫁接合併）
 - **拉取遠端最新**：預設 `git pull` ➜ 推薦 **`git pull --rebase`**（避免產生多餘菱形 Merge Commit）
+- **Hook 團隊共享**：手動貼 `.git/hooks` ➜ 推薦 **`core.hooksPath` / Husky / Lefthook**（納入版本控制自動同步）
 
 完整深入解說請參閱 [LAB_GUIDE.md](./LAB_GUIDE.md)。
 
@@ -72,7 +74,7 @@ cd workspace
 
 ## 🧪 執行自動化測試
 
-本專案自帶完整的 11 關自動化測試套件：
+本專案自帶完整的 12 關自動化測試套件：
 
 ```bash
 python3 tests/test_all_scenarios.py

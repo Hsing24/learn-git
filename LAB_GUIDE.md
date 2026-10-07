@@ -52,7 +52,7 @@ cd workspace
 
 ---
 
-## 📚 11 大實戰關卡地圖 (Curriculum)
+## 📚 12 大實戰關卡地圖 (Curriculum)
 
 | 關卡 ID | 難度 | 關卡名稱 | 核心學習技能 |
 | :---: | :---: | :--- | :--- |
@@ -67,6 +67,7 @@ cd workspace
 | **08** | 實戰 ⭐⭐⭐⭐ | 起死回生：Git Reflog 拯救失蹤的 Commit | 救回 `git reset --hard` 誤刪的心血程式碼 |
 | **09** | 實戰 ⭐⭐⭐⭐ | 雙軌並行：Git Worktree 免 Stash 零干擾平行開發 | `git worktree add/list/remove` 享受多目錄並行檢出 |
 | **10** | 實戰 ⭐⭐⭐⭐⭐ | 時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug | `git bisect start/bad/good` 在 O(log N) 步內找出元凶 |
+| **11** | 實戰 ⭐⭐⭐⭐ | 守門神器：Git Hooks 自動化品管與敏感金鑰攔截 | `pre-commit`, `commit-msg`, `core.hooksPath` 敏感詞防護 |
 
 ---
 
@@ -85,6 +86,7 @@ cd workspace
 | **修復前次 Commit (Typo)** | 手動 `rebase -i` 逐行改 squash | `git commit --fixup <hash>`<br>+ `git rebase -i --autosquash` | Git 自動將 fixup 提交搬移到目標下方並自動合併，零手動編輯風險。修補最後一筆更可直接用 `git commit --amend --no-edit`。 |
 | **拉取遠端最新代碼** | `git pull`（預設 merge） | `git pull --rebase`<br>（或 `git config --global pull.rebase true`） | 消除團隊中雜亂無章的 "Merge branch 'main' of github.com" 交叉菱形節點，保持乾淨線性歷史。 |
 | **二分搜尋定位 Bug** | 手動反覆測試打 `good/bad` | `git bisect run <測試腳本>` | 例如 `git bisect run pytest`，Git 全自動在幾秒內執行腳本並鎖定第一個壞掉的 Commit。 |
+| **Git Hooks 團隊共享** | 手動複製腳本至 `.git/hooks/` | `git config core.hooksPath .githooks`<br>或使用 Husky / Lefthook | `.git/hooks` 屬於本地私有目錄無法納入版本控制；`core.hooksPath` 或現代工具能將 hooks 一併納入 repo 追蹤，團隊成員自動生效。 |
 | **安全的後悔藥** | 危險的 `git reset --hard` | 團隊協作用 `git revert`；<br>本地重整用 `git reset --soft` | `reset --hard` 會直接拋棄代碼；`revert` 安全向前推進，`reset --soft` 保留改動在暫存區以供重組。 |
 | **分支樹狀圖檢視** | 密密麻麻長指令 `git log --graph...` | `git config --global alias.lg "log --graph --all --decorate --oneline"` | 設定別名後隨時敲 `git lg`，一秒看清所有分支交錯關係。 |
 
@@ -100,6 +102,37 @@ cd workspace
 ### 什麼時候 `git stash` 依然是好工具？
 1. **同分支短暫暫存 (< 5 分鐘)**：例如你寫了兩行除錯用的 `console.log`，想暫存起來看一下原本的效果，確認完馬上 `git stash pop`。
 2. **快速拉取遠端最新代碼**：本地有未提交的草稿，同事推了新版，快速 `git stash` ➜ `git pull --rebase` ➜ `git stash pop`。
+
+---
+
+## 🛡️ 深入剖析：Git Hooks 自動化防護與團隊工程化實踐
+
+### 什麼是 Git Hooks？
+Git Hooks 是 Git 在特定生命週期事件觸發時（如 commit 前、產生提交訊息後、push 前）自動調用的自訂腳本。最常見的三大守門員：
+1. **`pre-commit`**：在建立 commit 之前執行。適合用來執行代碼排版 (Prettier/Black)、語法檢查 (ESLint/Flake8)、快速單元測試，以及**攔截 API Key、Private Key 等敏感機密**。
+2. **`commit-msg`**：在編寫完 commit 訊息後執行。常用於強制要求團隊符合 Conventional Commits 規範（例如必須包含 `feat:`, `fix:`, `docs:` 等開頭）。
+3. **`pre-push`**：在推送至遠端伺服器前執行全量測試，防止壞掉的代碼污染遠端 CI/CD pipeline。
+
+### 團隊痛點與現代解決方案：
+- **傳統痛點**：預設的 `.git/hooks/` 目錄**不會被 Git 版本控管追蹤**！若每位工程師都需要手動複製貼上腳本，極易遺漏且無法隨代碼庫一起更新。
+- **現代最佳實踐 1（Git 原生免依賴）**：
+  在專案中建立 `.githooks/` 目錄並放入腳本，執行：
+  ```bash
+  git config core.hooksPath .githooks
+  ```
+  即可讓該倉庫自動使用 `.githooks` 目錄中的鉤子，並隨 Git 庫一同版本控管與分發！
+- **現代最佳實踐 2（團隊生態系工具）**：
+  - **Husky + lint-staged**（前端 Node.js 生態標配）：自動在 `npm install` 時註冊 hooks，且 `lint-staged` 只檢查 Staged（暫存區）中的檔案，避免全量檢查拖慢提交速度。
+  - **Lefthook**（Go 撰寫、極速多語言支援）：設定簡潔、支援多任務平行執行 (Parallel runs)，適合各類大型多語言專案。
+  - **pre-commit**（Python 生態首選）：基於 Python 的通用 hook 框架，可自動下載與管理隔離環境中的檢查工具。
+
+### 緊急繞過方式：
+在極少數突發狀況或緊急 Hotfix 下，可加上 `--no-verify` 參數繞過 hook 檢查：
+```bash
+git commit -m "hotfix: emergency patch" --no-verify
+```
+> [!CAUTION]
+> `--no-verify` 會跳過所有守門員驗證，可能導致未檢查的代碼或敏感金鑰漏出，非緊急情況切勿隨意濫用！
 
 ---
 

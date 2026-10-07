@@ -19,6 +19,7 @@ from lab.scenarios.s07_cherry_pick import Scenario07
 from lab.scenarios.s08_reflog_rescue import Scenario08
 from lab.scenarios.s09_worktree import Scenario09
 from lab.scenarios.s10_bisect import Scenario10
+from lab.scenarios.s11_hooks import Scenario11
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
@@ -233,6 +234,30 @@ class TestAllScenarios(unittest.TestCase):
         culprit_hash = out.strip()
         self.engine.create_file("culprit.txt", culprit_hash)
         self.engine.run_git("bisect", "reset")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_11_hooks(self):
+        sc = Scenario11()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # Setup hook script in .githooks
+        hook_code = """#!/usr/bin/env bash
+if git diff --cached | grep -E "PRIVATE_KEY|AWS_SECRET|API_TOKEN" > /dev/null; then
+    echo "BLOCKED"
+    exit 1
+fi
+exit 0
+"""
+        hook_path = self.engine.repo_dir / ".githooks" / "pre-commit"
+        self.engine.create_file(".githooks/pre-commit", hook_code)
+        import os
+        os.chmod(hook_path, 0o755)
+        self.engine.run_git("config", "core.hooksPath", ".githooks")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
