@@ -37,10 +37,10 @@ class GitEngine:
         work_dir = str(cwd or self.repo_dir)
         cmd = ["git"] + list(args)
         merged_env = os.environ.copy()
-        merged_env.setdefault("GIT_AUTHOR_NAME", "Student")
-        merged_env.setdefault("GIT_AUTHOR_EMAIL", "student@learn-git.local")
-        merged_env.setdefault("GIT_COMMITTER_NAME", "Student")
-        merged_env.setdefault("GIT_COMMITTER_EMAIL", "student@learn-git.local")
+        merged_env.setdefault("GIT_AUTHOR_NAME", "User")
+        merged_env.setdefault("GIT_AUTHOR_EMAIL", "user@learn-git.local")
+        merged_env.setdefault("GIT_COMMITTER_NAME", "User")
+        merged_env.setdefault("GIT_COMMITTER_EMAIL", "user@learn-git.local")
         if env:
             merged_env.update(env)
 
@@ -177,7 +177,7 @@ class GitEngine:
         code, out, _ = self.run_git("rev-parse", "--abbrev-ref", "HEAD", check=False)
         return out.strip() if code == 0 else None
 
-    def commit_file(self, filename: str, content: str, message: str, author_name: str = "Student", author_email: str = "student@learn-git.local"):
+    def commit_file(self, filename: str, content: str, message: str, author_name: str = "User", author_email: str = "user@learn-git.local"):
         """Convenience method to write a file, stage it, and commit it."""
         self.create_file(filename, content)
         self.run_git("add", filename)

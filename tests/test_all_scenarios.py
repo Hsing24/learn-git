@@ -48,25 +48,24 @@ class TestAllScenarios(unittest.TestCase):
 
         self.assertTrue((self.engine.repo_dir / "SETUP_GUIDE.md").exists())
 
-        # Verification fails when push.autoSetupRemote is false
-        self.engine.run_git("config", "push.autoSetupRemote", "false")
-        passed, msg = sc.verify(self.engine)
-        self.assertFalse(passed)
-
         # Verification fails when user.name is empty
-        self.engine.run_git("config", "push.autoSetupRemote", "true")
         self.engine.run_git("config", "user.name", "")
         passed, msg = sc.verify(self.engine)
         self.assertFalse(passed)
 
         # Verification fails when user.email is empty
-        self.engine.run_git("config", "user.name", "Test Student")
+        self.engine.run_git("config", "user.name", "Test User")
         self.engine.run_git("config", "user.email", "")
         passed, msg = sc.verify(self.engine)
         self.assertFalse(passed)
 
-        # Verification succeeds when all three are properly configured
-        self.engine.run_git("config", "user.email", "student@example.com")
+        # Verification succeeds when required user.name and user.email are configured (even if autoSetupRemote is not set)
+        self.engine.run_git("config", "user.email", "user@example.com")
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+        # Verification also succeeds with bonus when push.autoSetupRemote is true
+        self.engine.run_git("config", "push.autoSetupRemote", "true")
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 

@@ -198,21 +198,15 @@ git config --global credential.helper 'cache --timeout=3600'
                 "請在終端機執行：git config user.email \"你的信箱@example.com\"（或加上 --global）"
             )
 
-        # 3. Check push.autoSetupRemote
+        # 3. Check push.autoSetupRemote (Optional Bonus)
         code, auto_out, _ = engine.run_git("config", "--bool", "push.autoSetupRemote", check=False)
-        if code != 0 or auto_out.strip() != "true":
-            return False, (
-                "尚未啟用 push.autoSetupRemote。\n"
-                "請在終端機執行：git config push.autoSetupRemote true（或加上 --global）\n"
-                "啟用後，新分支第一次推送時只需直接 git push，無需手動加 --set-upstream！"
-            )
+        has_auto = (code == 0 and auto_out.strip() == "true")
+        bonus = "\n⭐ [解鎖進階神器成就] push.autoSetupRemote 已啟用！" if has_auto else "\n💡 [推薦可選小撇步] 可執行 git config push.autoSetupRemote true 體驗免敲 --set-upstream！"
 
         return True, (
             "恭喜完成起點裝備設定！\n"
             f"目前配置檢測結果：\n"
-            f"  • user.name: {name}\n"
-            f"  • user.email: {email}\n"
-            f"  • push.autoSetupRemote: true\n\n"
-            "你已經具備正確的 Git 身分標籤、解鎖了自動遠端分支追蹤，\n"
-            "並掌握了 SSH 金鑰與 credential.helper 免密連線的最佳實踐！"
+            f"  • user.name: {name} (必備 ✔)\n"
+            f"  • user.email: {email} (必備 ✔)\n"
+            f"  • push.autoSetupRemote: {'true (已啟用)' if has_auto else 'false (可選)'}{bonus}"
         )

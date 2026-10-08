@@ -66,18 +66,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabMissionGoals = document.getElementById('tab-mission-goals');
     if (tabMissionGoals) tabMissionGoals.innerHTML = scenario.goals.map(g => `<li>${g}</li>`).join('');
 
-    // Print welcome banner in terminal (pure in-terminal immersion, no modal popup!)
+    // Fetch rich pedagogical guide
+    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
+
+    // Print welcome banner & guided narrative in terminal (pure in-terminal immersion, no modal popup!)
     terminalOutput.innerHTML = '';
     printOutput(`\x1b[38;2;88;166;255m╔══════════════════════════════════════════════════════════════════════════╗\x1b[0m`);
     printOutput(`\x1b[38;2;88;166;255m║  🚀 關卡 ${scenario.id}：${scenario.title}\x1b[0m`);
     printOutput(`\x1b[38;2;88;166;255m╚══════════════════════════════════════════════════════════════════════════╝\x1b[0m`);
-    printOutput(`\x1b[38;2;210;153;34m💼 職場情境：${scenario.story}\x1b[0m\n`);
+
+    // 1. 💼 職場情境現場
+    if (guide && guide.scenarioContext) {
+      printOutput(`\x1b[38;2;210;153;34m💼 職場情境現場：\x1b[0m`);
+      printOutput(`   \x1b[38;2;139;148;158m👤 扮演角色：\x1b[0m\x1b[38;2;230;237;243m${guide.scenarioContext.role}\x1b[0m`);
+      printOutput(`   \x1b[38;2;139;148;158m📋 實戰現場：\x1b[0m\x1b[38;2;230;237;243m${guide.scenarioContext.situation}\x1b[0m\n`);
+    } else {
+      printOutput(`\x1b[38;2;210;153;34m💼 職場情境：\x1b[0m\x1b[38;2;230;237;243m${scenario.story}\x1b[0m\n`);
+    }
+
+    // 2. 💡 引導思考與指令脈絡 (Why each command)
+    if (guide && guide.guidedSteps && guide.guidedSteps.length > 0) {
+      printOutput(`\x1b[38;2;240;136;62m💡 引導思考與指令脈絡（循序解題思維）：\x1b[0m`);
+      guide.guidedSteps.forEach((s) => {
+        const catBadge = s.category === 'required' ? '\x1b[38;2;248;81;73m[必備]\x1b[0m ' : (s.category === 'optional' ? '\x1b[38;2;63;185;80m[推薦可選]\x1b[0m ' : '');
+        printOutput(`   \x1b[1m步驟 ${s.step}：\x1b[0m ${catBadge}\x1b[38;2;88;166;255m${s.cmd}\x1b[0m`);
+        printOutput(`   \x1b[38;2;139;148;158m↳ 運作目的：${s.why}\x1b[0m`);
+      });
+      printOutput('');
+    }
+
+    // Level 00 specific tip
+    if (scenario.id === '00') {
+      printOutput(`\x1b[38;2;227;179;65m⚙️ [設定提示] 本關只需完成必備項 (user.name & user.email) 即可過關！\x1b[0m`);
+      printOutput(`\x1b[38;2;139;148;158m   若額外輸入 push.autoSetupRemote true 可解鎖彩蛋成就。\x1b[0m\n`);
+    }
+
+    // 3. 🎯 本關驗收目標
     printOutput(`\x1b[38;2;63;185;80m🎯 本關驗收目標：\x1b[0m`);
     scenario.goals.forEach((g, i) => {
       printOutput(`   ${i + 1}. ${g}`);
     });
+
     printOutput(`\n輸入 \x1b[38;2;88;166;255mhelp\x1b[0m 查看指令表，輸入 \x1b[38;2;88;166;255mhint\x1b[0m 獲取解題提示。`);
-    printOutput(`👉 右側面板已開啟「📖 指令深度教室」，可點擊指令直接填入終端機！\n`);
+    printOutput(`👉 右側面板「📖 指令深度教室」提供完整語法解析與一鍵填入功能！\n`);
 
     terminalInput.focus();
   }
@@ -100,7 +131,125 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const variantsHtml = guide.variations.map(v => `
+    // 1. Situation block
+    const situationHtml = guide.scenarioContext ? `
+      <div class="guide-situation-card">
+        <div class="situation-header">
+          <span class="situation-badge">💼 職場情境現場</span>
+          <span class="situation-role">👤 扮演角色：${escapeHtml(guide.scenarioContext.role)}</span>
+        </div>
+        <p class="situation-desc">${escapeHtml(guide.scenarioContext.situation)}</p>
+      </div>
+    ` : '';
+
+    // 2. Config Categories block (Level 00 specific)
+    let configCategoriesHtml = '';
+    if (guide.configCategories) {
+      const reqItems = guide.configCategories.required.map(item => {
+        const fullCmd = `git config ${item.key.includes(' ') ? item.key : `${item.key} "${item.key === 'user.name' ? '你的名字' : 'you@example.com'}"`}`;
+        return `
+          <div class="config-item-row required-item">
+            <div class="config-item-info">
+              <div class="config-item-header">
+                <code class="config-item-key">${escapeHtml(item.key)}</code>
+                <span class="config-item-label">${escapeHtml(item.label)}</span>
+              </div>
+              <p class="config-item-desc">${escapeHtml(item.desc)}</p>
+            </div>
+            <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(fullCmd)}')" title="點擊填入此設定">
+              填入 ➜
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      const optItems = guide.configCategories.optional.map(item => {
+        const fullCmd = `git config ${item.key}`;
+        return `
+          <div class="config-item-row optional-item">
+            <div class="config-item-info">
+              <div class="config-item-header">
+                <code class="config-item-key">${escapeHtml(item.key)}</code>
+                <span class="config-item-label">${escapeHtml(item.label)}</span>
+              </div>
+              <p class="config-item-desc">${escapeHtml(item.desc)}</p>
+            </div>
+            <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(fullCmd)}')" title="點擊填入此設定">
+              填入 ➜
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      configCategoriesHtml = `
+        <div class="guide-section">
+          <h3 class="guide-section-title">⚙️ Git 必備設定 vs 推薦可選設定解析</h3>
+          <p class="guide-section-desc">Git 不是只有死記三條指令！清楚分辨「底線必備（缺一不可）」與「提效推薦（大幅省時）」：</p>
+          <div class="config-split-grid">
+            <div class="config-split-col required-col">
+              <div class="config-col-header">
+                <span class="badge-col-type badge-required">🔴 必備底線設定 (Required)</span>
+                <span class="config-col-subtitle">缺少則 Git 拒絕提交 Commit，本關設定完成即可通關</span>
+              </div>
+              <div class="config-col-body">
+                ${reqItems}
+              </div>
+            </div>
+            <div class="config-split-col optional-col">
+              <div class="config-col-header">
+                <span class="badge-col-type badge-optional">🟢 推薦/可選進階設定 (Optional & Best Practices)</span>
+                <span class="config-col-subtitle">非強制，但大幅消除重複輸入與跨平台地雷（設定享彩蛋成就）</span>
+              </div>
+              <div class="config-col-body">
+                ${optItems}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Guided Steps block
+    let guidedStepsHtml = '';
+    if (guide.guidedSteps && guide.guidedSteps.length > 0) {
+      const stepsCards = guide.guidedSteps.map(s => {
+        const categoryBadge = s.category === 'required'
+          ? `<span class="badge-step-cat badge-cat-req">必備</span>`
+          : (s.category === 'optional' ? `<span class="badge-step-cat badge-cat-opt">推薦可選</span>` : '');
+
+        return `
+          <div class="guided-step-item">
+            <div class="guided-step-header">
+              <div class="guided-step-meta">
+                <span class="step-num-badge">步驟 ${s.step}</span>
+                ${categoryBadge}
+              </div>
+              <code class="guided-step-cmd">${escapeHtml(s.cmd)}</code>
+              <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(s.cmd)}')" title="填入終端機">
+                填入 ➜
+              </button>
+            </div>
+            <div class="guided-step-why">
+              <span class="why-label">💡 為什麼要下此指令：</span>
+              <span class="why-text">${escapeHtml(s.why)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      guidedStepsHtml = `
+        <div class="guide-section">
+          <h3 class="guide-section-title">🧭 實戰情境與引導式解題步驟</h3>
+          <p class="guide-section-desc">帶著情境問題循序思考，每一步皆有清晰的底層原因與目的：</p>
+          <div class="guided-steps-list">
+            ${stepsCards}
+          </div>
+        </div>
+      `;
+    }
+
+    // 4. Variations
+    const variantsHtml = (guide.variations || []).map(v => `
       <div class="guide-variant-card ${v.isPopular ? 'popular' : ''}">
         <div class="variant-header">
           <code class="variant-cmd">${escapeHtml(v.cmd)}</code>
@@ -117,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `).join('');
 
-    const pitfallsHtml = guide.pitfalls.map(p => `<li>${escapeHtml(p)}</li>`).join('');
+    const pitfallsHtml = (guide.pitfalls || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
 
     guideContainer.innerHTML = `
       <div class="guide-header">
@@ -127,6 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <p class="guide-summary">${escapeHtml(guide.summary)}</p>
       </div>
+
+      ${situationHtml}
 
       <div class="guide-target-card">
         <div class="target-card-label">🎯 本關核心操作指令</div>
@@ -138,6 +289,11 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
 
+      ${configCategoriesHtml}
+
+      ${guidedStepsHtml}
+
+      ${variantsHtml ? `
       <div class="guide-section">
         <h3 class="guide-section-title">⚡ 指令語法變體與不同打法對照</h3>
         <p class="guide-section-desc">這項操作在 Git 中有多種打法，以下為完整選項比較與使用情境：</p>
@@ -145,14 +301,18 @@ document.addEventListener('DOMContentLoaded', () => {
           ${variantsHtml}
         </div>
       </div>
+      ` : ''}
 
+      ${guide.whyPopularTitle ? `
       <div class="guide-section">
         <h3 class="guide-section-title">🤔 ${escapeHtml(guide.whyPopularTitle)}</h3>
         <div class="guide-rationale-box">
           <p>${escapeHtml(guide.whyPopularContent)}</p>
         </div>
       </div>
+      ` : ''}
 
+      ${pitfallsHtml ? `
       <div class="guide-section">
         <h3 class="guide-section-title">🛡️ 避坑指南與實戰防線</h3>
         <div class="guide-pitfalls-box">
@@ -161,6 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </ul>
         </div>
       </div>
+      ` : ''}
     `;
   }
 
@@ -271,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     historyIndex = commandHistory.length;
 
     // Echo input command with prompt
-    const promptText = `student@git-lab:~/workspace ${promptBranchSpan.textContent} $ ${cmd}`;
+    const promptText = `user@git-lab:~/workspace ${promptBranchSpan.textContent} $ ${cmd}`;
     printOutput(`\x1b[38;2;139;148;158m${promptText}\x1b[0m`);
 
     // Parse tokens respecting quotes
@@ -584,9 +745,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextId = hasNext ? SCENARIOS[nextIndex].id : '大師結業';
 
         // Render authentic TUI box banner directly in terminal stream (no popup modal!)
+        const msgLines = (result.message || '').split('\n');
         printOutput(`\n\x1b[38;2;63;185;80m╭──────────────────────────────────────────────────────────────────────────╮\x1b[0m`);
         printOutput(`\x1b[38;2;63;185;80m│  ✔ [LEVEL ${sc.id} PASSED] ${sc.title}\x1b[0m`);
-        printOutput(`\x1b[38;2;63;185;80m│  ${result.message}\x1b[0m`);
+        msgLines.forEach(line => {
+          printOutput(`\x1b[38;2;63;185;80m│  ${line}\x1b[0m`);
+        });
         printOutput(`\x1b[38;2;63;185;80m╰──────────────────────────────────────────────────────────────────────────╯\x1b[0m`);
         if (hasNext) {
           printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快捷鍵 [Ctrl + N]，亦可點擊下方按鈕前往下一關！\x1b[0m`);

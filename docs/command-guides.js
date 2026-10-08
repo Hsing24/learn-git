@@ -1,19 +1,73 @@
 /**
  * COMMAND_GUIDES - 24 大關卡指令深度教室與實戰語法變體庫
- * 為學習者提供完整的指令變體比對、為什麼業界最常用的決策脈絡，以及避坑指南
+ * 為學習者提供：
+ * 1. 職場情境現場 (Role & Situation)
+ * 2. 引導式解題步驟與指令脈絡 (Guided Steps: 為什麼要下這個指令？它具體做了什麼？)
+ * 3. 核心指令變體比對 (Command Variations with click-to-paste)
+ * 4. 業界主流決策脈絡 (Why 90% developers use this)
+ * 5. 避坑指南與實戰防線 (Pitfalls & Pro-Tips)
  */
 
 const COMMAND_GUIDES = {
   '00': {
-    targetCommand: 'git config --global push.autoSetupRemote true',
-    summary: '配置開發者身分 (Identity) 與現代 Git 自動遠端追蹤神技，避免每次 push 重複配置 upstream。',
+    targetCommand: 'git config user.name "你的名字" && git config user.email "you@example.com"',
+    summary: '配置開發者起點身分標籤，清楚釐清「必備底線設定」與「現代可選提效神技」，打通免密連線與自動遠端追蹤。',
+    scenarioContext: {
+      role: '新進軟體工程師 / 剛重灌開發環境的開發者',
+      situation: '你剛拿到公司的開發電腦或重灌了系統，克隆了第一個專案準備開工。若沒有預先配置好 Git 使用者身分，當你寫完程式第一次執行 git commit 時，Git 會因無法追蹤作者而直接報錯中斷！同時，若每次開新分支 push 都要輸入長長的 --set-upstream，會嚴重打斷開發節奏。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git config user.name "你的名字"',
+        category: 'required',
+        why: '【必備】設定提交作者名稱。Git 每個 Commit 都必須永久記錄作者印記，否則 Git 會因無法辨識身分而直接拒絕提交。'
+      },
+      {
+        step: 2,
+        cmd: 'git config user.email "you@example.com"',
+        category: 'required',
+        why: '【必備】設定提交作者信箱。與 GitHub/GitLab 帳號綁定以識別貢獻者，專案貢獻度（綠格子）才會正確計入個人檔案。'
+      },
+      {
+        step: 3,
+        cmd: 'git config push.autoSetupRemote true',
+        category: 'optional',
+        why: '【強烈推薦可選】開啟現代自動遠端分支追蹤（Git 2.37+）。以往每次開新分支 push 都要手動輸入 --set-upstream，開啟後只要敲 git push 即自動在遠端建立同名分支！'
+      },
+      {
+        step: 4,
+        cmd: 'git config init.defaultBranch main',
+        category: 'optional',
+        why: '【推薦可選】現代開源標準，讓所有新建倉庫的初始預設分支自動命名為 main，告別過時的 master。'
+      }
+    ],
+    configCategories: {
+      required: [
+        { key: 'user.name', label: '作者名稱', desc: '每個 Commit 的必要標籤，缺少則無法提交。' },
+        { key: 'user.email', label: '作者信箱', desc: '與程式碼平台綁定辨識貢獻度，缺少則無法提交。' }
+      ],
+      optional: [
+        { key: 'push.autoSetupRemote true', label: '自動遠端追蹤', desc: '新分支直接 git push，免除手動打 --set-upstream。' },
+        { key: 'init.defaultBranch main', label: '預設分支名稱', desc: '新專案預設為 main，符合現代團隊規範。' },
+        { key: 'pull.rebase true', label: '拉取預設變基', desc: 'git pull 自動採用 rebase，避免產生多餘 merge 節點。' },
+        { key: 'core.editor "code --wait"', label: '指定預設編輯器', desc: '綁定慣用編輯器（如 VSCode 或 Vim），防止卡住。' },
+        { key: 'core.autocrlf input', label: '跨平台換行符號', desc: '自動轉換 LF/CRLF，防止 Mac/Windows 換行污染。' }
+      ]
+    },
     variations: [
+      {
+        cmd: 'git config user.name "你的名字"',
+        name: '設定作者名稱 (本地生效)',
+        desc: '僅在當前倉庫生效。若公司 GitLab 與私人 GitHub 帳號不同，適合在特定專案分別設定。',
+        isPopular: false
+      },
       {
         cmd: 'git config --global user.name "你的名字"',
         name: '設定全域作者名稱',
-        desc: 'Git 提交歷史的作者標籤，團隊 Code Review 與 Git Blame 溯源必備。',
+        desc: '整台電腦所有 Git 倉庫預設通用，團隊 Code Review 與 Git Blame 溯源必備。',
         isPopular: true,
-        popularReason: '每台新電腦開工第一步，若未設定首次 commit 會直接被拒。'
+        popularReason: '新電腦開工第一步，一次設定整台電腦所有專案皆適用。'
       },
       {
         cmd: 'git config --global user.email "you@example.com"',
@@ -42,8 +96,8 @@ const COMMAND_GUIDES = {
         isPopular: false
       }
     ],
-    whyPopularTitle: '為什麼 push.autoSetupRemote 成為現代開發者新寵？',
-    whyPopularContent: '過去在 Git 中建立新分支後第一次推送，終端機總是會跳出紅字警告：「fatal: The current branch has no upstream branch.」並要求手動敲 `--set-upstream origin <branch>`。自 Git 2.37 版加入 `push.autoSetupRemote true` 參數後，你只要配置一次，往後任何新分支直接輸入 `git push` 即自動同步，效率大幅提升！',
+    whyPopularTitle: '哪些設定是必要？哪些是可選？',
+    whyPopularContent: '在 Git 底層設計中，只有 `user.name` 與 `user.email` 是「絕對必要」的，因為 Git 每個 Commit 節點必須永久鐫刻作者資訊以供審計溯源；而像 `push.autoSetupRemote`、`init.defaultBranch`、`pull.rebase` 等則屬於「職場高頻推薦的可選神技」，是用來大幅降低日常重複輸入指令的心智負擔。',
     pitfalls: [
       '⚠️ 身分配置層級注意：--global 適用於整台電腦，若公司有私人 GitLab 與個人 GitHub 帳號區分，可以在特定倉庫使用無 --global 的 local 設定覆蓋。',
       '💡 避坑指南：SSH 金鑰生成後需將公鑰 (~/.ssh/id_ed25519.pub) 複製到 GitHub Settings -> SSH Keys，未來即可免密碼安全推送。'
@@ -52,7 +106,28 @@ const COMMAND_GUIDES = {
 
   '01': {
     targetCommand: 'git add .',
-    summary: '將工作目錄中所有修改與新增的檔案送入暫存區 (Staging Area)，準備建立 Commit。',
+    summary: '將工作目錄中所有修改與新增的檔案送入暫存區 (Staging Area)，準備建立第一個正式 Commit。',
+    scenarioContext: {
+      role: '前端工程師 / 專案創始成員',
+      situation: '專案剛啟動！你在本地工作目錄建立了 index.html 與 style.css 兩個檔案。此時這兩個檔案尚未被 Git 版本控管追蹤（Untracked）。你需要理解工作區、暫存區與版本庫三層流動，將第一批程式碼拍照存檔。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git status',
+        why: '先用肉眼審視工作目錄狀態，確認有哪些未追蹤 (untracked) 的新檔案。'
+      },
+      {
+        step: 2,
+        cmd: 'git add .',
+        why: '將當前目錄及子目錄下的所有新檔案一次打包，推進「暫存區 (Staging Area)」，備妥待拍快照。'
+      },
+      {
+        step: 3,
+        cmd: 'git commit -m "feat: initial commit"',
+        why: '正式拍下快照建立第一個版本歷史節點 (Commit)，附上職責明確的提交訊息。'
+      }
+    ],
     variations: [
       {
         cmd: 'git add <檔案名稱>',
@@ -91,6 +166,32 @@ const COMMAND_GUIDES = {
   '02': {
     targetCommand: 'git switch -c feature/login',
     summary: '建立並切換至新分支，保持主線 main 乾淨穩定，並於完成後執行快進 (Fast-Forward) 合併。',
+    scenarioContext: {
+      role: '功能模組工程師',
+      situation: '團隊制定了嚴格的開發規範：主線 main 必須永遠保持可部署的穩定狀態，嚴禁直接在 main 上面敲代碼！你領取了登入功能開發需求，必須開出獨立分支開發，驗收無誤後再合併回主線。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git switch -c feature/login',
+        why: '從 main 建立並切換至新功能分支，隔離新功能與主線，保護主線不受半成品干擾。'
+      },
+      {
+        step: 2,
+        cmd: 'git commit -m "feat: add login page"',
+        why: '在專屬分支上記錄登入功能成果，產生專屬提交節點。'
+      },
+      {
+        step: 3,
+        cmd: 'git switch main',
+        why: '登入功能開發完畢，切換回目標主線 main，準備接納新代碼。'
+      },
+      {
+        step: 4,
+        cmd: 'git merge feature/login',
+        why: '將功能分支合回 main。因為 main 在此期間無新提交，觸發俐落的 Fast-Forward 快進指標平移。'
+      }
+    ],
     variations: [
       {
         cmd: 'git switch <分支名稱>',
@@ -130,6 +231,32 @@ const COMMAND_GUIDES = {
   '03': {
     targetCommand: 'git merge feature/dark-mode',
     summary: '合併兩條分叉歷史，解讀 <<<<<<< 與 >>>>>>> 衝突標記，手動保留最佳代碼完成三方合併。',
+    scenarioContext: {
+      role: '協同合作工程師',
+      situation: '雙分支平行開發時，同事在 main 修改了 style.css 的主題顏色，而你在 feature/dark-mode 也修改了同一行。當你嘗試執行 git merge 時，Git 無法猜測該聽誰的，終端機噴出紅字 CONFLICT！'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git merge feature/dark-mode',
+        why: '啟動分支合併流程，Git 偵測到兩端修改重疊，暫停並在檔案中寫入衝突標記。'
+      },
+      {
+        step: 2,
+        cmd: '編輯 style.css 移除 <<<<<<< 與 >>>>>>> 標記',
+        why: '由人腦判斷保留兩端的最佳實作，刪除 Git 注入的標記符號。'
+      },
+      {
+        step: 3,
+        cmd: 'git add style.css',
+        why: '告訴 Git 該檔案的衝突已經妥善解決，標記已解決狀態。'
+      },
+      {
+        step: 4,
+        cmd: 'git commit -m "merge: resolve dark mode conflict"',
+        why: '完成三方合併並產生正式的 Merge Commit。'
+      }
+    ],
     variations: [
       {
         cmd: 'git merge <目標分支>',
@@ -163,6 +290,27 @@ const COMMAND_GUIDES = {
   '04': {
     targetCommand: 'git rebase main',
     summary: '將當前分支的基底 (Base) 重新嫁接至 main 最新節點之後，保持 Git 樹筆直無菱形分叉。',
+    scenarioContext: {
+      role: '開源 / 大廠專案開發者',
+      situation: '你在 feature 分支埋頭開發了幾天，此時遠端 main 分支有了同事的新進度。團隊規範提 PR 前必須先 rebase main，保持歷史一條線，杜絕雜亂無章的菱形 Merge Commit 蛛網。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git rebase main',
+        why: '將當前 feature 分支的提交暫存抽起，將基底移到 main 最新頂端後重新逐一重放，消除歷史分叉。'
+      },
+      {
+        step: 2,
+        cmd: 'git switch main',
+        why: '切換回主線 main，準備接納已經線性化的功能分支。'
+      },
+      {
+        step: 3,
+        cmd: 'git merge feature',
+        why: '因為已經完成變基，此時合併直接觸發 Fast-Forward 快進，完美保持單一直線！'
+      }
+    ],
     variations: [
       {
         cmd: 'git rebase <目標基準分支>',
@@ -197,6 +345,27 @@ const COMMAND_GUIDES = {
   '05': {
     targetCommand: 'git commit --fixup <hash> 或 git rebase -i HEAD~3',
     summary: '在送出 Pull Request 前整理本機的零碎草稿提交 (wip, fix typo)，重整出高語意清晰歷史。',
+    scenarioContext: {
+      role: 'Pull Request 提交者',
+      situation: '在準備送出 PR 供主管 Review 前，你檢查了本地 log，發現充斥著 "wip", "fix typo", "done" 等零碎的半成品提交。如果直接推上遠端會嚴重降低審查效率，需要將其整合成職責明確的單一語意 Commit。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git log --oneline -n 5',
+        why: '先查看最近的幾筆零碎提交，確認目標 Commit 的 Hash。'
+      },
+      {
+        step: 2,
+        cmd: 'git commit --fixup <hash> 或 git rebase -i HEAD~3',
+        why: '使用 fixup 自動標記修補對象，或使用互動式變基將多筆提交壓縮 (squash) 融合成一個。'
+      },
+      {
+        step: 3,
+        cmd: '保持最終 HEAD 只有 1 個完整功能的 commit',
+        why: '讓審查者一目了然，日後線上出問題時能清晰透過標題排查。'
+      }
+    ],
     variations: [
       {
         cmd: 'git rebase -i HEAD~n',
@@ -230,6 +399,27 @@ const COMMAND_GUIDES = {
   '06': {
     targetCommand: 'git pull --rebase origin main',
     summary: '解決遠端他人搶先推送導致的 Non-Fast-Forward 推送被拒，將本地提交優雅嫁接至遠端最新進度之上。',
+    scenarioContext: {
+      role: '團隊協作開發者',
+      situation: '你在本機辛勤寫完了功能，自信滿滿地敲下 git push，終端機卻爆出 [rejected - non-fast-forward]！原來是同事搶先一步把他的新進度推上了遠端 main，導致遠端版本超前了你的基準點。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git push origin main (觀察 rejected 錯誤)',
+        why: '理解 Git 為了避免直接覆蓋他人代碼的安全防護機制。'
+      },
+      {
+        step: 2,
+        cmd: 'git pull --rebase origin main',
+        why: '先拉取遠端最新代碼，並把自己的本地提交優雅嫁接在最新頂端，杜絕菱形交叉節點。'
+      },
+      {
+        step: 3,
+        cmd: 'git push origin main',
+        why: '本地已整合遠端且保持線性超前，再次推送順利放行！'
+      }
+    ],
     variations: [
       {
         cmd: 'git pull --rebase origin <branch>',
@@ -263,6 +453,27 @@ const COMMAND_GUIDES = {
   '07': {
     targetCommand: 'git cherry-pick <commitHash>',
     summary: '精準摘取：在不合併整個實驗性龐大分支的前提下，單獨偷渡特定關鍵 Bugfix 提交回 main。',
+    scenarioContext: {
+      role: '版本維護工程師',
+      situation: '你在一個巨大的實驗性分支寫了幾千行還不能發布的草稿，但過程中順手修了一個影響正式機器的嚴重資安漏洞。你不能合併整包半成品，必須單獨把那個修復提交偷渡回 main。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git switch main',
+        why: '切換到準備套用漏洞修補的穩定主線 main。'
+      },
+      {
+        step: 2,
+        cmd: 'git log experimental --oneline (查看修復 Commit Hash)',
+        why: '在實驗性分支中找出該修復提交的 Hash（如 sec001）。'
+      },
+      {
+        step: 3,
+        cmd: 'git cherry-pick <commitHash>',
+        why: '只摘取那一顆特定提交，精準複製修補到主線，完全不帶進未成熟的實驗代碼！'
+      }
+    ],
     variations: [
       {
         cmd: 'git cherry-pick <commitHash>',
@@ -295,6 +506,22 @@ const COMMAND_GUIDES = {
   '08': {
     targetCommand: 'git reflog 搭配 git reset --hard HEAD@{n}',
     summary: '起死回生：透過本地指針變更黑盒子日記 (Reflog)，拯救誤刪或 hard reset 遺失的 Commit。',
+    scenarioContext: {
+      role: '緊急事故救援工程師',
+      situation: '糟糕！剛才手滑執行了危險的 git reset --hard，原本重要的幾次 Commit 竟然從 git log 中徹底消失了！團隊代碼難道化為烏有了嗎？你必須使用 Reflog 找回它。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git reflog',
+        why: '開啟本地 HEAD 指針的黑盒子日記，找到誤刪前的那次提交 Hash。'
+      },
+      {
+        step: 2,
+        cmd: 'git reset --hard HEAD@{1}',
+        why: '時光倒流，將分支指針強制還原至特定動作點，找回心血代碼！'
+      }
+    ],
     variations: [
       {
         cmd: 'git reflog',
@@ -329,6 +556,27 @@ const COMMAND_GUIDES = {
   '09': {
     targetCommand: 'git worktree add <路徑> <分支>',
     summary: '雙軌並行：直接建立獨立實體工作目錄，免除 Stash 與分支切換，實現零干擾平行開發。',
+    scenarioContext: {
+      role: '全端資深工程師',
+      situation: '新功能寫到一半，伺服器正在跑測試，線上突然傳來 P0 緊急漏洞需要立即修復！若使用 stash 會打亂 IDE 與編譯快取，你需要開闢平行工作區同時開發。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git worktree add ../hotfix-dir hotfix/p1',
+        why: '在實體磁碟開闢獨立工作目錄並檢出分支，雙視窗平行作業，原專案伺服器與快取完全不動！'
+      },
+      {
+        step: 2,
+        cmd: 'git worktree list',
+        why: '檢視目前活躍掛載的所有實體工作樹目錄。'
+      },
+      {
+        step: 3,
+        cmd: 'git worktree remove ../hotfix-dir',
+        why: '修復並合併後，安全乾淨釋放該實體目錄。'
+      }
+    ],
     variations: [
       {
         cmd: 'git worktree add ../<目錄名稱> <分支>',
@@ -363,6 +611,32 @@ const COMMAND_GUIDES = {
   '10': {
     targetCommand: 'git bisect start ➜ git bisect bad ➜ git bisect good <hash>',
     summary: '時光偵探：利用二分搜尋演算法，在數百個 Commit 中快速定位引發神秘 Bug 的罪魁禍首。',
+    scenarioContext: {
+      role: '除錯偵探工程師',
+      situation: '上線前夕發現核心功能壞了！但這一個月內團隊提了上百個 Commit，根本不知道是誰在哪一天哪次提交弄壞的。逐一手動測試需要測上百次，你必須使用二分搜尋秒殺排查。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git bisect start',
+        why: '啟動 Git 二分搜尋捉蟲會話。'
+      },
+      {
+        step: 2,
+        cmd: 'git bisect bad',
+        why: '標記當前 HEAD 版本是有 Bug 的 (bad)。'
+      },
+      {
+        step: 3,
+        cmd: 'git bisect good <hash>',
+        why: '標記某個已知正常的歷史版本 (good)，Git 會自動跳到中間節點供你檢驗。'
+      },
+      {
+        step: 4,
+        cmd: 'git bisect reset',
+        why: '抓出問題提交後，結束除錯會話回到最初所在分支。'
+      }
+    ],
     variations: [
       {
         cmd: 'git bisect start',
@@ -404,6 +678,27 @@ const COMMAND_GUIDES = {
   '11': {
     targetCommand: 'git config core.hooksPath .githooks',
     summary: '守門神器：將 Git Hooks 納入專案版本控管全團隊共享，自動攔截機密金鑰並把關代碼品質。',
+    scenarioContext: {
+      role: 'DevOps / 資安工程師',
+      situation: '為了防止工程師不小心把 AWS 密鑰或包含敏感詞（如 CONFIDENTIAL）的代碼推到公開倉庫，你需要在 git commit 的當下設立第一道自動化守門員防線。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git config core.hooksPath .githooks',
+        why: '將 Git Hooks 讀取路徑由不受控的 .git/hooks 改為專案內的 .githooks，讓全團隊共享防線！'
+      },
+      {
+        step: 2,
+        cmd: 'chmod +x .githooks/pre-commit',
+        why: '賦予 pre-commit 檢查腳本可執行權限。'
+      },
+      {
+        step: 3,
+        cmd: '嘗試提交包含敏感關鍵字的檔案',
+        why: '親自驗證 pre-commit 守門員即時攔截並拒絕提交！'
+      }
+    ],
     variations: [
       {
         cmd: 'git config core.hooksPath .githooks',
@@ -437,6 +732,27 @@ const COMMAND_GUIDES = {
   '12': {
     targetCommand: 'git add -p <file>',
     summary: '精準原子暫存：以代碼塊 (Hunk) 為單位逐一審查暫存，實現乾淨純粹的單一職責原子提交。',
+    scenarioContext: {
+      role: '代碼潔癖架構師',
+      situation: '你在同一個檔案裡改了 20 行：其中 5 行是修 typo，10 行是新功能，5 行是除錯用的 console.log。如果一口氣 git add .，會混雜無關邏輯。你想把它拆分成單一職責的原子提交。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git add -p app.js',
+        why: '以代碼塊 (Hunk) 為單位逐一審閱，輸入 y 暫存目標區塊，輸入 n 略過除錯行。'
+      },
+      {
+        step: 2,
+        cmd: 'git diff --staged',
+        why: '檢視暫存區內容，確保只包含本次想提交的功能代碼。'
+      },
+      {
+        step: 3,
+        cmd: 'git commit -m "feat: login logic"',
+        why: '拍下只包含核心功能的乾淨快照，實現完美的 Atomic Commit！'
+      }
+    ],
     variations: [
       {
         cmd: 'git add -p (或 --patch)',
@@ -464,6 +780,22 @@ const COMMAND_GUIDES = {
   '13': {
     targetCommand: 'git rm --cached <file>',
     summary: '亡羊補牢：停止追蹤已被納入版本庫的機密或暫存檔案，同時完整保全本地硬碟實體檔案。',
+    scenarioContext: {
+      role: '資安防護工程師',
+      situation: '專案剛上線，才發現機密的 `.env` 環境變數檔先前已經被 commit 過了！事後雖然把它寫入了 `.gitignore`，但 Git 依然在每次存檔時持續追蹤它。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git rm --cached .env',
+        why: '將其從 Git 暫存區與版本索引中除名，但「本地實體檔案完全不受損壞」。'
+      },
+      {
+        step: 2,
+        cmd: 'git commit -m "chore: untrack .env file"',
+        why: '正式將刪除索引的動作記錄下來，配合 .gitignore 徹底停止追蹤！'
+      }
+    ],
     variations: [
       {
         cmd: 'git rm --cached <檔案名稱>',
@@ -497,6 +829,27 @@ const COMMAND_GUIDES = {
   '14': {
     targetCommand: 'git revert -m 1 <mergeCommitHash>',
     summary: '線上緊急回滾：解救生產事故，向前推進產生反轉提交，安全復原已合併的 Pull Request。',
+    scenarioContext: {
+      role: '線上值班負責人',
+      situation: '五分鐘前剛合併進 main 的重大 PR 在正式機引發嚴重當機事故！在團隊協作的共享分支上，嚴禁使用危險的 reset --hard + force push，必須用安全向前推進的方式撤銷 PR。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git log --oneline -n 3 (確認 Merge Commit Hash)',
+        why: '找到引發事故的合併節點 Hash。'
+      },
+      {
+        step: 2,
+        cmd: 'git revert -m 1 <mergeCommitHash>',
+        why: '產生反轉提交，`-m 1` 明確指定以 main 主線第一親代為基準撤銷功能分支改動。'
+      },
+      {
+        step: 3,
+        cmd: 'git log --oneline (確認回滾提交)',
+        why: '保留完整審計歷史，團隊其他人的本地分支完全不受破壞。'
+      }
+    ],
     variations: [
       {
         cmd: 'git revert -m 1 <MergeCommitHash>',
@@ -524,6 +877,22 @@ const COMMAND_GUIDES = {
   '15': {
     targetCommand: 'git tag -a v1.0.0 -m "release: v1.0.0"',
     summary: '版本里程碑：建立附註標籤 (Annotated Tag)，綁定發布節點並推送到遠端釋出 Release。',
+    scenarioContext: {
+      role: 'Release 負責人',
+      situation: '系統完成 v1.0.0 正式里程碑！你需要為當前的穩定 Commit 貼上正式的發布標籤，讓 CI/CD 觸發自動建置並供用戶下載。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git tag -a v1.0.0 -m "release: v1.0.0 production ready"',
+        why: '建立包含打標者、時間戳記與訊息的附註標籤 (Annotated Tag)。'
+      },
+      {
+        step: 2,
+        cmd: 'git push origin --tags',
+        why: '預設的 git push 不會推送標籤，必須主動將里程碑同步至遠端。'
+      }
+    ],
     variations: [
       {
         cmd: 'git tag -a <標籤名> -m "<說明訊息>"',
@@ -557,6 +926,22 @@ const COMMAND_GUIDES = {
   '16': {
     targetCommand: 'git log -S "關鍵字" --oneline',
     summary: '代碼考古學：使用鶴嘴鎬 (Pickaxe) 精準搜尋特定函式或變數在何時被新增或移除，搭配 blame 追查責任。',
+    scenarioContext: {
+      role: '架構考古學家',
+      situation: '一個重要的支付加密函式突然不見了！如果用普通搜尋會搜到數百個排版變動的雜訊。你需要精準揪出到底是在哪一次提交中被真正刪除的。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git log -S "secret_api_key" --oneline',
+        why: '鶴嘴鎬只匹配「該字串出現次數有改變」的提交，排除單純排版與無關搬移。'
+      },
+      {
+        step: 2,
+        cmd: 'git blame config.js',
+        why: '逐行追溯代碼最後修改者與提交日誌，了解背後的設計動機。'
+      }
+    ],
     variations: [
       {
         cmd: 'git log -S "<搜尋字串>" --oneline',
@@ -590,6 +975,27 @@ const COMMAND_GUIDES = {
   '17': {
     targetCommand: 'git config rerere.enabled true',
     summary: '重複衝突終結者：啟用 Reuse Recorded Resolution，讓 Git 自動記憶衝突解法並自動填入。',
+    scenarioContext: {
+      role: '長期重構工程師',
+      situation: '你維護一條長期的重構分支，每天都要 rebase main 一次。每天面對相同的 10 個衝突，每次都要手動解一遍，嚴重浪費生命！'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git config rerere.enabled true',
+        why: '開啟 Reuse Recorded Resolution，讓 Git 自動記憶你的衝突解決方案。'
+      },
+      {
+        step: 2,
+        cmd: '解完第一次衝突並提交',
+        why: 'Git 在背後悄悄記錄了衝突前後代碼指紋與你的解決結果。'
+      },
+      {
+        step: 3,
+        cmd: '未來再次遇到相同衝突',
+        why: 'Git 在 0 秒內全自動套用記憶解法！'
+      }
+    ],
     variations: [
       {
         cmd: 'git config rerere.enabled true',
@@ -617,6 +1023,22 @@ const COMMAND_GUIDES = {
   '18': {
     targetCommand: 'git commit --amend --no-edit',
     summary: '完美補完：剛送出 Commit 卻發現漏加了一個檔案或有筆誤？在不增加歷史髒節點的前提下原處修補。',
+    scenarioContext: {
+      role: '專案開發者',
+      situation: '剛按 Enter 送出 commit，才猛然發現忘了把 assets/logo.png 加入暫存，且提交訊息打錯了一個字母。如果再推一個 "fix typo" commit 會讓歷史很醜陋。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git add assets/logo.png',
+        why: '先把漏掉的檔案放進暫存區。'
+      },
+      {
+        step: 2,
+        cmd: 'git commit --amend --no-edit',
+        why: '直接將暫存變更融合進最新的一筆提交中，原處修補不增髒節點。'
+      }
+    ],
     variations: [
       {
         cmd: 'git commit --amend --no-edit',
@@ -644,6 +1066,27 @@ const COMMAND_GUIDES = {
   '19': {
     targetCommand: 'git stash -u',
     summary: '救急暫存：手邊工作寫到一半突遇緊急任務？將修改與未追蹤檔案安全收進貯藏棧，隨時乾淨復原。',
+    scenarioContext: {
+      role: '敏捷開發者',
+      situation: '正在寫一個大功能，檔案改了一半、還新增了 3 個未追蹤檔案。老闆突然叫你馬上切換到 main 修復緊急 bug，而此時工作區一團亂無法切換。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git stash -u',
+        why: '連同未追蹤新檔案一起安全封存進貯藏棧堆，瞬間還原潔淨工作區。'
+      },
+      {
+        step: 2,
+        cmd: 'git switch main (修復緊急 Bug 後切回)',
+        why: '工作區乾淨後即可無縫切換分支修復。'
+      },
+      {
+        step: 3,
+        cmd: 'git stash pop',
+        why: '彈出並還原暫存代碼，無縫接軌繼續工作！'
+      }
+    ],
     variations: [
       {
         cmd: 'git stash -u (或 --include-untracked)',
@@ -684,6 +1127,27 @@ const COMMAND_GUIDES = {
   '20': {
     targetCommand: 'git clean -fd',
     summary: '乾淨俐落：強制清理工作目錄中所有未受控的臨時檔與垃圾目錄，搭配 -n 乾跑預覽防手滑。',
+    scenarioContext: {
+      role: '代碼整潔專家',
+      situation: '專案進行模組重構，需要更名核心檔案；同時本地測試留下了大量未受控的臨時檔與垃圾目錄需要徹底大掃除。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git mv old.js new.js',
+        why: '在作業系統與 Git 索引層級同步更名，保持歷史追蹤連貫性。'
+      },
+      {
+        step: 2,
+        cmd: 'git clean -nd',
+        why: '安全乾跑 (Dry-Run)，先預覽會被刪除的垃圾檔案，防止手滑誤刪重要代碼。'
+      },
+      {
+        step: 3,
+        cmd: 'git clean -fd',
+        why: '強制掃除所有未追蹤的檔案與目錄，還原無瑕環境。'
+      }
+    ],
     variations: [
       {
         cmd: 'git clean -nd (Dry-run 預覽)',
@@ -718,6 +1182,27 @@ const COMMAND_GUIDES = {
   '21': {
     targetCommand: 'git fetch origin',
     summary: '遠端全貌：安全拉取遠端最新節點與分支歷史，不觸動本地分支與工作目錄，安心比對審核。',
+    scenarioContext: {
+      role: '開源專案貢獻者',
+      situation: '你 Fork 了一個開源專案，需要新增官方 upstream 遠端節點。此時遠端有了新提交，你想先看清楚他人改了什麼，而不是盲目 pull 引發衝突。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git remote -v',
+        why: '檢視當前倉庫關聯的遠端節點與 URL。'
+      },
+      {
+        step: 2,
+        cmd: 'git fetch origin',
+        why: '只下載遠端最新歷史與指針，完全不觸動本地分支與檔案，安全第一。'
+      },
+      {
+        step: 3,
+        cmd: 'git diff main origin/main',
+        why: '檢閱比對差異後再決定如何整合，專業協作的嚴謹態度。'
+      }
+    ],
     variations: [
       {
         cmd: 'git fetch origin',
@@ -752,6 +1237,27 @@ const COMMAND_GUIDES = {
   '22': {
     targetCommand: 'git branch <新分支> 搭配 git reset --hard <舊Hash>',
     summary: '移花接木：不小心把功能直接寫在 main 並提交了？用指針平移救星將 Commit 移駕新分支並恢復主線。',
+    scenarioContext: {
+      role: '恍神救星工程師',
+      situation: '高見龍老師書中超經典狀況題！寫得太順手忘了開分支，直接在 main 上面敲了 2 個功能提交！如何不傷及代碼的前提下，把這 2 個提交移到新分支並把 main 退回原狀？'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git branch feature/payment',
+        why: '在當前位置貼上新分支貼紙，牢牢錨定這 2 個提交，確保代碼絕不丟失。'
+      },
+      {
+        step: 2,
+        cmd: 'git reset --hard HEAD~2',
+        why: '將 main 貼紙撕下並向後退回 2 個版本，主線瞬間恢復純潔！'
+      },
+      {
+        step: 3,
+        cmd: 'git switch feature/payment',
+        why: '切到新分支繼續推進，神級指標平移救援完成！'
+      }
+    ],
     variations: [
       {
         cmd: 'git branch <新分支名稱>',
@@ -786,6 +1292,22 @@ const COMMAND_GUIDES = {
   '23': {
     targetCommand: 'git cat-file -p <Hash>',
     summary: '底層透視：使用 Plumbing 水管指令解密 .git 核心，透視 Commit、Tree 與 Blob 物件的 SHA-1 內容定址本質。',
+    scenarioContext: {
+      role: '底層架構探險家',
+      situation: 'Git 到處都是 40 位的 SHA-1 雜湊，到底背後是怎麼存資料的？你將化身水管工人，使用底層 Plumbing 指令解密 .git 核心內容定址資料庫。'
+    },
+    guidedSteps: [
+      {
+        step: 1,
+        cmd: 'git cat-file -t <hash>',
+        why: '查詢該 SHA-1 雜湊對應的物件型別（commit, tree, blob, 或 tag）。'
+      },
+      {
+        step: 2,
+        cmd: 'git cat-file -p <hash>',
+        why: '美化傾印 (Pretty-print) 物件的真實內容，親眼見證樹狀快照與檔案文字。'
+      }
+    ],
     variations: [
       {
         cmd: 'git cat-file -p <Hash>',

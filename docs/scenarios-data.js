@@ -9,16 +9,16 @@ const SCENARIOS = [
     title: '起點裝備：Git 身分、SSH 憑證與 Auto-Push',
     difficulty: '新手必備 🔰',
     category: '基礎裝備',
-    story: '第一次加入團隊開發或剛重灌電腦？如果沒有配置身分，第一次 commit 就會報錯；若是每次 push 都要輸入帳號密碼、每次開新分支都要手動打 --set-upstream，會讓人抓狂！本關為你裝備好三把開工神器。',
+    story: '第一次加入團隊開發或剛重灌電腦？如果沒有配置身分，第一次 commit 就會報錯；若是每次 push 都要輸入帳號密碼、每次開新分支都要手動打 --set-upstream，會讓人抓狂！本關帶你釐清哪些是「必備設定」，哪些是「職場推薦可選設定」。',
     goals: [
-      '配置使用者身分：git config --global user.name "你的名字"',
-      '配置使用者信箱：git config --global user.email "you@example.com"',
-      '開啟神級自動遠端分支追蹤：git config --global push.autoSetupRemote true'
+      '[必備] 配置使用者身分：git config user.name "你的名字" (或加上 --global)',
+      '[必備] 配置使用者信箱：git config user.email "you@example.com" (或加上 --global)',
+      '[推薦可選] 開啟自動遠端追蹤：git config push.autoSetupRemote true'
     ],
     hints: [
-      '指令：git config --global user.name "Alex Chen"',
-      '指令：git config --global user.email "alex@company.com"',
-      '指令：git config --global push.autoSetupRemote true'
+      '【必備 1】設定名稱：git config user.name "Alex Chen"',
+      '【必備 2】設定信箱：git config user.email "alex@company.com"',
+      '【推薦可選】自動遠端追蹤：git config push.autoSetupRemote true'
     ],
     setup: (git) => {
       git.config['user.name'] = '';
@@ -26,17 +26,22 @@ const SCENARIOS = [
       git.config['push.autoSetupRemote'] = 'false';
     },
     checkGoal: (git) => {
-      const hasName = Boolean(git.config['user.name'] && git.config['user.name'] !== 'Student');
-      const hasEmail = Boolean(git.config['user.email'] && git.config['user.email'].includes('@'));
+      const name = git.config['user.name'];
+      const email = git.config['user.email'];
+      const hasName = Boolean(name && name.trim() !== '' && name !== 'User');
+      const hasEmail = Boolean(email && email.includes('@'));
       const hasAutoPush = git.config['push.autoSetupRemote'] === 'true';
 
-      if (!hasName) return { passed: false, message: '尚未配置 user.name！請執行：git config --global user.name "你的名字"' };
-      if (!hasEmail) return { passed: false, message: '尚未配置 user.email！請執行：git config --global user.email "you@example.com"' };
-      if (!hasAutoPush) return { passed: false, message: '尚未開啟 push.autoSetupRemote！請執行：git config --global push.autoSetupRemote true' };
+      if (!hasName) return { passed: false, message: '【必要設定未完成】尚未配置 user.name！請執行：git config user.name "你的名字"' };
+      if (!hasEmail) return { passed: false, message: '【必要設定未完成】尚未配置 user.email！請執行：git config user.email "you@example.com"' };
+
+      const bonusMsg = hasAutoPush
+        ? '\n⭐ [解鎖進階神器成就] 你同時開啟了 push.autoSetupRemote，未來任何新分支只需敲 git push 即可自動同步遠端！'
+        : '\n💡 [推薦可選小撇步] 你還可以額外輸入 git config push.autoSetupRemote true，體驗免敲 --set-upstream 的極速推送！';
 
       return {
         passed: true,
-        message: '🎉 太棒了！你的 Git 基礎裝備已全數就緒！解鎖了 push.autoSetupRemote，未來任何新分支只需敲 git push 即可自動同步遠端！'
+        message: `🎉 恭喜完成起點必備身分設定！\n已就緒的作者資訊：\n  • user.name: ${name}\n  • user.email: ${email}${bonusMsg}`
       };
     }
   },

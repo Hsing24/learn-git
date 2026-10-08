@@ -17,8 +17,8 @@ class VirtualGit {
     this.index = new Map(); // path -> content (staged)
     this.workingTree = new Map(); // path -> content (working directory)
     this.config = {
-      'user.name': 'Student',
-      'user.email': 'student@learn-git.local',
+      'user.name': 'User',
+      'user.email': 'user@learn-git.local',
       'push.autoSetupRemote': 'false',
       'rerere.enabled': 'false',
       'core.hooksPath': ''
