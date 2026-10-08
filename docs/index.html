@@ -7,7 +7,7 @@
   <meta name="description" content="專為單人開發者打造的互動式 Git 終端機情境模擬器。瀏覽器內建可視化 Commit DAG 樹狀圖、檔案衝突檢視器，一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Amend、Stash、Plumbing 等 24 大真實職場現場。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
   <!-- Top Navigation Header -->
   <header class="app-header">
     <div class="header-left">
-      <a href="https://github.com/Hsing24/learn-git" target="_blank" class="app-brand">
+      <a href="./" class="app-brand" title="回到首頁">
         <span class="logo-icon">🚀</span>
         <span>Git Scenario Lab</span>
       </a>
@@ -33,9 +33,9 @@
 
     <!-- Header Action Controls -->
     <div class="header-right">
-      <button class="btn-header" onclick="openMissionModal()" title="重新開啟本關簡報">
+      <button class="btn-header" onclick="openMissionModal()" title="重新開啟本關情境說明">
         <span>🎯</span>
-        <span>任務簡報</span>
+        <span>關卡情境</span>
       </button>
       <button class="btn-header" onclick="executeLabCommand('hint')" title="終端機印出通關提示">
         <span>💡</span>
@@ -111,38 +111,45 @@
 
       <!-- Navigation Tabs -->
       <nav class="visual-tabs">
-        <button id="tab-btn-guide" class="tab-btn active" onclick="switchTab('guide')">
+        <button id="tab-btn-mission" class="tab-btn active" onclick="switchTab('mission')">
+          <span>🎯</span>
+          <span id="tab-title-mission">關卡任務 (0/2)</span>
+        </button>
+        <button id="tab-btn-guide" class="tab-btn" onclick="switchTab('guide')">
           <span>📖</span>
-          <span>指令深度教室</span>
+          <span>詳細解說</span>
         </button>
         <button id="tab-btn-graph" class="tab-btn" onclick="switchTab('graph')">
           <span>🌳</span>
-          <span>Git 樹狀圖 (DAG)</span>
+          <span>Git 樹狀圖(DAG)</span>
         </button>
         <button id="tab-btn-files" class="tab-btn" onclick="switchTab('files')">
           <span>📁</span>
-          <span>檔案與衝突狀態</span>
-        </button>
-        <button id="tab-btn-mission" class="tab-btn" onclick="switchTab('mission')">
-          <span>🎯</span>
-          <span>任務詳細簡報</span>
+          <span>檔案總管</span>
         </button>
       </nav>
 
-      <!-- Tab 0: Pedagogical Command Guide -->
-      <div id="tab-pane-guide" class="tab-content active">
+      <!-- Tab 0: Mission Tasks & Progress Checklist (Default Active) -->
+      <div id="tab-pane-mission" class="tab-content active">
+        <div id="mission-container" class="mission-scroll-container">
+          <!-- Dynamically populated by app.js: Required tasks with live tick marks + Common/Optional commands -->
+        </div>
+      </div>
+
+      <!-- Tab 1: Detailed Pedagogical Guide (詳細解說) -->
+      <div id="tab-pane-guide" class="tab-content">
         <div id="guide-container" class="guide-scroll-container">
           <!-- Dynamically populated by app.js from command-guides.js -->
         </div>
       </div>
 
-      <!-- Tab 1: Interactive SVG Graph -->
+      <!-- Tab 2: Interactive SVG Graph (Git 樹狀圖(DAG)) -->
       <div id="tab-pane-graph" class="tab-content">
         <div class="graph-container">
           <svg id="git-graph-svg" width="800" height="480" viewBox="0 0 800 480"></svg>
           <div class="graph-legend">
             <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div> Commit</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#3fb950;"></div> HEAD</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#27f795;"></div> HEAD</div>
             <div class="legend-item"><div class="legend-dot" style="background:#bc8cff;"></div> Branch</div>
             <div class="legend-item"><div class="legend-dot" style="background:#f0883e;"></div> Tag</div>
             <div class="legend-item"><div class="legend-dot" style="background:#238636;"></div> Worktree</div>
@@ -150,7 +157,7 @@
         </div>
       </div>
 
-      <!-- Tab 2: File Tree & Conflict Inspector -->
+      <!-- Tab 3: File Tree & Conflict Inspector (檔案總管) -->
       <div id="tab-pane-files" class="tab-content">
         <div class="file-workbench">
           <div class="files-sidebar">
@@ -161,7 +168,7 @@
             <div class="file-pane-header">
               <span id="file-viewer-name">README.md</span>
               <div id="conflict-actions" class="conflict-banner" style="display: none;">
-                <span style="font-size: 0.8rem; color: #f85149; font-weight: 600;">⚡ 衝突標記待處理</span>
+                <span style="font-size: 0.8rem; color: #ff7b72; font-weight: 600;">⚡ 衝突標記待處理</span>
                 <button class="btn-resolve-conflict" onclick="resolveConflictInUI()">快速套用合併解法</button>
               </div>
             </div>
@@ -170,41 +177,26 @@
         </div>
       </div>
 
-      <!-- Tab 3: Mission Goals Card -->
-      <div id="tab-pane-mission" class="tab-content">
-        <div class="mission-tab-body">
-          <h2 id="tab-mission-title">關卡簡報</h2>
-          <div class="mission-story-box">
-            <p id="tab-mission-story"></p>
-          </div>
-          <div class="mission-goals-box">
-            <h3>通關目標與驗收標準：</h3>
-            <ul id="tab-mission-goals" class="goals-checklist"></ul>
-          </div>
-        </div>
-      </div>
-
     </section>
 
   </main>
 
-  <!-- Mission Modal Popup -->
+  <!-- Scenario Intro Modal Alert Dialog -->
   <div id="mission-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="modal-title">關卡任務簡報</h3>
-        <span id="modal-diff" class="level-badge">入門 ⭐</span>
+        <div class="modal-title-row">
+          <span id="modal-bracket-tag" class="bracket-tag">[關卡 00]</span>
+          <h3 id="modal-title" class="modal-title">起點裝備：Git 身分、SSH 憑證與 Auto-Push</h3>
+        </div>
       </div>
       <div class="modal-body">
-        <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">💼 職場真實情境：</p>
-        <div class="mission-story-box">
-          <p id="modal-story"></p>
+        <div class="modal-scenario-card">
+          <p id="modal-story" class="scenario-card-text"></p>
         </div>
-        <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">🎯 本關驗收目標：</p>
-        <ul id="modal-goals" class="goals-checklist"></ul>
       </div>
       <div class="modal-footer">
-        <button class="btn-modal btn-modal-primary" onclick="closeMissionModal()">立即開始實戰 🚀</button>
+        <button id="btn-modal-confirm" class="btn-modal btn-modal-primary" onclick="confirmScenarioStart()">確定 ➜</button>
       </div>
     </div>
   </div>

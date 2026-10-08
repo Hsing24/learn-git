@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "roboto",
+        "createdAt": "2026-10-08T07:02:22.111Z",
+        "reason": "Specified by DESIGN.md specification"
+      }
+    ]
+  }
+}

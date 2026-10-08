@@ -31,7 +31,137 @@ document.addEventListener('DOMContentLoaded', () => {
   const terminalNextBar = document.getElementById('terminal-next-bar');
   const nextBarMsg = document.getElementById('next-bar-msg');
   const guideContainer = document.getElementById('guide-container');
+  const missionContainer = document.getElementById('mission-container');
   let isCurrentScenarioPassed = false;
+  let completedTasks = new Set();
+
+  function getRequiredSteps(scenario) {
+    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
+    if (guide && guide.guidedSteps) {
+      return guide.guidedSteps.filter(s => s.category !== 'optional');
+    }
+    return scenario.goals.map((g, i) => ({ step: i + 1, cmd: g, why: g }));
+  }
+
+  function getCommonCommands(scenario) {
+    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
+    if (!guide) return [];
+
+    const list = [];
+    if (scenario.id === '00' && guide.configCategories && guide.configCategories.optional) {
+      guide.configCategories.optional.forEach(opt => {
+        list.push({ cmd: `git config ${opt.key}`, desc: `${opt.label} — ${opt.desc}` });
+      });
+      return list;
+    }
+
+    if (guide.guidedSteps) {
+      guide.guidedSteps.filter(s => s.category === 'optional').forEach(s => {
+        list.push({ cmd: s.cmd, desc: s.why });
+      });
+    }
+
+    if (guide.variations) {
+      guide.variations.forEach(v => {
+        if (!list.some(item => item.cmd === v.cmd)) {
+          list.push({ cmd: v.cmd, desc: v.name ? `${v.name}：${v.desc}` : v.desc });
+        }
+      });
+    }
+    return list;
+  }
+
+  // Render Mission Tasks Panel with Live Progress and Checkbox Ticks
+  function renderMissionPanel(scenario) {
+    const container = document.getElementById('mission-container');
+    if (!container) return;
+
+    const requiredSteps = getRequiredSteps(scenario);
+    const commonCommands = getCommonCommands(scenario);
+
+    const completedCount = requiredSteps.filter((_, idx) => completedTasks.has(idx)).length;
+    const totalRequired = requiredSteps.length;
+
+    // Update tab header title: 關卡任務 (0/2)
+    const tabTitleEl = document.getElementById('tab-title-mission');
+    if (tabTitleEl) {
+      tabTitleEl.textContent = `關卡任務 (${completedCount}/${totalRequired})`;
+    }
+
+    const tasksHtml = requiredSteps.map((s, idx) => {
+      const isDone = completedTasks.has(idx);
+      return `
+        <div class="mission-task-card ${isDone ? 'completed' : 'pending'}">
+          <div class="task-checkbox-col">
+            <span class="task-checkbox ${isDone ? 'checked' : 'unchecked'}">${isDone ? '✔' : ''}</span>
+          </div>
+          <div class="task-content-col">
+            <div class="task-why-text ${isDone ? 'completed-text' : ''}">${escapeHtml(s.why)}</div>
+            <div class="task-cmd-row">
+              <code class="task-cmd-chip">${escapeHtml(s.cmd)}</code>
+              <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(s.cmd)}')" title="填入終端機">
+                填入 ➜
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const commonCmdsHtml = commonCommands.map(item => `
+      <div class="common-cmd-card">
+        <div class="common-cmd-content">
+          <code class="common-cmd-chip">${escapeHtml(item.cmd)}</code>
+          <p class="common-cmd-desc">${escapeHtml(item.desc)}</p>
+        </div>
+        <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(item.cmd)}')" title="填入終端機">
+          填入 ➜
+        </button>
+      </div>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="mission-panel-header">
+        <div class="mission-title-row">
+          <span class="bracket-tag">[關卡 ${scenario.id}]</span>
+          <h2 class="mission-heading">${escapeHtml(scenario.title)}</h2>
+        </div>
+        <div class="mission-progress-bar-container">
+          <div class="mission-progress-status">
+            <span>🎯 必要目標完成度</span>
+            <span class="progress-count">${completedCount} / ${totalRequired}</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" style="transform: scaleX(${totalRequired > 0 ? (completedCount / totalRequired) : 0});"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mission-section">
+        <h3 class="mission-section-title">
+          <span>🎯 本關必要任務</span>
+          <span class="badge-required-count">共 ${totalRequired} 項</span>
+        </h3>
+        <p class="mission-section-desc">請依序在終端機輸入下列指令，完成後將自動打勾：</p>
+        <div class="mission-tasks-list">
+          ${tasksHtml}
+        </div>
+      </div>
+
+      ${commonCommands.length > 0 ? `
+      <div class="mission-section">
+        <h3 class="mission-section-title">
+          <span>⚡ 其他常用/推薦指令</span>
+          <span class="badge-optional-count">可選擴充</span>
+        </h3>
+        <p class="mission-section-desc">依照業界實戰推薦之延伸打法，不計入通關必要次數：</p>
+        <div class="common-cmds-list">
+          ${commonCmdsHtml}
+        </div>
+      </div>
+      ` : ''}
+    `;
+  }
 
   // Load Scenario by ID
   function loadScenario(index) {
@@ -39,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentScenarioIndex = index;
     const scenario = SCENARIOS[index];
     isCurrentScenarioPassed = false;
+    completedTasks.clear();
 
     if (terminalNextBar) terminalNextBar.style.display = 'none';
 
@@ -57,60 +188,61 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshGraph();
     renderFileList();
     renderCommandGuide(scenario);
+    renderMissionPanel(scenario);
 
-    // Update Mission Tab Content
-    const tabMissionTitle = document.getElementById('tab-mission-title');
-    if (tabMissionTitle) tabMissionTitle.textContent = `${scenario.id}：${scenario.title}`;
-    const tabMissionStory = document.getElementById('tab-mission-story');
-    if (tabMissionStory) tabMissionStory.textContent = scenario.story;
-    const tabMissionGoals = document.getElementById('tab-mission-goals');
-    if (tabMissionGoals) tabMissionGoals.innerHTML = scenario.goals.map(g => `<li>${g}</li>`).join('');
+    // Default right panel to Mission tab
+    window.switchTab('mission');
 
-    // Fetch rich pedagogical guide
-    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
+    // Open Scenario Intro Modal Alert
+    window.openMissionModal();
+  }
 
-    // Print welcome banner & guided narrative in terminal (pure in-terminal immersion, no modal popup!)
-    terminalOutput.innerHTML = '';
-    printOutput(`\x1b[38;2;88;166;255m╔══════════════════════════════════════════════════════════════════════════╗\x1b[0m`);
-    printOutput(`\x1b[38;2;88;166;255m║  🚀 關卡 ${scenario.id}：${scenario.title}\x1b[0m`);
-    printOutput(`\x1b[38;2;88;166;255m╚══════════════════════════════════════════════════════════════════════════╝\x1b[0m`);
+  // Check Task Progress on Every Command Execution
+  function checkTaskProgress(rawCmd) {
+    const sc = SCENARIOS[currentScenarioIndex];
+    const requiredSteps = getRequiredSteps(sc);
+    const cleanCmd = rawCmd.trim();
 
-    // 1. 💼 職場情境現場
-    if (guide && guide.scenarioContext) {
-      printOutput(`\x1b[38;2;210;153;34m💼 職場情境現場：\x1b[0m`);
-      printOutput(`   \x1b[38;2;139;148;158m👤 扮演角色：\x1b[0m\x1b[38;2;230;237;243m${guide.scenarioContext.role}\x1b[0m`);
-      printOutput(`   \x1b[38;2;139;148;158m📋 實戰現場：\x1b[0m\x1b[38;2;230;237;243m${guide.scenarioContext.situation}\x1b[0m\n`);
-    } else {
-      printOutput(`\x1b[38;2;210;153;34m💼 職場情境：\x1b[0m\x1b[38;2;230;237;243m${scenario.story}\x1b[0m\n`);
-    }
+    // Check each required step
+    requiredSteps.forEach((s, idx) => {
+      if (completedTasks.has(idx)) return;
 
-    // 2. 💡 引導思考與指令脈絡 (Why each command)
-    if (guide && guide.guidedSteps && guide.guidedSteps.length > 0) {
-      printOutput(`\x1b[38;2;240;136;62m💡 引導思考與指令脈絡（循序解題思維）：\x1b[0m`);
-      guide.guidedSteps.forEach((s) => {
-        const catBadge = s.category === 'required' ? '\x1b[38;2;248;81;73m[必備]\x1b[0m ' : (s.category === 'optional' ? '\x1b[38;2;63;185;80m[推薦可選]\x1b[0m ' : '');
-        printOutput(`   \x1b[1m步驟 ${s.step}：\x1b[0m ${catBadge}\x1b[38;2;88;166;255m${s.cmd}\x1b[0m`);
-        printOutput(`   \x1b[38;2;139;148;158m↳ 運作目的：${s.why}\x1b[0m`);
-      });
-      printOutput('');
-    }
+      // Special check for Level 00
+      if (sc.id === '00') {
+        if (idx === 0) {
+          const name = git.config['user.name'];
+          if (name && name.trim() && name !== 'User') completedTasks.add(idx);
+        } else if (idx === 1) {
+          const email = git.config['user.email'];
+          if (email && email.includes('@')) completedTasks.add(idx);
+        }
+        return;
+      }
 
-    // Level 00 specific tip
-    if (scenario.id === '00') {
-      printOutput(`\x1b[38;2;227;179;65m⚙️ [設定提示] 本關只需完成必備項 (user.name & user.email) 即可過關！\x1b[0m`);
-      printOutput(`\x1b[38;2;139;148;158m   若額外輸入 push.autoSetupRemote true 可解鎖彩蛋成就。\x1b[0m\n`);
-    }
+      // Check command matching
+      const targetClean = s.cmd.split(' (')[0].trim().toLowerCase();
+      const inputClean = cleanCmd.toLowerCase();
 
-    // 3. 🎯 本關驗收目標
-    printOutput(`\x1b[38;2;63;185;80m🎯 本關驗收目標：\x1b[0m`);
-    scenario.goals.forEach((g, i) => {
-      printOutput(`   ${i + 1}. ${g}`);
+      if (inputClean === targetClean) {
+        completedTasks.add(idx);
+      } else {
+        const targetTokens = targetClean.split(/\s+/);
+        const inputTokens = inputClean.split(/\s+/);
+        if (targetTokens.length >= 2 && inputTokens.length >= 2) {
+          if (targetTokens[0] === inputTokens[0] && targetTokens[1] === inputTokens[1]) {
+            completedTasks.add(idx);
+          }
+        }
+      }
     });
 
-    printOutput(`\n輸入 \x1b[38;2;88;166;255mhelp\x1b[0m 查看指令表，輸入 \x1b[38;2;88;166;255mhint\x1b[0m 獲取解題提示。`);
-    printOutput(`👉 右側面板「📖 指令深度教室」提供完整語法解析與一鍵填入功能！\n`);
+    // If scenario goal check passes, all required tasks are satisfied
+    const goalRes = sc.checkGoal(git);
+    if (goalRes.passed) {
+      requiredSteps.forEach((_, idx) => completedTasks.add(idx));
+    }
 
-    terminalInput.focus();
+    renderMissionPanel(sc);
   }
 
   // Render Pedagogical Command Guide for the Active Scenario
@@ -468,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (mainCmd === 'goal' || mainCmd === 'mission') {
-      showMissionModal(SCENARIOS[currentScenarioIndex]);
+      window.openMissionModal();
       return;
     }
 
@@ -499,10 +631,11 @@ document.addEventListener('DOMContentLoaded', () => {
       printOutput(`command not found: ${mainCmd}. 輸入 \x1b[38;2;88;166;255mhelp\x1b[0m 查看支援的 Git 指令。`);
     }
 
-    // Refresh UI & Check Goal
+    // Refresh UI, Task Progress & Check Goal
     updatePrompt();
     refreshGraph();
     renderFileList();
+    checkTaskProgress(cmd);
     checkScenarioSuccess(false);
     scrollToBottom();
   }
@@ -880,15 +1013,50 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Modal Handling
-  function showMissionModal(scenario) {
+  window.openMissionModal = () => {
     if (!missionModal) return;
-    document.getElementById('modal-title').textContent = `${scenario.id}：${scenario.title}`;
-    document.getElementById('modal-diff').textContent = scenario.difficulty;
-    document.getElementById('modal-story').textContent = scenario.story;
-    const goalsList = document.getElementById('modal-goals');
-    goalsList.innerHTML = scenario.goals.map(g => `<li>${g}</li>`).join('');
+    const sc = SCENARIOS[currentScenarioIndex];
+    const bracketTag = document.getElementById('modal-bracket-tag');
+    if (bracketTag) bracketTag.textContent = `[關卡 ${sc.id}]`;
+    const titleEl = document.getElementById('modal-title');
+    if (titleEl) titleEl.textContent = sc.title;
+    const storyEl = document.getElementById('modal-story');
+    if (storyEl) storyEl.textContent = sc.story;
     missionModal.style.display = 'flex';
-  }
+    const btn = document.getElementById('btn-modal-confirm');
+    if (btn) btn.focus();
+  };
+
+  window.closeMissionModal = () => {
+    if (missionModal) missionModal.style.display = 'none';
+    terminalInput.focus();
+  };
+
+  window.confirmScenarioStart = () => {
+    if (missionModal) missionModal.style.display = 'none';
+    const sc = SCENARIOS[currentScenarioIndex];
+    const requiredSteps = getRequiredSteps(sc);
+
+    terminalOutput.innerHTML = '';
+
+    requiredSteps.forEach((s) => {
+      const cleanWhy = s.why.replace(/^[【\[].*?[】\]]\s*/, '');
+      printOutput(`\x1b[38;2;255;255;255m${cleanWhy}\x1b[0m`);
+      printOutput(`\x1b[38;2;39;247;149m↳  請輸入 \x1b[1m${s.cmd}\x1b[0m\n`);
+    });
+
+    terminalInput.focus();
+    scrollToBottom();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (missionModal && missionModal.style.display === 'flex') {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        e.preventDefault();
+        window.confirmScenarioStart();
+      }
+    }
+  });
 
   function showVictoryModal(scenario, message) {
     if (!victoryModal) return;
@@ -897,11 +1065,6 @@ document.addEventListener('DOMContentLoaded', () => {
     victoryModal.style.display = 'flex';
     spawnConfetti();
   }
-
-  window.closeMissionModal = () => {
-    if (missionModal) missionModal.style.display = 'none';
-    terminalInput.focus();
-  };
 
   window.closeVictoryModal = () => {
     if (victoryModal) victoryModal.style.display = 'none';
@@ -922,7 +1085,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.executeLabCommand = (cmd) => executeCommand(cmd);
-  window.openMissionModal = () => showMissionModal(SCENARIOS[currentScenarioIndex]);
   window.openCheatsheet = () => {
     const m = document.getElementById('cheatsheet-modal');
     if (m) m.style.display = 'flex';

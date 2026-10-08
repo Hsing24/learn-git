@@ -21,13 +21,13 @@ const COMMAND_GUIDES = {
         step: 1,
         cmd: 'git config user.name "你的名字"',
         category: 'required',
-        why: '【必備】設定提交作者名稱。Git 每個 Commit 都必須永久記錄作者印記，否則 Git 會因無法辨識身分而直接拒絕提交。'
+        why: '設定提交作者名稱。Git 每個 Commit 都必須永久記錄作者印記，否則 Git 會因無法辨識身分而直接拒絕提交。'
       },
       {
         step: 2,
         cmd: 'git config user.email "you@example.com"',
         category: 'required',
-        why: '【必備】設定提交作者信箱。與 GitHub/GitLab 帳號綁定以識別貢獻者，專案貢獻度（綠格子）才會正確計入個人檔案。'
+        why: '設定提交作者信箱。與 GitHub/GitLab 帳號綁定以識別貢獻者，專案貢獻度（綠格子）才會正確計入個人檔案。'
       },
       {
         step: 3,
