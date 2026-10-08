@@ -378,13 +378,13 @@ const SCENARIOS = [
       git.checkoutOrSwitch('main');
     },
     checkGoal: (git) => {
-      if (git.branches.has('hotfix-p0') || git.worktrees.length > 0) {
+      if (git.branches.has('hotfix-p0') || git.branches.has('hotfix/p1') || git.worktrees.length > 0 || git.hasCreatedWorktree) {
         return {
           passed: true,
           message: '🎉 雙軌並行掌握！利用 git worktree，你可以在多個目錄同時跑不同分支的 dev server，徹底告別 stash pop 衝突與編譯快取失效！'
         };
       }
-      return { passed: false, message: '尚未建立 hotfix worktree！請執行 git worktree add hotfix-dir -b hotfix-p0' };
+      return { passed: false, message: '尚未建立 hotfix worktree！請執行 git worktree add ../hotfix-dir hotfix/p1' };
     }
   },
 
@@ -432,13 +432,14 @@ const SCENARIOS = [
     category: '現代工程',
     story: '菜雞差點把包含 AWS 密鑰的設定檔推上網！請配置 pre-commit hook 守門腳本，在 commit 前自動攔截敏感資訊。',
     goals: [
-      '配置守門員：在 Hooks 中啟用 pre-commit 敏感金鑰防禦',
-      '嘗試提交含有 API_TOKEN 的檔案，體驗被守門員擋下的安全機制',
-      '移除敏感金鑰後正常提交'
+      '配置守門員路徑：git config core.hooksPath .githooks',
+      '賦予腳本執行權限：chmod +x .githooks/pre-commit',
+      '嘗試提交敏感金鑰（體驗被攔截）：git commit -m "feat: config with secret"',
+      '緊急繞過守門員完成提交：git commit --no-verify -m "feat: emergency bypass"'
     ],
     hints: [
-      'Git 守門員會自動檢查暫存檔案中的敏感字串',
-      '請確認程式碼不含金鑰後執行 git commit'
+      '先執行 git config core.hooksPath .githooks 與 chmod +x .githooks/pre-commit',
+      '接著執行 git commit 觀察攔截訊息，最後加上 --no-verify 完成提交'
     ],
     setup: (git) => {
       git.hooks.set('pre-commit', 'check-secrets');
@@ -446,16 +447,15 @@ const SCENARIOS = [
       git.index.set('config.env', 'AWS_KEY="AKIAIOSFODNN7EXAMPLE"');
     },
     checkGoal: (git) => {
-      // User must remove the secret and commit cleanly
       const head = git.getHeadCommit();
       const content = git.index.get('config.env') || '';
-      if (!content.includes('AKIAIOSFODNN7EXAMPLE') && head) {
+      if (head && (!content.includes('AKIAIOSFODNN7EXAMPLE') || head.message.includes('bypass') || head.message.includes('clean') || git.hasBypassedHook)) {
         return {
           passed: true,
           message: '🎉 守門成功！你親身體驗了 Git Hooks 的強大防禦力！配合 core.hooksPath 或 Husky，全團隊共享自動化品管與資安防線！'
         };
       }
-      return { passed: false, message: '檔案中依然包含敏感金鑰！請移至環境變數後重新提交。' };
+      return { passed: false, message: '尚未完成提交！請在被守門員攔截後，使用 --no-verify 或移除金鑰完成提交。' };
     }
   },
 

@@ -326,6 +326,11 @@ class VirtualGit {
   }
 
   branch(args = []) {
+    if (typeof args === 'string') {
+      args = [args];
+    } else if (!Array.isArray(args)) {
+      args = [];
+    }
     if (args.includes('--show-current')) {
       return { code: 0, output: (this.getCurrentBranch() || '') + '\n' };
     }

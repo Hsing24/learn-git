@@ -748,9 +748,9 @@ const COMMAND_GUIDES = {
       },
       {
         step: 3,
-        cmd: 'git bisect good <hash>',
+        cmd: 'git bisect good c1000',
         category: 'required',
-        why: '標記某個已知正常的歷史版本 (good)，Git 會自動跳到中間節點供你檢驗。'
+        why: '標記初始正常的歷史版本 c1000 (good)，Git 會自動跳到中間節點供你檢驗。'
       },
       {
         step: 4,
@@ -825,15 +825,15 @@ const COMMAND_GUIDES = {
       },
       {
         step: 3,
-        cmd: '嘗試提交包含敏感關鍵字的檔案',
+        cmd: 'git commit -m "feat: config with secret"',
         category: 'required',
-        why: '親自驗證 pre-commit 守門員即時攔截並拒絕提交！'
+        why: '親自嘗試提交含有敏感金鑰的檔案，驗證 pre-commit 守門員即時攔截並拒絕提交！'
       },
       {
         step: 4,
-        cmd: 'git commit --no-verify',
-        category: 'optional',
-        why: '緊急情況跳過 pre-commit 等本機 hook 檢查強制提交，僅限事故搶修等特殊極端情境使用。'
+        cmd: 'git commit --no-verify -m "feat: emergency bypass"',
+        category: 'required',
+        why: '體驗在事故搶修等緊急極端情境下，如何使用 --no-verify 旗標繞過檢查強制完成提交。'
       }
     ],
     variations: [
