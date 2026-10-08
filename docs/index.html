@@ -3,616 +3,223 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Git Scenario Lab 🚀 | 單人自學 Git 的終端機實戰實驗室</title>
-  <meta name="description" content="專為單人開發者打造的 Git 本地終端機情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Tags、Rerere 等 18 大真實專案現場。">
+  <title>Git Scenario Lab 🚀 | 互動式終端機與可視化 Commit 樹狀圖</title>
+  <meta name="description" content="專為單人開發者打造的互動式 Git 終端機情境模擬器。瀏覽器內建可視化 Commit DAG 樹狀圖、檔案衝突檢視器，一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch 等 18 大真實職場現場。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
-      --border: #30363d;
-      --text: #c9d1d9;
-      --text-bright: #f0f6fc;
-      --text-muted: #8b949e;
-      --primary: #58a6ff;
-      --accent: #2ea043;
-      --warning: #d29922;
-      --danger: #f85149;
-      --purple: #bc8cff;
-      --code-bg: #0b0e14;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    code, pre {
-      font-family: 'Fira Code', monospace;
-    }
-
-    header {
-      border-bottom: 1px solid var(--border);
-      padding: 2.5rem 1.5rem;
-      background: radial-gradient(circle at 50% 0%, #1f293d 0%, #0d1117 70%);
-      text-align: center;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      border-radius: 999px;
-      background: rgba(88, 166, 255, 0.15);
-      color: var(--primary);
-      border: 1px solid rgba(88, 166, 255, 0.3);
-      margin-bottom: 1rem;
-    }
-
-    h1 {
-      font-size: 2.75rem;
-      font-weight: 800;
-      color: var(--text-bright);
-      letter-spacing: -0.03em;
-      margin-bottom: 1rem;
-    }
-
-    .subtitle {
-      font-size: 1.25rem;
-      color: var(--text-muted);
-      max-width: 720px;
-      margin: 0 auto 2rem;
-    }
-
-    .cta-buttons {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-      border-radius: 6px;
-      text-decoration: none;
-      transition: all 0.2s ease;
-      cursor: pointer;
-    }
-
-    .btn-primary {
-      background-color: #238636;
-      color: #fff;
-      border: 1px solid rgba(240, 246, 252, 0.1);
-    }
-    .btn-primary:hover {
-      background-color: #2ea043;
-    }
-
-    .btn-secondary {
-      background-color: #21262d;
-      color: var(--text-bright);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover {
-      background-color: #30363d;
-      border-color: #8b949e;
-    }
-
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
-    }
-
-    .terminal-window {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
-      margin-bottom: 3.5rem;
-      overflow: hidden;
-    }
-
-    .terminal-header {
-      background: #161b22;
-      padding: 0.75rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .terminal-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-    .dot-red { background: #ff5f56; }
-    .dot-yellow { background: #ffbd2e; }
-    .dot-green { background: #27c93f; }
-
-    .terminal-title {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-left: 0.5rem;
-      font-family: 'Fira Code', monospace;
-    }
-
-    .terminal-body {
-      padding: 1.5rem;
-      font-size: 0.95rem;
-      color: #7ee787;
-      overflow-x: auto;
-    }
-
-    .terminal-body .cmd {
-      color: #f0f6fc;
-      font-weight: 600;
-    }
-
-    .terminal-body .comment {
-      color: var(--text-muted);
-    }
-
-    .section-title {
-      font-size: 1.85rem;
-      font-weight: 700;
-      color: var(--text-bright);
-      margin-bottom: 0.5rem;
-    }
-
-    .section-desc {
-      color: var(--text-muted);
-      margin-bottom: 2rem;
-    }
-
-    /* Grid for Scenarios */
-    .scenario-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 4rem;
-    }
-
-    .scenario-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: transform 0.2s, border-color 0.2s;
-    }
-    .scenario-card:hover {
-      transform: translateY(-2px);
-      border-color: var(--primary);
-    }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.75rem;
-    }
-
-    .card-id {
-      font-family: 'Fira Code', monospace;
-      font-weight: 700;
-      color: var(--primary);
-      background: rgba(88, 166, 255, 0.1);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .card-diff {
-      font-size: 0.85rem;
-      color: var(--warning);
-      font-weight: 500;
-    }
-
-    .card-title {
-      font-size: 1.15rem;
-      font-weight: 600;
-      color: var(--text-bright);
-      margin-bottom: 0.5rem;
-    }
-
-    .card-desc {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin-bottom: 1.25rem;
-      flex-grow: 1;
-    }
-
-    .card-cmd {
-      background: var(--code-bg);
-      padding: 0.5rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      color: var(--primary);
-      border: 1px solid rgba(48, 54, 61, 0.7);
-    }
-
-    /* Comparison Box */
-    .compare-box {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 2rem;
-      margin-bottom: 4rem;
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-
-    th, td {
-      padding: 0.9rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-
-    th {
-      color: var(--text-bright);
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.02);
-      font-size: 0.9rem;
-    }
-
-    td {
-      font-size: 0.9rem;
-    }
-
-    .tag-better {
-      background: rgba(46, 160, 67, 0.15);
-      color: #3fb950;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.8rem;
-    }
-
-    .tag-poor {
-      background: rgba(248, 81, 73, 0.15);
-      color: var(--danger);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.8rem;
-    }
-
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 3rem 1.5rem;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    footer a {
-      color: var(--primary);
-      text-decoration: none;
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header>
-    <div class="badge">🚀 100% 本地終端機實戰 • 零額外依賴</div>
-    <h1>Git Scenario Lab</h1>
-    <p class="subtitle">專為單人開發者打造的情境實驗室。一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Tags、Rerere 等 18 大真實專案現場。</p>
-    
-    <div class="cta-buttons">
-      <a href="https://github.com/Hsing24/learn-git" class="btn btn-primary">
-        <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
-        GitHub Repository
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <a href="https://github.com/Hsing24/learn-git" target="_blank" class="app-brand">
+        <span class="logo-icon">🚀</span>
+        <span>Git Scenario Lab</span>
       </a>
-      <a href="#scenarios" class="btn btn-secondary">瀏覽 18 大實戰關卡</a>
-      <a href="#modern-git" class="btn btn-secondary">現代 Git 替代指令速查</a>
+
+      <!-- Level Selector Dropdown -->
+      <div class="level-selector-wrapper">
+        <button id="level-select-btn" class="btn-level-select" title="點擊切換關卡">
+          <span class="level-badge">00</span>
+          <span class="level-name">起點裝備：身分配置與 Auto-Push</span>
+          <span class="arrow-down">▼</span>
+        </button>
+        <div id="level-dropdown" class="level-dropdown-menu"></div>
+      </div>
+    </div>
+
+    <!-- Header Action Controls -->
+    <div class="header-right">
+      <button class="btn-header" onclick="openMissionModal()" title="重新開啟本關簡報">
+        <span>🎯</span>
+        <span>任務簡報</span>
+      </button>
+      <button class="btn-header" onclick="executeLabCommand('hint')" title="終端機印出通關提示">
+        <span>💡</span>
+        <span>提示</span>
+      </button>
+      <button class="btn-header" onclick="executeLabCommand('reset')" title="重設當前關卡至初始狀態">
+        <span>🔄</span>
+        <span>重設</span>
+      </button>
+      <button class="btn-header btn-header-primary" onclick="executeLabCommand('verify')" title="立即驗收目標是否達成">
+        <span>✅</span>
+        <span>驗收通關</span>
+      </button>
+      <button class="btn-header" onclick="openCheatsheet()" title="開啟新舊指令對照手冊">
+        <span>📖</span>
+        <span>現代指令速查</span>
+      </button>
+      <a href="https://github.com/Hsing24/learn-git" target="_blank" class="btn-header" title="前往 GitHub 倉庫">
+        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
+        <span>GitHub</span>
+      </a>
     </div>
   </header>
 
-  <main>
+  <!-- Main Split Workbench -->
+  <main class="main-workbench">
 
-    <!-- Interactive Terminal Showcase -->
-    <div class="terminal-window">
-      <div class="terminal-header">
-        <div class="terminal-dot dot-red"></div>
-        <div class="terminal-dot dot-yellow"></div>
-        <div class="terminal-dot dot-green"></div>
-        <span class="terminal-title">bash — ~/project/learn-git</span>
+    <!-- Left Panel: Simulated Terminal -->
+    <section class="terminal-panel">
+      <div class="terminal-titlebar">
+        <div class="terminal-controls">
+          <div class="control-dot dot-red"></div>
+          <div class="control-dot dot-yellow"></div>
+          <div class="control-dot dot-green"></div>
+        </div>
+        <div class="terminal-title">bash — ~/learn-git/workspace (Virtual Git Terminal)</div>
+        <div style="width: 48px;"></div>
       </div>
-      <div class="terminal-body">
-        <p class="comment"># 1. 複製專案並進入目錄</p>
-        <p class="cmd">$ git clone https://github.com/Hsing24/learn-git.git && cd learn-git</p>
-        <br>
-        <p class="comment"># 2. 查看所有 18 個實戰關卡清單</p>
-        <p class="cmd">$ ./git-lab list</p>
-        <br>
-        <p class="comment"># 3. 進入第 00 關：配備身分、SSH 與神級 push.autoSetupRemote</p>
-        <p class="cmd">$ ./git-lab start 00</p>
-        <p style="color: #58a6ff;">➜ 正在為你建置情境環境... 關卡：00 - 起點裝備：Git 身分配置、SSH 憑證與自動建立遠端分支</p>
-        <p style="color: #d29922;">👉 請切換至練習目錄開始操作：cd workspace</p>
-        <br>
-        <p class="comment"># 4. 在 workspace 內完成設定並驗收</p>
-        <p class="cmd">$ cd workspace && ./git-lab verify</p>
-        <p style="color: #3fb950;">🎉 太棒了！任務成功通關！解鎖了自動遠端分支追蹤與 SSH 免密連線最佳實踐！</p>
-      </div>
-    </div>
 
-    <!-- Scenarios Section -->
-    <section id="scenarios">
-      <h2 class="section-title">📚 18 大全方位實戰關卡</h2>
-      <p class="section-desc">從最一開始的帳號配置、暫存區流動，到業界資深工程師愛用的 Worktree 與 Bisect，每關皆具備獨立沙盒與自動驗收邏輯。</p>
+      <!-- Output Scroll Area -->
+      <div id="terminal-output" class="terminal-output"></div>
 
-      <div class="scenario-grid">
-
-        <!-- 00 -->
-        <div class="scenario-card" style="border-color: #388bfd;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #388bfd; background: rgba(56, 139, 253, 0.1);">LEVEL 00</span>
-              <span class="card-diff" style="color: #3fb950;">新手必備 🔰</span>
-            </div>
-            <h3 class="card-title">起點裝備：身分、SSH 與 Auto-Push</h3>
-            <p class="card-desc">配置 user.name/email、設定 push.autoSetupRemote 免去 -u 麻煩，並掌握 SSH 免密連線。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 00</code></div>
-        </div>
-
-        <!-- 01 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 01</span>
-              <span class="card-diff">入門 ⭐</span>
-            </div>
-            <h3 class="card-title">工作區、暫存區與 Commit</h3>
-            <p class="card-desc">搞懂 Untracked、Staging Area 與 Commit 的三層流動，建立專案第一個乾淨節點。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 01</code></div>
-        </div>
-
-        <!-- 02 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 02</span>
-              <span class="card-diff">初階 ⭐⭐</span>
-            </div>
-            <h3 class="card-title">分支流動與 Fast-Forward</h3>
-            <p class="card-desc">獨立功能分支開發、HEAD 指針切換與乾淨俐落的快進 (Fast-Forward) 合併。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 02</code></div>
-        </div>
-
-        <!-- 03 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 03</span>
-              <span class="card-diff">進階 ⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">手動解決 Merge Conflict</h3>
-            <p class="card-desc">雙分支同修一行代碼！解讀 &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD 衝突標記，並完成 Merge Commit。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 03</code></div>
-        </div>
-
-        <!-- 04 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 04</span>
-              <span class="card-diff">進階 ⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">變基藝術：線性歷史 (Rebase)</h3>
-            <p class="card-desc">告別雜亂的菱形分支！使用 git rebase 將分支嫁接至 main 最新進度之後。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 04</code></div>
-        </div>
-
-        <!-- 05 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 05</span>
-              <span class="card-diff">進階 ⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">互動式變基 (Interactive Rebase)</h3>
-            <p class="card-desc">PR 前的整容利器：使用 rebase -i 與 squash / fixup 將零碎 commits 融合成完美提交。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 05</code></div>
-        </div>
-
-        <!-- 06 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 06</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">模擬協作與推送被拒 (Rejected)</h3>
-            <p class="card-desc">本地 Mock Remote 模擬同事搶先 push，克服 non-fast-forward 報錯並以 pull --rebase 優雅解決。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 06</code></div>
-        </div>
-
-        <!-- 07 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 07</span>
-              <span class="card-diff">實戰 ⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">跨分支挑選 (Cherry-pick)</h3>
-            <p class="card-desc">從未完成的巨大實驗分支中，單獨摘取關鍵的安全漏洞修復 Commit 到穩定主線。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 07</code></div>
-        </div>
-
-        <!-- 08 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 08</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">起死回生：Git Reflog 救援</h3>
-            <p class="card-desc">手滑執行了毀滅性 reset --hard HEAD~2？運用 Git 黑盒子日記本精準召喚失蹤心血。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 08</code></div>
-        </div>
-
-        <!-- 09 -->
-        <div class="scenario-card" style="border-color: #bc8cff;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #bc8cff; background: rgba(188, 140, 255, 0.1);">LEVEL 09</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">Git Worktree 免 Stash 平行開發</h3>
-            <p class="card-desc">正在開大功能時突發 P0 緊急修復？不必 stash，在獨立工作目錄多軌並行開發！</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 09</code></div>
-        </div>
-
-        <!-- 10 -->
-        <div class="scenario-card" style="border-color: #f85149;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #f85149; background: rgba(248, 81, 73, 0.1);">LEVEL 10</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">時光偵探：Git Bisect 二分捉蟲</h3>
-            <p class="card-desc">歷史上有幾百個 commit 不知何時引進了 Bug？利用二分搜尋演算法 O(log N) 步秒殺罪魁禍首。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 10</code></div>
-        </div>
-
-        <!-- 11 -->
-        <div class="scenario-card" style="border-color: #2ea043;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #2ea043; background: rgba(46, 160, 67, 0.1);">LEVEL 11</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">Git Hooks：守門神器與敏感金鑰攔截</h3>
-            <p class="card-desc">配置 pre-commit 與 commit-msg 鉤子，掌握 core.hooksPath 團隊共享與 API 金鑰攔截防護。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 11</code></div>
-        </div>
-
-        <!-- 12 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 12</span>
-              <span class="card-diff">進階 ⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">原子暫存：git add -p 區塊暫存</h3>
-            <p class="card-desc">同檔多處修改不盲目全包！以 Hunk 為單位精確暫存，鍛鍊單一職責與 Atomic Commit 乾淨歷史。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 12</code></div>
-        </div>
-
-        <!-- 13 -->
-        <div class="scenario-card" style="border-color: #d29922;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #d29922; background: rgba(210, 153, 34, 0.1);">LEVEL 13</span>
-              <span class="card-diff">初階 ⭐⭐</span>
-            </div>
-            <h3 class="card-title">.gitignore 追蹤失效與 rm --cached</h3>
-            <p class="card-desc">誤將 .env 提交進庫後補寫 ignore 為何沒效？使用 git rm --cached 自索引除名並保全本地檔案。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 13</code></div>
-        </div>
-
-        <!-- 14 -->
-        <div class="scenario-card" style="border-color: #f85149;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #f85149; background: rgba(248, 81, 73, 0.1);">LEVEL 14</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">線上緊急回滾：Revert Merge (-m 1)</h3>
-            <p class="card-desc">剛合進 main 的 PR 造成生產事故！解密雙親節點拓撲，以 git revert -m 1 安全平息災難。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 14</code></div>
-        </div>
-
-        <!-- 15 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 15</span>
-              <span class="card-diff">初階 ⭐⭐</span>
-            </div>
-            <h3 class="card-title">版本里程碑：Git Tag 與語意化發布</h3>
-            <p class="card-desc">掌握 Lightweight vs. Annotated 附註標籤，給歷史 Commit 補簽版號，並推送到遠端釋出發布。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 15</code></div>
-        </div>
-
-        <!-- 16 -->
-        <div class="scenario-card">
-          <div>
-            <div class="card-top">
-              <span class="card-id">LEVEL 16</span>
-              <span class="card-diff">進階 ⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">代碼考古學：git log -S 與 blame</h3>
-            <p class="card-desc">關鍵變數憑空消失？運用鶴嘴鎬 Pickaxe 搜尋次數變動，搭配 git blame -w 秒速鎖定元凶。</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 16</code></div>
-        </div>
-
-        <!-- 17 -->
-        <div class="scenario-card" style="border-color: #bc8cff;">
-          <div>
-            <div class="card-top">
-              <span class="card-id" style="color: #bc8cff; background: rgba(188, 140, 255, 0.1);">LEVEL 17</span>
-              <span class="card-diff">實戰 ⭐⭐⭐⭐</span>
-            </div>
-            <h3 class="card-title">重複衝突終結者：git rerere 黑魔法</h3>
-            <p class="card-desc">Rebase 跨越十個 commit 衝突解到崩潰？開啟 rerere 自動快取解法，後續相同衝突 0 秒套用！</p>
-          </div>
-          <div class="card-cmd"><code>./git-lab start 17</code></div>
-        </div>
-
+      <!-- Command Prompt & Input -->
+      <div class="terminal-input-bar">
+        <div class="prompt-prefix">student@git-lab:~/workspace <span id="prompt-branch" class="prompt-branch">(main)</span> $</div>
+        <input
+          id="terminal-input"
+          class="terminal-input"
+          type="text"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          autofocus
+          placeholder="輸入 git 指令... (支援 Tab 自動補全、↑/↓ 歷史紀錄)"
+        >
       </div>
     </section>
 
-    <!-- Modern Git Command Alternatives -->
-    <section id="modern-git">
-      <h2 class="section-title">🛠️ 現代 Git 指令演進：經典舊指令 vs. 現代更優實現</h2>
-      <p class="section-desc">許多舊指令承擔過多職責或語意晦澀。現代 Git（2.23+）進行了大幅現代化升級，以下為業界最新推薦的寫法：</p>
+    <!-- Right Panel: Visual Workbench (DAG Graph & File Inspector) -->
+    <section class="visual-panel">
 
-      <div class="compare-box">
-        <table>
+      <!-- Navigation Tabs -->
+      <nav class="visual-tabs">
+        <button id="tab-btn-graph" class="tab-btn active" onclick="switchTab('graph')">
+          <span>🌳</span>
+          <span>Git 樹狀圖 (DAG)</span>
+        </button>
+        <button id="tab-btn-files" class="tab-btn" onclick="switchTab('files')">
+          <span>📁</span>
+          <span>檔案與衝突狀態</span>
+        </button>
+        <button id="tab-btn-mission" class="tab-btn" onclick="switchTab('mission')">
+          <span>🎯</span>
+          <span>任務詳細簡報</span>
+        </button>
+      </nav>
+
+      <!-- Tab 1: Interactive SVG Graph -->
+      <div id="tab-pane-graph" class="tab-content active">
+        <div class="graph-container">
+          <svg id="git-graph-svg" width="800" height="480" viewBox="0 0 800 480"></svg>
+          <div class="graph-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div> Commit</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950;"></div> HEAD</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#bc8cff;"></div> Branch</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f0883e;"></div> Tag</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#238636;"></div> Worktree</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: File Tree & Conflict Inspector -->
+      <div id="tab-pane-files" class="tab-content">
+        <div class="file-workbench">
+          <div class="files-sidebar">
+            <div class="files-sidebar-title">工作目錄檔案清單</div>
+            <div id="files-list" class="files-list"></div>
+          </div>
+          <div class="file-content-pane">
+            <div class="file-pane-header">
+              <span id="file-viewer-name">README.md</span>
+              <div id="conflict-actions" class="conflict-banner" style="display: none;">
+                <span style="font-size: 0.8rem; color: #f85149; font-weight: 600;">⚡ 衝突標記待處理</span>
+                <button class="btn-resolve-conflict" onclick="resolveConflictInUI()">快速套用合併解法</button>
+              </div>
+            </div>
+            <pre id="file-viewer-content" class="file-viewer-code">// 選擇檔案檢視內容</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Mission Goals Card -->
+      <div id="tab-pane-mission" class="tab-content">
+        <div class="mission-tab-body">
+          <h2 id="tab-mission-title">關卡簡報</h2>
+          <div class="mission-story-box">
+            <p id="tab-mission-story"></p>
+          </div>
+          <div class="mission-goals-box">
+            <h3>通關目標與驗收標準：</h3>
+            <ul id="tab-mission-goals" class="goals-checklist"></ul>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Mission Modal Popup -->
+  <div id="mission-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">關卡任務簡報</h3>
+        <span id="modal-diff" class="level-badge">入門 ⭐</span>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">💼 職場真實情境：</p>
+        <div class="mission-story-box">
+          <p id="modal-story"></p>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">🎯 本關驗收目標：</p>
+        <ul id="modal-goals" class="goals-checklist"></ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal btn-modal-primary" onclick="closeMissionModal()">立即開始實戰 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory Celebration Modal Popup -->
+  <div id="victory-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="victory-title">🎉 關卡順利通關！</h3>
+      </div>
+      <div class="modal-body">
+        <p id="victory-msg" style="color: #3fb950; font-size: 1.05rem; font-weight: 600;"></p>
+        <p style="margin-top: 1rem; color: var(--text-muted);">
+          太棒了！你的操作完全符合標準工作流程，成功化解了此一職場挑戰！
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="closeVictoryModal()">留在此關把玩</button>
+        <button class="btn-modal btn-modal-primary" onclick="nextScenario()">前往下一關 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modern Git Cheatsheet Modal -->
+  <div id="cheatsheet-modal" class="modal-overlay">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <h3>🛠️ 現代 Git 指令演進速查手冊 (Modern Git Alternatives)</h3>
+        <button class="btn-modal" onclick="closeCheatsheet()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+          現代 Git（2.23+）針對語意含混的舊指令進行了全面重構。以下為資深工程師與現代技術團隊推薦的最佳實踐對照表：
+        </p>
+
+        <h4 class="cheat-section-title">📌 核心指令替代速查表</h4>
+        <table class="cheat-table">
           <thead>
             <tr>
               <th>操作情境</th>
@@ -626,13 +233,13 @@
               <td><strong>切換分支</strong></td>
               <td><code>git checkout &lt;branch&gt;</code></td>
               <td><span class="tag-better">git switch &lt;branch&gt;</span></td>
-              <td><code>checkout</code> 承擔切分支與復原檔案雙重職責，容易手滑覆蓋；<code>switch</code> 專門切分支，安全明確。</td>
+              <td><code>checkout</code> 承擔切分支與復原檔案雙重職責；<code>switch</code> 專門切分支，安全明確。</td>
             </tr>
             <tr>
               <td><strong>建立並切換新分支</strong></td>
               <td><code>git checkout -b &lt;new&gt;</code></td>
               <td><span class="tag-better">git switch -c &lt;new&gt;</span></td>
-              <td>語意更直觀對稱（<code>-c</code> 代表 create），降低認知負擔。</td>
+              <td>語意更直觀對稱（<code>-c</code> 代表 create），降低初學者認知負擔。</td>
             </tr>
             <tr>
               <td><strong>放棄工作區修改</strong></td>
@@ -680,7 +287,7 @@
               <td><strong>Git Hooks 團隊共享</strong></td>
               <td>手動複製腳本到 <code>.git/hooks/</code></td>
               <td><span class="tag-better">git config core.hooksPath .githooks</span></td>
-              <td><code>.git/hooks</code> 不受版本控制；<code>core.hooksPath</code> 或 Husky/Lefthook 讓全團隊自動共享守門員防線。</td>
+              <td><code>.git/hooks</code> 不受版本控制；<code>core.hooksPath</code> 讓全團隊自動共享守門員防線。</td>
             </tr>
             <tr>
               <td><strong>同檔局部暫存 (Atomic)</strong></td>
@@ -703,7 +310,7 @@
             <tr>
               <td><strong>重用衝突解法 (Rebase)</strong></td>
               <td>每次 rebase 手動解 10 次</td>
-              <td><span class="tag-better">rerere.enabled true</span></td>
+              <td><span class="tag-better">git config rerere.enabled true</span></td>
               <td>Git 自動記憶衝突解決方案，後續相同衝突區塊 0 秒全自動填入！</td>
             </tr>
             <tr>
@@ -714,16 +321,9 @@
             </tr>
           </tbody>
         </table>
-      </div>
-    </section>
 
-    <!-- Deep Dive: Worktree vs Stash -->
-    <section>
-      <h2 class="section-title">⚡ 深度專題：Git Worktree vs Git Stash</h2>
-      <p class="section-desc">在真實團隊中，當遇到「緊急 Hotfix」或「需同時對比兩個分支」時，為什麼資深工程師更偏愛 Worktree？</p>
-
-      <div class="compare-box">
-        <table>
+        <h4 class="cheat-section-title">⚡ 深度專題：Git Worktree vs Git Stash</h4>
+        <table class="cheat-table">
           <thead>
             <tr>
               <th>比較面向</th>
@@ -733,7 +333,7 @@
           </thead>
           <tbody>
             <tr>
-              <td><strong>上下文切換方式</strong></td>
+              <td><strong>切換方式</strong></td>
               <td>序列式：Stash ➜ 切換分支 ➜ 修復 ➜ 切回 ➜ Pop</td>
               <td><span class="tag-better">平行式</span>：直接在新目錄打開，原分支完全不動</td>
             </tr>
@@ -754,88 +354,22 @@
             </tr>
           </tbody>
         </table>
+
       </div>
-    </section>
-
-    <!-- Deep Dive: Git Hooks -->
-    <section>
-      <h2 class="section-title">🛡️ 深度專題：Git Hooks 自動化守門員與工程化防線</h2>
-      <p class="section-desc">如何透過 pre-commit 與 commit-msg 自動攔截 API Key 敏感金鑰、格式化代碼並規範團隊 Commit 訊息？</p>
-
-      <div class="compare-box">
-        <table>
-          <thead>
-            <tr>
-              <th>方案機制</th>
-              <th>運作方式與特點</th>
-              <th>優缺點評估</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>原生 .git/hooks</strong></td>
-              <td>存放在本機 <code>.git/hooks/</code> 私有目錄</td>
-              <td><span class="tag-poor">缺點：不納入 Git 追蹤</span>，每位工程師需手動配置，極易遺漏。</td>
-            </tr>
-            <tr>
-              <td><strong>git config core.hooksPath</strong></td>
-              <td>將 hooks 路徑指向專案版本控管目錄（如 <code>.githooks/</code>）</td>
-              <td><span class="tag-better">推薦（原生零依賴）</span>：腳本隨 Git 庫同步版控，團隊一鍵生效。</td>
-            </tr>
-            <tr>
-              <td><strong>Husky + lint-staged</strong></td>
-              <td>Node.js 生態標配，於 npm install 時自動掛載 hooks</td>
-              <td><span class="tag-better">推薦（前端生態）</span>：只檢查暫存區檔案 (Staged)，大幅加速檢查。</td>
-            </tr>
-            <tr>
-              <td><strong>Lefthook</strong></td>
-              <td>Go 撰寫的高效能多語言 Hook 管理工具</td>
-              <td><span class="tag-better">推薦（多語言專案）</span>：平行極速執行，單一 YAML 設定檔乾淨俐落。</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="modal-footer">
+        <button class="btn-modal btn-modal-primary" onclick="closeCheatsheet()">回到終端機練習</button>
       </div>
-    <!-- Deep Dive: Advanced Rescue -->
-    <section>
-      <h2 class="section-title">🚨 深度專題：線上生產救援 (Revert -m 1) 與 重複衝突終結者 (rerere)</h2>
-      <p class="section-desc">面對複雜生產事故與跨分支 Rebase，資深工程師如何從容應對？</p>
+    </div>
+  </div>
 
-      <div class="compare-box">
-        <table>
-          <thead>
-            <tr>
-              <th>技術專題</th>
-              <th>痛點情境</th>
-              <th>最佳解決方案與原理</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Revert Merge Commit</strong></td>
-              <td>PR 合併進 main 後引發線上事故，<code>git revert</code> 報錯缺少 <code>-m</code></td>
-              <td><span class="tag-better">git revert -m 1 &lt;hash&gt;</span>：指定以 Parent 1 (主線) 為基準，精準反轉該 PR 的改動並保留審計紀錄。</td>
-            </tr>
-            <tr>
-              <td><strong>Git rerere</strong></td>
-              <td>在長壽分支上 Rebase，同一個衝突在 10 個 Commit 都要反覆手動解</td>
-              <td><span class="tag-better">git config rerere.enabled true</span>：自動記憶解法，下次遇到完全相同的衝突區塊自動秒速套用！</td>
-            </tr>
-            <tr>
-              <td><strong>.gitignore 失效救援</strong></td>
-              <td>誤把 <code>.env</code> commit 進去，後續加進 <code>.gitignore</code> 依然緊追不捨</td>
-              <td><span class="tag-better">git rm --cached .env</span>：已追蹤檔案不受 ignore 約束；透過 <code>--cached</code> 僅自索引除名，本地實體檔案完好無損。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+  <!-- Particle Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
 
-  </main>
-
-  <footer>
-    <p>Made with ❤️ by <a href="https://github.com/Hsing24" target="_blank">Hsing24</a> • 開源且歡迎自由學習與分享</p>
-    <p style="margin-top: 0.5rem; font-size: 0.8rem;">Powered by GitHub Pages</p>
-  </footer>
+  <!-- Scripts -->
+  <script src="git-engine.js"></script>
+  <script src="graph-renderer.js"></script>
+  <script src="scenarios-data.js"></script>
+  <script src="app.js"></script>
 
 </body>
 </html>
