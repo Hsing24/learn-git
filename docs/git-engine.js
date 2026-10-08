@@ -489,15 +489,18 @@ class VirtualGit {
     }
 
     // Simulated 3-way merge conflict trigger
-    if (options.simulateConflict || this.hasContentConflict(currentCommitId, targetCommitId)) {
+    const conflictingFile = this.getConflictingFile(currentCommitId, targetCommitId);
+    if (options.simulateConflict || conflictingFile) {
       this.conflictState = {
-        file: options.conflictFile || 'order.py',
+        file: options.conflictFile || conflictingFile || 'style.css',
         ourBranch: currentBranch,
         theirBranch: targetBranch,
         theirCommitId: targetCommitId
       };
       const conflictFile = this.conflictState.file;
-      const conflictContent = `<<<<<<< HEAD\n// ${currentBranch} 的實作版本\n=======\n// ${targetBranch} 的衝突版本\n>>>>>>> ${targetBranch}\n`;
+      const ourContent = (this.commits.get(currentCommitId)?.tree?.get(conflictFile)) || this.workingTree.get(conflictFile) || `// ${currentBranch} 的實作版本`;
+      const theirContent = (this.commits.get(targetCommitId)?.tree?.get(conflictFile)) || `// ${targetBranch} 的衝突版本`;
+      const conflictContent = `<<<<<<< HEAD\n${ourContent}\n=======\n${theirContent}\n>>>>>>> ${targetBranch}\n`;
       this.workingTree.set(conflictFile, conflictContent);
       this.index.set(conflictFile, conflictContent);
 
@@ -541,17 +544,20 @@ class VirtualGit {
     return false;
   }
 
-  hasContentConflict(commitA, commitB) {
-    // If either commit modified same file differently
+  getConflictingFile(commitA, commitB) {
     const cA = this.commits.get(commitA);
     const cB = this.commits.get(commitB);
-    if (!cA || !cB) return false;
+    if (!cA || !cB) return null;
     for (const [file, contentA] of cA.tree.entries()) {
       if (cB.tree.has(file) && cB.tree.get(file) !== contentA) {
-        return true;
+        return file;
       }
     }
-    return false;
+    return null;
+  }
+
+  hasContentConflict(commitA, commitB) {
+    return !!this.getConflictingFile(commitA, commitB);
   }
 
   rebase(upstream, options = {}) {
