@@ -177,7 +177,7 @@ def cmd_reset(engine: GitEngine):
 
 def cmd_tree(engine: GitEngine):
     if not (engine.repo_dir / ".git").exists():
-        print(f"\n{dim('目前尚未初始化 Git 倉庫。')}\n")
+        print(f"\n{dim('目前尚未初始化 Git repo。')}\n")
         return
 
     print(f"\n{bold('🌲 當前 Git Commit 拓撲圖：')}\n")

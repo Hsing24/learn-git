@@ -765,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       case 'rebase':
         if (subArgs.includes('-i') || subArgs.includes('--interactive')) {
-          printOutput(`[模擬互動式變基 (rebase -i)]\n已自動壓縮 (squash/fixup) 零碎提交，產生清晰單一語意 Commit！`);
+          printOutput(`[模擬互動式 rebase (rebase -i)]\n已自動壓縮 (squash/fixup) 零碎 commit，產生清晰單一語意 Commit！`);
         }
         const targetRebase = subArgs.find(a => !a.startsWith('-')) || 'main';
         const resRebase = git.rebase(targetRebase);
@@ -857,7 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       case 'diff':
         if (subArgs.includes('--staged') || subArgs.includes('--cached')) {
-          printOutput(`diff --git a/shopping.py b/shopping.py\n--- a/shopping.py\n+++ b/shopping.py\n@@ -10,3 +10,3 @@\n- total = price\n+ total = price * discount\n(暫存區比對完成：僅顯示已暫存待提交之代碼差異)`);
+          printOutput(`diff --git a/shopping.py b/shopping.py\n--- a/shopping.py\n+++ b/shopping.py\n@@ -10,3 +10,3 @@\n- total = price\n+ total = price * discount\n(staging area 比對完成：僅顯示已暫存待 commit 之程式碼差異)`);
         } else if (subArgs.includes('-w') || subArgs.includes('--ignore-all-space')) {
           printOutput(`(工作目錄比對完成：已忽略所有空白字元與縮排差異)`);
         } else {
@@ -975,7 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         printOutput(`\x1b[38;2;63;185;80m╰──────────────────────────────────────────────────────────────────────────╯\x1b[0m`);
         if (hasNext) {
-          printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快捷鍵 [Ctrl + N]，亦可點擊下方按鈕前往下一關！\x1b[0m`);
+          printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快速鍵 [Ctrl + N]，亦可點擊下方按鈕前往下一關！\x1b[0m`);
         } else {
           printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已通關全部 24 大關卡！\x1b[0m`);
         }
@@ -1035,23 +1035,23 @@ document.addEventListener('DOMContentLoaded', () => {
   git commit [--amend] -m     建立或修補 Commit
   git switch [-c <branch>]    切換或建立分支
   git merge <branch> [--no-ff] 合併分支 (支援衝突模擬)
-  git rebase <branch>         變基保持線性歷史
+  git rebase <branch>         rebase 保持線性歷史
   git stash [list|pop|-u]     暫存工作區修改
   git clean -fd               清除未追蹤檔案
   git mv <old> <new>          版本控管更名
-  git cherry-pick <hash>      單獨偷渡特定 Commit
-  git reset [--hard|--soft]   移動 HEAD 指針
-  git revert [-m 1] <hash>    安全反轉產生回滾提交
+  git cherry-pick <hash>      單獨挑選特定 Commit
+  git reset [--hard|--soft]   移動 HEAD 指標
+  git revert [-m 1] <hash>    安全產生 revert commit
   git tag [-a <v> -m "msg"]   建立輕量或附註標籤
   git worktree add <dir> <b>  雙軌平行工作區
-  git bisect [start|bad|good] 二分搜尋捉蟲
+  git bisect [start|bad|good] 二分搜尋 (Bisect) 除錯
   git rm --cached <file>      自 Git 索引除名保全本地檔案
   git remote / git fetch      遠端節點管理與抓取
   git cat-file [-t|-p]        解密水管底層物件
   git reflog / git log / blame 查看歷史黑盒子日記
 
 平台輔助指令：
-  next (n)   前往下一關 (快捷鍵: Ctrl+N)
+  next (n)   前往下一關 (快速鍵: Ctrl+N)
   guide      切換至指令深度教室
   hint       查看當前關卡提示
   goal       開啟關卡任務簡報

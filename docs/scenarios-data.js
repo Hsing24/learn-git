@@ -37,7 +37,7 @@ const SCENARIOS = [
 
       const bonusMsg = hasAutoPush
         ? '\n⭐ [解鎖進階神器成就] 你同時開啟了 push.autoSetupRemote，未來任何新分支只需敲 git push 即可自動同步遠端！'
-        : '\n💡 [推薦可選小撇步] 你還可以額外輸入 git config push.autoSetupRemote true，體驗免敲 --set-upstream 的極速推送！';
+        : '\n💡 [推薦可選小撇步] 你還可以額外輸入 git config push.autoSetupRemote true，體驗免敲 --set-upstream 的極速 push！';
 
       return {
         passed: true,
@@ -109,7 +109,7 @@ const SCENARIOS = [
 
       return {
         passed: true,
-        message: '🎉 漂亮！你完成了標準的獨立分支開發與 Fast-Forward 合併流程，主線指針順暢平移！'
+        message: '🎉 漂亮！你完成了標準的獨立分支開發與 Fast-Forward 合併流程，main 分支指標順暢平移！'
       };
     }
   },
@@ -164,18 +164,18 @@ const SCENARIOS = [
 
   {
     id: '04',
-    title: '變基藝術：使用 git rebase 保持線性歷史',
+    title: 'Rebase 藝術：使用 git rebase 保持線性歷史',
     difficulty: '進階 ⭐⭐⭐',
     category: '進階歷史',
     story: '菜雞發 PR 時被主管要求：「歷史太亂了，rebase 一下保持線性！」請使用 git rebase 把分支整合成乾淨的一條線。',
     goals: [
       '確認當前在 feature 分支上',
-      '執行變基：git rebase main',
+      '執行 rebase：git rebase main',
       '切回 main 並快進合併：git switch main && git merge feature'
     ],
     hints: [
       '在 feature 分支上執行 git rebase main',
-      '變基完成後，切回 main 執行 git merge feature'
+      'rebase 完成後，切回 main 執行 git merge feature'
     ],
     setup: (git) => {
       const c1 = git.createCommit({ message: 'feat: base project' });
@@ -196,7 +196,7 @@ const SCENARIOS = [
       if (fCommit && fCommit.parents.includes(mainId)) {
         return {
           passed: true,
-          message: '🎉 變基成功！你的提交已優雅嫁接至 main 的最新節點之後，整個 Git 樹呈現乾淨筆直的線性歷史！'
+          message: '🎉 Rebase 成功！你的 commit 已優雅接在 main 的最新節點之後，整個 Git 樹呈現乾淨筆直的線性歷史！'
         };
       }
       return { passed: false, message: 'feature 分支尚未 rebase 到 main 之上！請執行 git rebase main。' };
@@ -239,14 +239,14 @@ const SCENARIOS = [
 
   {
     id: '06',
-    title: '模擬協作：遠端衝突與 Non-Fast-Forward 推送被拒',
+    title: '模擬協作：遠端衝突與 Non-Fast-Forward Push 被拒',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '協作救援',
     story: '菜雞興奮地敲 git push 卻被遠端狠狠拒絕（Non-Fast-Forward）！原來別人搶先推了進度，請用 git pull --rebase 優雅解套。',
     goals: [
-      '嘗試推送觀察 rejected 錯誤',
-      '執行拉取變基：git pull --rebase',
-      '再次推送完成同步：git push origin main'
+      '嘗試 push 觀察 rejected 錯誤',
+      '執行 pull rebase：git pull --rebase',
+      '再次 push 完成同步：git push origin main'
     ],
     hints: [
       '先執行 git pull --rebase 將本地提交接在遠端最新版之後',
@@ -272,7 +272,7 @@ const SCENARIOS = [
       if (localMain === remoteMain && git.isAncestor(git.remotes.origin.branches.get('main'), localMain)) {
         return {
           passed: true,
-          message: '🎉 成功克服 Non-Fast-Forward 推送被拒！利用 git pull --rebase 避免了菱形交叉節點，團隊協作天衣無縫！'
+          message: '🎉 成功克服 Non-Fast-Forward push 被拒！利用 git pull --rebase 避免了菱形交叉節點，團隊協作天衣無縫！'
         };
       }
       return { passed: false, message: '本地 main 尚未與遠端 origin/main 同步！請執行 git pull --rebase' };
@@ -288,7 +288,7 @@ const SCENARIOS = [
     goals: [
       '確認當前在 main 分支',
       '使用 git log experimental 查看安全修補 Commit 的 Hash',
-      '精準摘取該提交：git cherry-pick <commitHash>'
+      '精準 cherry-pick 該 commit：git cherry-pick <commitHash>'
     ],
     hints: [
       '切換到 main：git switch main',
@@ -324,7 +324,7 @@ const SCENARIOS = [
     category: '協作救援',
     story: '菜雞手抖敲了 git reset --hard 誤刪心血程式碼，嚇得冷汗直流！請使用神秘的 git reflog 黑盒子日記救回失蹤的 Commit。',
     goals: [
-      '輸入 git reflog 查閱指針移動歷史',
+      '輸入 git reflog 查閱 HEAD 指標移動歷史',
       '找到誤刪前的那筆 Commit Hash（或 HEAD@{1}）',
       '使用 git reset --hard <Hash> 起死回生！'
     ],
@@ -530,14 +530,14 @@ const SCENARIOS = [
 
   {
     id: '14',
-    title: '線上緊急回滾：解救生產事故的 Revert Merge (git revert -m 1)',
+    title: '線上緊急 Revert：解救正式機事故的 Revert Merge (git revert -m 1)',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '協作救援',
-    story: '菜雞合併上線的新功能害線上系統炸了！請使用 git revert -m 1 針對 Merge Commit 安全產生回滾提交。',
+    story: '菜雞 merge 上線的新功能害線上系統掛了！請使用 git revert -m 1 針對 Merge Commit 安全產生 revert commit。',
     goals: [
       '觀察當前 HEAD 是一個雙親的 Merge Commit',
-      '使用 git revert -m 1 HEAD 產生安全的回滾提交',
-      '確認主線生產事故解除'
+      '使用 git revert -m 1 HEAD 產生安全的 revert commit',
+      '確認主線正式機事故解除'
     ],
     hints: [
       '執行：git revert -m 1 HEAD',
@@ -555,10 +555,10 @@ const SCENARIOS = [
       if (head && head.message.toLowerCase().includes('revert')) {
         return {
           passed: true,
-          message: '🎉 救火成功！你成功運用 git revert -m 1 解救了線上生產事故！向前推進產生反轉提交，既平息災難又保留完整審計歷史！'
+          message: '🎉 救火成功！你成功運用 git revert -m 1 解救了線上正式機事故！向前推進產生 revert commit，既平息災難又保留完整審計歷史！'
         };
       }
-      return { passed: false, message: '尚未回滾該 Merge 提交！請執行 git revert -m 1 HEAD。' };
+      return { passed: false, message: '尚未 revert 該 Merge commit！請執行 git revert -m 1 HEAD。' };
     }
   },
 
@@ -597,7 +597,7 @@ const SCENARIOS = [
 
   {
     id: '16',
-    title: '代碼考古學：git log -S 語意搜尋與 git blame',
+    title: '程式碼考古學：git log -S 搜尋與 git blame',
     difficulty: '進階 ⭐⭐⭐',
     category: '現代工程',
     story: '專案某行核心程式碼被改掉了，菜雞要抓出是誰哪次改的。請使用 git log -S 搜尋語意變更，搭配 git blame 責任溯源。',
@@ -663,7 +663,7 @@ const SCENARIOS = [
       if (isRerere) {
         return {
           passed: true,
-          message: '🎉 恭喜解鎖 Git 最被低估的黑魔法：git rerere！長壽分支與多步驟變基從此不再害怕重複衝突，省下無數寶貴時間！'
+          message: '🎉 恭喜解鎖 Git 最被低估的黑魔法：git rerere！長期分支與多步驟 rebase 從此不再害怕重複衝突，省下無數寶貴時間！'
         };
       }
       return { passed: false, message: '尚未開啟 rerere！請執行 git config rerere.enabled true。' };
@@ -799,7 +799,7 @@ const SCENARIOS = [
       }
       return {
         passed: true,
-        message: '🎉 太乾淨了！你掌握了 git mv 檔案更名規範與 git clean -fd 雜物清理神技，讓代碼庫保持最高水準的整潔！'
+        message: '🎉 太乾淨了！你掌握了 git mv 檔案更名規範與 git clean -fd 雜物清理神技，讓專案 repo 保持最高水準的整潔！'
       };
     }
   },
@@ -813,7 +813,7 @@ const SCENARIOS = [
     goals: [
       '新增上游遠端：git remote add upstream https://github.com/corp/upstream.git',
       '抓取上游進度：git fetch upstream',
-      '將 upstream/main 的安全補丁合併至本地 main：git merge upstream/main'
+      '將 upstream/main 的安全 patch merge 至本地 main：git merge upstream/main'
     ],
     hints: [
       '註冊遠端：git remote add upstream https://github.com/corp/upstream.git',
@@ -862,7 +862,7 @@ const SCENARIOS = [
     hints: [
       '原地開分支：git branch feature/oauth',
       '切回主線：git switch main',
-      '重設指針：git reset --hard HEAD~2'
+      '重設 HEAD 指標：git reset --hard HEAD~2'
     ],
     setup: (git) => {
       const c1 = git.createCommit({ message: 'feat: stable production foundation' });
@@ -878,7 +878,7 @@ const SCENARIOS = [
       const mainId = git.branches.get('main');
       const oauthId = git.branches.get('feature/oauth');
       if (mainId === oauthId) {
-        return { passed: false, message: 'main 分支指針尚未回退！請切回 main 並執行 git reset --hard HEAD~2。' };
+        return { passed: false, message: 'main 分支指標尚未退回！請切回 main 並執行 git reset --hard HEAD~2。' };
       }
       const oauthCommit = git.commits.get(oauthId);
       if (!oauthCommit || !oauthCommit.message.includes('oauth step 2')) {
@@ -886,7 +886,7 @@ const SCENARIOS = [
       }
       return {
         passed: true,
-        message: '🎉 神級平移！你完全掌握了 Git 分支指針貼紙的本質，一秒化解了誤在主線開發的大災難，代碼零丟失、主線零污染！'
+        message: '🎉 神級平移！你完全掌握了 Git 分支指標貼紙的本質，一秒化解了誤在 main 開發的大災難，程式碼零丟失、main 分支零污染！'
       };
     }
   },

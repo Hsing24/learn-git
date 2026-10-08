@@ -14,7 +14,7 @@ const COMMAND_GUIDES = {
     summary: '配置開發者起點身分標籤，清楚釐清「必備底線設定」與「現代可選提效神技」，打通免密連線與自動遠端追蹤。',
     scenarioContext: {
       role: '新進軟體工程師 / 剛重灌開發環境的開發者',
-      situation: '你剛拿到公司的開發電腦或重灌了系統，克隆了第一個專案準備開工。若沒有預先配置好 Git 使用者身分，當你寫完程式第一次執行 git commit 時，Git 會因無法追蹤作者而直接報錯中斷！同時，若每次開新分支 push 都要輸入長長的 --set-upstream，會嚴重打斷開發節奏。'
+      situation: '你剛拿到公司的開發電腦或重灌了系統，clone 了第一個專案準備開工。若沒有預先配置好 Git 使用者身分，當你寫完程式第一次執行 git commit 時，Git 會因無法追蹤作者而直接報錯中斷！同時，若每次開新分支 push 都要輸入長長的 --set-upstream，會嚴重打斷開發節奏。'
     },
     guidedSteps: [
       {
@@ -39,7 +39,7 @@ const COMMAND_GUIDES = {
         step: 4,
         cmd: 'git config init.defaultBranch main',
         category: 'optional',
-        why: '將所有新建倉庫的初始預設分支自動命名為 main，符合現代開源社群規範，告別過時的 master。'
+        why: '將所有新建 repo 的初始預設分支自動命名為 main，符合現代開源社群規範，告別過時的 master。'
       }
     ],
     configCategories: {
@@ -50,7 +50,7 @@ const COMMAND_GUIDES = {
       optional: [
         { key: 'push.autoSetupRemote true', label: '自動遠端追蹤', desc: '新分支直接 git push，免除手動打 --set-upstream。' },
         { key: 'init.defaultBranch main', label: '預設分支名稱', desc: '新專案預設為 main，符合現代團隊規範。' },
-        { key: 'pull.rebase true', label: '拉取預設變基', desc: 'git pull 自動採用 rebase，避免產生多餘 merge 節點。' },
+        { key: 'pull.rebase true', label: 'pull 預設 rebase', desc: 'git pull 自動採用 rebase，避免產生多餘 merge 節點。' },
         { key: 'core.editor "code --wait"', label: '指定預設編輯器', desc: '綁定慣用編輯器（如 VSCode 或 Vim），防止卡住。' },
         { key: 'core.autocrlf input', label: '跨平台換行符號', desc: '自動轉換 LF/CRLF，防止 Mac/Windows 換行污染。' }
       ]
@@ -59,13 +59,13 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git config user.name "你的名字"',
         name: '設定作者名稱 (本地生效)',
-        desc: '僅在當前倉庫生效。若公司 GitLab 與私人 GitHub 帳號不同，適合在特定專案分別設定。',
+        desc: '僅在當前 repo 生效。若公司 GitLab 與私人 GitHub 帳號不同，適合在特定專案分別設定。',
         isPopular: false
       },
       {
         cmd: 'git config --global user.name "你的名字"',
         name: '設定全域作者名稱',
-        desc: '整台電腦所有 Git 倉庫預設通用，團隊 Code Review 與 Git Blame 溯源必備。',
+        desc: '整台電腦所有 Git repo 預設通用，團隊 Code Review 與 Git Blame 溯源必備。',
         isPopular: true,
         popularReason: '新電腦開工第一步，一次設定整台電腦所有專案皆適用。'
       },
@@ -85,7 +85,7 @@ const COMMAND_GUIDES = {
       },
       {
         cmd: 'git config --global init.defaultBranch main',
-        name: '設定新倉庫預設分支名稱',
+        name: '設定新 repo 預設分支名稱',
         desc: '符合現代開源標準，將 git init 產生的預設分支由 master 改為 main。',
         isPopular: false
       },
@@ -99,8 +99,8 @@ const COMMAND_GUIDES = {
     whyPopularTitle: '哪些設定是必要？哪些是可選？',
     whyPopularContent: '在 Git 底層設計中，只有 `user.name` 與 `user.email` 是「絕對必要」的，因為 Git 每個 Commit 節點必須永久鐫刻作者資訊以供審計溯源；而像 `push.autoSetupRemote`、`init.defaultBranch`、`pull.rebase` 等則屬於「職場高頻推薦的可選神技」，是用來大幅降低日常重複輸入指令的心智負擔。',
     pitfalls: [
-      '⚠️ 身分配置層級注意：--global 適用於整台電腦，若公司有私人 GitLab 與個人 GitHub 帳號區分，可以在特定倉庫使用無 --global 的 local 設定覆蓋。',
-      '💡 避坑指南：SSH 金鑰生成後需將公鑰 (~/.ssh/id_ed25519.pub) 複製到 GitHub Settings -> SSH Keys，未來即可免密碼安全推送。'
+      '⚠️ 身分配置層級注意：--global 適用於整台電腦，若公司有私人 GitLab 與個人 GitHub 帳號區分，可以在特定 repo 使用無 --global 的 local 設定覆蓋。',
+      '💡 避坑指南：SSH 金鑰生成後需將公鑰 (~/.ssh/id_ed25519.pub) 複製到 GitHub Settings -> SSH Keys，未來即可免密碼安全 push。'
     ]
   },
 
@@ -134,13 +134,13 @@ const COMMAND_GUIDES = {
         step: 4,
         cmd: 'git status -s',
         category: 'optional',
-        why: '以極簡雙欄代碼（如 ?? 代表未追蹤、M 代表修改）呈現狀態，檔案繁多時能光速掃描變更。'
+        why: '以極簡雙欄程式碼（如 ?? 代表未追蹤、M 代表修改）呈現狀態，檔案繁多時能光速掃描變更。'
       },
       {
         step: 5,
         cmd: 'git commit -v',
         category: 'optional',
-        why: '在編輯提交訊息時直接在下方帶出本次完整 diff，方便提交前做最後自我代碼審查，防止誤交雜質代碼。'
+        why: '在編輯提交訊息時直接在下方帶出本次完整 diff，方便提交前做最後自我程式碼審查，防止誤交雜質程式碼。'
       }
     ],
     variations: [
@@ -159,7 +159,7 @@ const COMMAND_GUIDES = {
       },
       {
         cmd: 'git add -A (或 --all)',
-        name: '整個倉庫所有層級全包暫存',
+        name: '整個 repo 所有層級全包暫存',
         desc: '無視目前終端機所在的子目錄位置，強制將整個 Git Repository 根目錄下所有新增、修改、刪除全部暫存。',
         isPopular: false
       },
@@ -183,7 +183,7 @@ const COMMAND_GUIDES = {
     summary: '建立並切換至新分支，保持主線 main 乾淨穩定，並於完成後執行快進 (Fast-Forward) 合併。',
     scenarioContext: {
       role: '功能模組工程師',
-      situation: '團隊制定了嚴格的開發規範：主線 main 必須永遠保持可部署的穩定狀態，嚴禁直接在 main 上面敲代碼！你領取了登入功能開發需求，必須開出獨立分支開發，驗收無誤後再合併回主線。'
+      situation: '團隊制定了嚴格的開發規範：主線 main 必須永遠保持可部署的穩定狀態，嚴禁直接在 main 上面敲程式碼！你領取了登入功能開發需求，必須開出獨立分支開發，驗收無誤後再合併回主線。'
     },
     guidedSteps: [
       {
@@ -202,7 +202,7 @@ const COMMAND_GUIDES = {
         step: 3,
         cmd: 'git switch main',
         category: 'required',
-        why: '登入功能開發完畢，切換回目標主線 main，準備接納新代碼。'
+        why: '登入功能開發完畢，切換回目標主線 main，準備接納新程式碼。'
       },
       {
         step: 4,
@@ -261,7 +261,7 @@ const COMMAND_GUIDES = {
 
   '03': {
     targetCommand: 'git merge feature/dark-mode',
-    summary: '合併兩條分叉歷史，解讀 <<<<<<< 與 >>>>>>> 衝突標記，手動保留最佳代碼完成三方合併。',
+    summary: '合併兩條分叉歷史，解讀 <<<<<<< 與 >>>>>>> 衝突標記，手動保留最佳程式碼完成三方合併。',
     scenarioContext: {
       role: '協同合作工程師',
       situation: '雙分支平行開發時，同事在 main 修改了 style.css 的主題顏色，而你在 feature/dark-mode 也修改了同一行。當你嘗試執行 git merge 時，Git 無法猜測該聽誰的，終端機噴出紅字 CONFLICT！'
@@ -327,7 +327,7 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '衝突標記的本質：什麼是 HEAD 與 incoming？',
-    whyPopularContent: '衝突標記中：`<<<<<<< HEAD` 代表你「當前所在分支」的原有代碼；`=======` 是分隔線；`>>>>>>> 分支名` 代表你「試圖合併進來」的對方代碼。解決衝突就是由工程師人工挑選哪一段要留下、或兩者截長補短合併，最後刪掉這三行標記即可。',
+    whyPopularContent: '衝突標記中：`<<<<<<< HEAD` 代表你「當前所在分支」的原有程式碼；`=======` 是分隔線；`>>>>>>> 分支名` 代表你「試圖合併進來」的對方程式碼。解決衝突就是由工程師人工挑選哪一段要留下、或兩者截長補短合併，最後刪掉這三行標記即可。',
     pitfalls: [
       '⚠️ 致命失誤：切勿把 `<<<<<<<` 或 `=======` 等標記留在原始碼中提交，會造成編譯錯誤或上線白畫面！',
       '💡 解完衝突流程：手動編輯檔案 ➜ 存檔 ➜ `git add <檔名>` 標記已解決 ➜ `git commit` 完成合併。'
@@ -358,48 +358,48 @@ const COMMAND_GUIDES = {
         step: 3,
         cmd: 'git merge feature',
         category: 'required',
-        why: '因為已經完成變基，此時合併直接觸發 Fast-Forward 快進，完美保持單一直線！'
+        why: '因為已經完成 rebase，此時合併直接觸發 Fast-Forward 快進，完美保持單一直線！'
       },
       {
         step: 4,
         cmd: 'git rebase --abort',
         category: 'optional',
-        why: '變基過程中若遇到混亂衝突或操作失誤，一鍵放棄變基並將分支指標完全還原至操作前。'
+        why: 'rebase 過程中若遇到混亂衝突或操作失誤，一鍵放棄 rebase 並將分支指標完全還原至操作前。'
       },
       {
         step: 5,
         cmd: 'git rebase --continue',
         category: 'optional',
-        why: '在手動解決當前步驟衝突並執行 git add 標記後，通知 Git 繼續套用後續提交（變基時嚴禁執行 git commit）。'
+        why: '在手動解決當前步驟衝突並執行 git add 標記後，通知 Git 繼續套用後續提交（rebase 時嚴禁執行 git commit）。'
       }
     ],
     variations: [
       {
         cmd: 'git rebase <目標基準分支>',
-        name: '標準變基 (Rebase)',
+        name: '標準 rebase (Rebase)',
         desc: '暫存當前分支的新 Commit，將基底移到目標分支最新點，再依序重放提交。',
         isPopular: true,
         popularReason: '【★ 頂級開源與大廠規範】保持歷史線條筆直如一，杜絕雜亂無章的 Merge Commit 蛛網！'
       },
       {
         cmd: 'git rebase --continue',
-        name: '解決衝突後繼續變基',
-        desc: '變基過程中若遇到衝突，解完並 git add 後執行此指令繼續套用下一個提交。',
+        name: '解決衝突後繼續 rebase',
+        desc: 'rebase 過程中若遇到衝突，解完並 git add 後執行此指令繼續套用下一個提交。',
         isPopular: true,
-        popularReason: '變基時不要敲 git commit，一律用 git rebase --continue 推進。'
+        popularReason: 'rebase 時不要敲 git commit，一律用 git rebase --continue 推進。'
       },
       {
         cmd: 'git rebase --abort',
-        name: '放棄變基回到原點',
+        name: '放棄 rebase 回到原點',
         desc: '遇到複雜衝突或嫁接錯誤時，一鍵還原回 rebase 前的分支狀態。',
         isPopular: true,
-        popularReason: '變基出錯時的絕對安全閥。'
+        popularReason: 'rebase 出錯時的絕對安全閥。'
       }
     ],
     whyPopularTitle: 'Merge vs Rebase：大廠團隊究竟怎麼選？',
     whyPopularContent: '`merge` 的優點是忠實記錄歷史時間軸，缺點是多人頻繁合併會產生大量交叉節點與無意義的 "Merge branch..." 噪音；`rebase` 則將歷史線性化（Linear History），讓 `git log` 如同故事書般順暢好讀，且大幅簡化未來 `git bisect` 捉蟲難度。許多團隊規定在提 PR 前必須先 rebase main。',
     pitfalls: [
-      '🚨 REBASE 黃金禁忌：絕對不要對「已經推送到公開共享分支（如 main/master）」的提交進行 Rebase！只在自己未推送的 local 私人功能分支使用。',
+      '🚨 REBASE 黃金禁忌：絕對不要對「已經 push 到公開共享分支（如 main/master）」的提交進行 Rebase！只在自己未 push 的 local 私人功能分支使用。',
       '💡 解衝突差異：rebase 是一步步重放 commit，因此一個分支若有多個 commit 可能會需要連續解決多次衝突。'
     ]
   },
@@ -422,7 +422,7 @@ const COMMAND_GUIDES = {
         step: 2,
         cmd: 'git rebase -i HEAD~2',
         category: 'required',
-        why: '使用互動式變基將多筆零碎提交壓縮 (squash) 融合成單一語意清晰的功能節點。'
+        why: '使用互動式 rebase 將多筆零碎提交壓縮 (squash) 融合成單一語意清晰的功能節點。'
       },
       {
         step: 3,
@@ -440,13 +440,13 @@ const COMMAND_GUIDES = {
         step: 5,
         cmd: 'git rebase -i --autosquash HEAD~3',
         category: 'optional',
-        why: '變基時自動依據 fixup! 標記重排並將修補提交融合進目標節點，免除手動調整順序的繁瑣步驟。'
+        why: 'rebase 時自動依據 fixup! 標記重排並將修補提交融合進目標節點，免除手動調整順序的繁瑣步驟。'
       }
     ],
     variations: [
       {
         cmd: 'git rebase -i HEAD~n',
-        name: '互動式變基 (Interactive Rebase)',
+        name: '互動式 rebase (Interactive Rebase)',
         desc: '開啟文字選單，支援 pick（保留）、squash（壓縮）、fixup（捨棄訊息壓縮）、drop（丟棄）。',
         isPopular: true,
         popularReason: '歷史整形的瑞士刀，靈活度最高。'
@@ -461,21 +461,21 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git reset --soft HEAD~n',
         name: '懶人壓平法 (Soft Reset Squash)',
-        desc: '將 HEAD 指針往前退 n 個節點，但保留所有修改在暫存區，直接一鍵打新的 commit 即可合併。',
+        desc: '將 HEAD 指標往前退 n 個節點，但保留所有修改在暫存區，直接一鍵打新的 commit 即可合併。',
         isPopular: false
       }
     ],
     whyPopularTitle: '為什麼專業工程師提 PR 前一定要整理 Commit？',
     whyPopularContent: '未經整理的 PR 往往充斥著 "update", "fix bug", "test", "final fix" 等毫無意義的碎片提交，會大幅降低 Reviewer 的審查效率，日後線上出問題時也無法透過 commit 標題釐清因果。將相關修改融合成 1~2 個職責分明的 Commit 是資深工程師的專業體現。',
     pitfalls: [
-      '⚠️ 順序重要性：在互動式變基清單中，最上面的是最舊的 Commit，最下面的是最新的 Commit。',
+      '⚠️ 順序重要性：在互動式 rebase 清單中，最上面的是最舊的 Commit，最下面的是最新的 Commit。',
       '💡 fixup 與 squash 的差異：squash 會合併訊息，fixup 則會直接丟棄修補提交的訊息，直接沿用目標節點訊息。'
     ]
   },
 
   '06': {
     targetCommand: 'git pull --rebase origin main',
-    summary: '解決遠端他人搶先推送導致的 Non-Fast-Forward 推送被拒，將本地提交優雅嫁接至遠端最新進度之上。',
+    summary: '解決遠端他人搶先 push 導致的 Non-Fast-Forward push 被拒，將本地提交優雅嫁接至遠端最新進度之上。',
     scenarioContext: {
       role: '團隊協作開發者',
       situation: '你在本機辛勤寫完了功能，自信滿滿地敲下 git push，終端機卻爆出 [rejected - non-fast-forward]！原來是同事搶先一步把他的新進度推上了遠端 main，導致遠端版本超前了你的基準點。'
@@ -485,39 +485,39 @@ const COMMAND_GUIDES = {
         step: 1,
         cmd: 'git push origin main (觀察 rejected 錯誤)',
         category: 'required',
-        why: '理解 Git 為了避免直接覆蓋他人代碼的安全防護機制。'
+        why: '理解 Git 為了避免直接覆蓋他人程式碼的安全防護機制。'
       },
       {
         step: 2,
         cmd: 'git pull --rebase origin main',
         category: 'required',
-        why: '先拉取遠端最新代碼，並把自己的本地提交優雅嫁接在最新頂端，杜絕菱形交叉節點。'
+        why: '先 pull 遠端最新程式碼，並把自己的本地提交優雅嫁接在最新頂端，杜絕菱形交叉節點。'
       },
       {
         step: 3,
         cmd: 'git push origin main',
         category: 'required',
-        why: '本地已整合遠端且保持線性超前，再次推送順利放行！'
+        why: '本地已整合遠端且保持線性超前，再次 push 順利放行！'
       },
       {
         step: 4,
         cmd: 'git push --force-with-lease',
         category: 'optional',
-        why: '安全強制推送防線，在覆蓋前檢查遠端是否有未知新提交，若有他人進度則自動阻擋，避免誤殺隊友代碼。'
+        why: '安全強制 push 防線，在覆蓋前檢查遠端是否有未知新提交，若有他人進度則自動阻擋，避免誤殺隊友程式碼。'
       }
     ],
     variations: [
       {
         cmd: 'git pull --rebase origin <branch>',
-        name: '拉取並變基 (Pull with Rebase)',
-        desc: '先將本地新增的提交抽起，拉取遠端最新代碼，再把本地提交嫁接在最新頂端。',
+        name: 'pull 並 rebase (Pull with Rebase)',
+        desc: '先將本地新增的提交抽起，pull 遠端最新程式碼，再把本地提交嫁接在最新頂端。',
         isPopular: true,
         popularReason: '【★ 現代團隊標準規範】杜絕團隊日誌中充斥著 "Merge branch \'main\' of github.com" 垃圾節點！'
       },
       {
         cmd: 'git pull origin <branch>',
-        name: '傳統拉取 (Fetch + Merge)',
-        desc: '預設以 merge 方式拉取，若本地與遠端有分叉，會強制產生一個菱形合併節點。',
+        name: '傳統 pull (Fetch + Merge)',
+        desc: '預設以 merge 方式 pull，若本地與遠端有分叉，會強制產生一個菱形合併節點。',
         isPopular: false
       },
       {
@@ -528,8 +528,8 @@ const COMMAND_GUIDES = {
         popularReason: '團隊新手救星，防止不經意產生 merge commit。'
       }
     ],
-    whyPopularTitle: '為什麼 Git 拒絕你的推送 (rejected - non-fast-forward)？',
-    whyPopularContent: '因為在你看不到的地方，同事已經搶先推送了新 Commit，導致遠端 main 的版本超前於你開工時的基準點。Git 為了保護團隊代碼不被覆蓋，強制要求你必須先拉取遠端最新版並整合成功後，才允許推送。',
+    whyPopularTitle: '為什麼 Git 拒絕你的 push (rejected - non-fast-forward)？',
+    whyPopularContent: '因為在你看不到的地方，同事已經搶先 push 了新 Commit，導致遠端 main 的版本超前於你開工時的基準點。Git 為了保護團隊程式碼不被覆蓋，強制要求你必須先 pull 遠端最新版並整合成功後，才允許 push。',
     pitfalls: [
       '⚠️ 衝突排查：pull --rebase 遇到衝突時，請在解完衝突並 `git add` 後執行 `git rebase --continue`，切勿執行 git commit！',
       '💡 避坑指南：切勿使用 `git push --force` 強推覆蓋，這會直接抹煞同事辛苦寫好的程式碼。'
@@ -538,7 +538,7 @@ const COMMAND_GUIDES = {
 
   '07': {
     targetCommand: 'git cherry-pick <commitHash>',
-    summary: '精準摘取：在不合併整個實驗性龐大分支的前提下，單獨偷渡特定關鍵 Bugfix 提交回 main。',
+    summary: '精準 cherry-pick：在不合併整個實驗性龐大分支的前提下，單獨偷渡特定關鍵 Bugfix 提交回 main。',
     scenarioContext: {
       role: '版本維護工程師',
       situation: '你在一個巨大的實驗性分支寫了幾千行還不能發布的草稿，但過程中順手修了一個影響正式機器的嚴重資安漏洞。你不能合併整包半成品，必須單獨把那個修復提交偷渡回 main。'
@@ -560,69 +560,69 @@ const COMMAND_GUIDES = {
         step: 3,
         cmd: 'git cherry-pick <commitHash>',
         category: 'required',
-        why: '只摘取那一顆特定提交，精準複製修補到主線，完全不帶進未成熟的實驗代碼！'
+        why: '只 cherry-pick 那一顆特定提交，精準複製修補到主線，完全不帶進未成熟的實驗程式碼！'
       },
       {
         step: 4,
         cmd: 'git cherry-pick -n <commitHash>',
         category: 'optional',
-        why: '摘取套用代碼變更但保留在暫存區而不立即建立 Commit，方便微調或與其他修改合併提交。'
+        why: 'cherry-pick 套用程式碼變更但保留在暫存區而不立即建立 Commit，方便微調或與其他修改合併提交。'
       },
       {
         step: 5,
         cmd: 'git cherry-pick --abort',
         category: 'optional',
-        why: '摘取過程遭遇衝突或挑錯提交時，一鍵放棄操作並將工作區復原至挑選前的狀態。'
+        why: 'cherry-pick 過程遭遇衝突或挑錯提交時，一鍵放棄操作並將工作區復原至挑選前的狀態。'
       }
     ],
     variations: [
       {
         cmd: 'git cherry-pick <commitHash>',
-        name: '摘取單一提交',
+        name: 'cherry-pick 單一提交',
         desc: '將指定的 Commit 複製一份並重新套用在當前分支頂端，生成新 Hash。',
         isPopular: true,
         popularReason: '【★ 線上緊急救援神器】快速將 feature 或 dev 分支修好的 Hotfix 單獨搬到 production 分支！'
       },
       {
         cmd: 'git cherry-pick -n <commitHash>',
-        name: '摘取但不立即提交 (--no-commit)',
+        name: 'cherry-pick 但不立即提交 (--no-commit)',
         desc: '套用修改並直接放在暫存區，方便你在提交前繼續追加或微調程式碼。',
         isPopular: false
       },
       {
         cmd: 'git cherry-pick <hashA>..<hashB>',
-        name: '批次摘取提交區間',
-        desc: '連續摘取從 hashA 到 hashB 之間的多個提交（左開右閉）。',
+        name: '批次 cherry-pick 提交區間',
+        desc: '連續 cherry-pick 從 hashA 到 hashB 之間的多個提交（左開右閉）。',
         isPopular: false
       }
     ],
     whyPopularTitle: '什麼時候該用 cherry-pick 而不是 merge？',
     whyPopularContent: '當你在實驗性分支（例如 AI 重構版）寫了上千行尚未穩定的程式碼，但過程中順手修了一個影響正式機器的嚴重資安漏洞。若直接 merge 會把未完成的半成品一起帶上線；此時 cherry-pick 允許你只挑那顆「櫻桃」（安全修補 Commit），乾淨安全！',
     pitfalls: [
-      '⚠️ Hash 差異提醒：cherry-pick 會產生一個全新的 Commit Hash，即便代碼相同，在 Git 底層仍是不同節點。',
-      '💡 衝突應對：若被摘取的提交依賴未被摘取的代碼，會發生衝突，解決後敲 `git cherry-pick --continue` 即可。'
+      '⚠️ Hash 差異提醒：cherry-pick 會產生一個全新的 Commit Hash，即便程式碼相同，在 Git 底層仍是不同節點。',
+      '💡 衝突應對：若被 cherry-pick 的提交依賴未被 cherry-pick 的程式碼，會發生衝突，解決後敲 `git cherry-pick --continue` 即可。'
     ]
   },
 
   '08': {
     targetCommand: 'git reflog 搭配 git reset --hard HEAD@{n}',
-    summary: '起死回生：透過本地指針變更黑盒子日記 (Reflog)，拯救誤刪或 hard reset 遺失的 Commit。',
+    summary: '起死回生：透過本地指標變更黑盒子日記 (Reflog)，拯救誤刪或 hard reset 遺失的 Commit。',
     scenarioContext: {
       role: '緊急事故救援工程師',
-      situation: '糟糕！剛才手滑執行了危險的 git reset --hard，原本重要的幾次 Commit 竟然從 git log 中徹底消失了！團隊代碼難道化為烏有了嗎？你必須使用 Reflog 找回它。'
+      situation: '糟糕！剛才手滑執行了危險的 git reset --hard，原本重要的幾次 Commit 竟然從 git log 中徹底消失了！團隊程式碼難道化為烏有了嗎？你必須使用 Reflog 找回它。'
     },
     guidedSteps: [
       {
         step: 1,
         cmd: 'git reflog',
         category: 'required',
-        why: '開啟本地 HEAD 指針的黑盒子日記，找到誤刪前的那次提交 Hash。'
+        why: '開啟本地 HEAD 指標的黑盒子日記，找到誤刪前的那次提交 Hash。'
       },
       {
         step: 2,
         cmd: 'git reset --hard HEAD@{1}',
         category: 'required',
-        why: '時光倒流，將分支指針強制還原至特定動作點，找回心血代碼！'
+        why: '時光倒流，將分支指標強制還原至特定動作點，找回心血程式碼！'
       },
       {
         step: 3,
@@ -635,7 +635,7 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git reflog',
         name: '查看引用日誌 (Reference Log)',
-        desc: '記錄本地 HEAD 指針過去所有移動歷史（包含 checkout, reset, commit, rebase）。',
+        desc: '記錄本地 HEAD 指標過去所有移動歷史（包含 checkout, reset, commit, rebase）。',
         isPopular: true,
         popularReason: '【★ Git 最後防線】哪怕打錯了 reset --hard，只要 Commit 曾存在過，99% 都能在 reflog 找回！'
       },
@@ -655,10 +655,10 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '為什麼 Git 裡的東西幾乎永遠「死不透」？',
-    whyPopularContent: 'Git 是一個追加型（append-only）的內容定址資料庫。當你執行 `git reset --hard` 時，Git 只是移動了分支指針，原本的 Commit 物件依然完整保存在 `.git/objects/` 內。只要垃圾回收（GC）尚未執行（通常保留 30~90 天），`reflog` 就能帶你找回它的 SHA-1 Hash！',
+    whyPopularContent: 'Git 是一個追加型（append-only）的內容定址資料庫。當你執行 `git reset --hard` 時，Git 只是移動了分支指標，原本的 Commit 物件依然完整保存在 `.git/objects/` 內。只要垃圾回收（GC）尚未執行（通常保留 30~90 天），`reflog` 就能帶你找回它的 SHA-1 Hash！',
     pitfalls: [
-      '⚠️ 本機專屬限制：`git reflog` 僅記錄「你這台電腦」上的本地操作，不會被 push 到遠端倉庫。',
-      '💡 唯一無法挽回的例外：若修改「從未被 git add 或 git commit 過」就直接執行了硬重設，該代碼將無法透過 Git 救回。'
+      '⚠️ 本機專屬限制：`git reflog` 僅記錄「你這台電腦」上的本地操作，不會被 push 到遠端 repo。',
+      '💡 唯一無法挽回的例外：若修改「從未被 git add 或 git commit 過」就直接執行了硬重設，該程式碼將無法透過 Git 救回。'
     ]
   },
 
@@ -706,7 +706,7 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git worktree list',
         name: '列出所有活躍的 Worktree 目錄',
-        desc: '查看當前倉庫掛載的所有實體工作目錄位置與所在分支。',
+        desc: '查看當前 repo 掛載的所有實體工作目錄位置與所在分支。',
         isPopular: true,
         popularReason: '隨時掌握目前有哪些工作區處於開啟狀態。'
       },
@@ -796,7 +796,7 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '面對 500 個提交，二分法有多可怕？',
-    whyPopularContent: '若一個 Bug 是在過去一個月內某個時間點引入的，中間有 500 次 Commit。如果手動逐個測試需要測 500 次；但使用 `git bisect` 二分搜尋（2^9 = 512），你最多只需要測試 9 次就能百分之百精確鎖定引發 Bug 的那行代碼！',
+    whyPopularContent: '若一個 Bug 是在過去一個月內某個時間點引入的，中間有 500 次 Commit。如果手動逐個測試需要測 500 次；但使用 `git bisect` 二分搜尋（2^9 = 512），你最多只需要測試 9 次就能百分之百精確鎖定引發 Bug 的那行程式碼！',
     pitfalls: [
       '⚠️ 容易忘記 reset：二分搜尋結束後一定要執行 `git bisect reset`，否則會持續停留在 Detached HEAD 狀態。',
       '💡 測試要客觀：確保每次測試時的環境一致，若某個提交因其他編譯問題無法測試，可輸入 `git bisect skip` 跳過。'
@@ -805,10 +805,10 @@ const COMMAND_GUIDES = {
 
   '11': {
     targetCommand: 'git config core.hooksPath .githooks',
-    summary: '守門神器：將 Git Hooks 納入專案版本控管全團隊共享，自動攔截機密金鑰並把關代碼品質。',
+    summary: '守門神器：將 Git Hooks 納入專案版本控管全團隊共享，自動攔截機密金鑰並把關程式碼品質。',
     scenarioContext: {
       role: 'DevOps / 資安工程師',
-      situation: '為了防止工程師不小心把 AWS 密鑰或包含敏感詞（如 CONFIDENTIAL）的代碼推到公開倉庫，你需要在 git commit 的當下設立第一道自動化守門員防線。'
+      situation: '為了防止工程師不小心把 AWS 密鑰或包含敏感詞（如 CONFIDENTIAL）的程式碼推到公開 repo，你需要在 git commit 的當下設立第一道自動化守門員防線。'
     },
     guidedSteps: [
       {
@@ -859,7 +859,7 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '為什麼預設的 .git/hooks 無法在團隊中共享？',
-    whyPopularContent: '因為 `.git` 資料夾本身的內容不會被 Git 版本控制，也不會隨 `git push` 同步給他人。如果將防守腳本放在 `.git/hooks`，每個新進同仁都得手動複製一次。使用 `git config core.hooksPath .githooks` 能將防線代碼直接納入 Git Repo，達成自動化標準品管。',
+    whyPopularContent: '因為 `.git` 資料夾本身的內容不會被 Git 版本控制，也不會隨 `git push` 同步給他人。如果將防守腳本放在 `.git/hooks`，每個新進同仁都得手動複製一次。使用 `git config core.hooksPath .githooks` 能將防線程式碼直接納入 Git Repo，達成自動化標準品管。',
     pitfalls: [
       '⚠️ 腳本退出碼：pre-commit 腳本若 `exit 1`（非 0），Git 會立刻中斷 commit；`exit 0` 才允許放行。',
       '💡 避坑指南：非到萬不得已切勿濫用 `--no-verify`，這等於關閉團隊的安全氣囊。'
@@ -868,9 +868,9 @@ const COMMAND_GUIDES = {
 
   '12': {
     targetCommand: 'git add -p shopping.py',
-    summary: '精準原子暫存：以代碼塊 (Hunk) 為單位逐一審查暫存，實現乾淨純粹的單一職責原子提交。',
+    summary: '精準原子暫存：以程式碼區塊 (Hunk) 為單位逐一審查暫存，實現乾淨純粹的單一職責原子提交。',
     scenarioContext: {
-      role: '代碼潔癖架構師',
+      role: '程式碼潔癖架構師',
       situation: '你在同一個檔案裡改了兩處邏輯：一處是修復折扣計算，另一處是幣別顯示。前輩要求拆成獨立提交。如果直接 git add . 會混雜無關改動，需要用 git add -p 組織單一職責的原子提交。'
     },
     guidedSteps: [
@@ -878,7 +878,7 @@ const COMMAND_GUIDES = {
         step: 1,
         cmd: 'git add -p shopping.py',
         category: 'required',
-        why: '以代碼塊 (Hunk) 為單位逐一審核，輸入 y 暫存折扣修復區塊，輸入 n 略過其他變更。'
+        why: '以程式碼區塊 (Hunk) 為單位逐一審核，輸入 y 暫存折扣修復區塊，輸入 n 略過其他變更。'
       },
       {
         step: 2,
@@ -890,13 +890,13 @@ const COMMAND_GUIDES = {
         step: 3,
         cmd: 'git diff --staged',
         category: 'optional',
-        why: '檢視暫存區與最新提交之間的代碼差異，確認即將提交的內容精確無誤。'
+        why: '檢視暫存區與最新提交之間的程式碼差異，確認即將提交的內容精確無誤。'
       },
       {
         step: 4,
         cmd: 'git diff -w',
         category: 'optional',
-        why: '比對工作目錄變更時忽略所有空白與縮排，專注於實質代碼邏輯變更。'
+        why: '比對工作目錄變更時忽略所有空白與縮排，專注於實質程式碼邏輯變更。'
       }
     ],
     variations: [
@@ -922,7 +922,7 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '為什麼優秀工程師堅持「原子提交 (Atomic Commit)」？',
-    whyPopularContent: '如果你在開發新功能的過程中，順手重構了幾行代碼、修了一個無關的小 typo、還留了幾個 debug log。若直接 `git add .` 整包推上去，一旦新功能出事需要 revert，無辜的重構與 typo 修復也會一起被回滾。`git add -p` 能讓你將改動拆解成乾淨獨立的小提交。',
+    whyPopularContent: '如果你在開發新功能的過程中，順手重構了幾行程式碼、修了一個無關的小 typo、還留了幾個 debug log。若直接 `git add .` 整包推上去，一旦新功能出事需要 revert，無辜的重構與 typo 修復也會一起被 revert。`git add -p` 能讓你將改動拆解成乾淨獨立的小提交。',
     pitfalls: [
       '⚠️ 區塊太黏怎麼辦：若想暫存的改動與不想暫存的改動緊挨在一起，可以在提示符輸入 `s`（split）將區塊拆細。',
       '💡 按鍵速查：y = stage this hunk; n = do not stage; q = quit; ? = 顯示所有選項幫助。'
@@ -973,7 +973,7 @@ const COMMAND_GUIDES = {
       },
       {
         cmd: 'git rm -r --cached .',
-        name: '全倉庫重新應用 .gitignore',
+        name: '全 repo 重新應用 .gitignore',
         desc: '暫時移除所有檔案追蹤，接著重新 git add .，讓新改寫的 .gitignore 全面生效。',
         isPopular: true,
         popularReason: '修補大量忽略規則時的最常用組合拳。'
@@ -995,7 +995,7 @@ const COMMAND_GUIDES = {
 
   '14': {
     targetCommand: 'git revert -m 1 HEAD',
-    summary: '線上緊急回滾：解救生產事故，向前推進產生反轉提交，安全復原已合併的 Pull Request。',
+    summary: '線上緊急 revert：解救生產事故，向前推進產生反轉提交，安全復原已合併的 Pull Request。',
     scenarioContext: {
       role: '線上值班負責人',
       situation: '五分鐘前剛合併進 main 的重大 PR 在正式機引發嚴重當機事故！在團隊協作的共享分支上，嚴禁使用危險的 reset --hard + force push，必須用安全向前推進的方式撤銷 PR。'
@@ -1011,7 +1011,7 @@ const COMMAND_GUIDES = {
         step: 2,
         cmd: 'git revert -m 1 HEAD',
         category: 'required',
-        why: '以主線第一親代為基準反轉合併變更，生成向前推進的安全回滾提交。'
+        why: '以主線第一親代為基準反轉合併變更，生成向前推進的安全 revert commit。'
       },
       {
         step: 3,
@@ -1023,37 +1023,37 @@ const COMMAND_GUIDES = {
     variations: [
       {
         cmd: 'git revert -m 1 <MergeCommitHash>',
-        name: '回滾 Merge Commit (指定主線第一親代)',
+        name: 'revert Merge Commit (指定主線第一親代)',
         desc: '產生一個新的提交，將特定 Merge Commit 引入的變更全部反轉撤銷，且不破壞歷史。',
         isPopular: true,
-        popularReason: '【★ 正式機線上事故標準 SOP】保留完整審計歷史，團隊成員無需重整本地代碼！'
+        popularReason: '【★ 正式機線上事故標準 SOP】保留完整審計歷史，團隊成員無需重整本地程式碼！'
       },
       {
         cmd: 'git revert <普通CommitHash>',
-        name: '回滾單親普通提交',
-        desc: '不需要 -m 參數，直接反轉普通單親提交的代碼變動。',
+        name: 'revert 單親普通 commit',
+        desc: '不需要 -m 參數，直接反轉普通單親提交的程式碼變動。',
         isPopular: true,
-        popularReason: '日常回滾單一錯誤提交的首選。'
+        popularReason: '日常 revert 單一錯誤 commit 的首選。'
       },
       {
         cmd: 'git revert --no-edit <CommitHash>',
         name: '沿用預設反轉提交訊息',
-        desc: '跳過文字編輯器確認步驟，直接以預設 Revert 訊息產生回滾提交。',
+        desc: '跳過文字編輯器確認步驟，直接以預設 Revert 訊息產生 revert commit。',
         isPopular: true,
-        popularReason: 'CI/CD 自動化或緊急快速回滾時省去編輯器互動。'
+        popularReason: 'CI/CD 自動化或緊急快速 revert 時省去編輯器互動。'
       }
     ],
-    whyPopularTitle: '為什麼回滾 Merge PR 必須加上 -m 1 ？',
+    whyPopularTitle: '為什麼 revert Merge PR 必須加上 -m 1 ？',
     whyPopularContent: '普通提交只有一個 Parent（父親），但 Merge Commit 擁有兩個 Parent：Parent 1 是合併前的主線（main），Parent 2 是被合併進來的功能分支（feature）。Git 不知道你想以誰為基準進行反轉，因此 `-m 1` 明確指定「以 Parent 1 主線為基準，將 Parent 2 的改動全部消除」。',
     pitfalls: [
-      '⚠️ 未來重新合併的陷阱：被 revert 過的分支未來若想再次合入 main，直接合會發現代碼被視為已刪除，需先 revert 該 revert commit。',
+      '⚠️ 未來重新合併的陷阱：被 revert 過的分支未來若想再次合入 main，直接合會發現程式碼被視為已刪除，需先 revert 該 revert commit。',
       '💡 絕不要在線上 force push：線上正式環境嚴禁使用 `git reset --hard` + `git push --force`，會導致全團隊歷史錯亂。'
     ]
   },
 
   '15': {
     targetCommand: 'git tag -a v1.0.0 -m "Release v1.0.0"',
-    summary: '版本里程碑：建立附註標籤 (Annotated Tag)，綁定發布節點並推送到遠端釋出 Release。',
+    summary: '版本里程碑：建立附註標籤 (Annotated Tag)，綁定發布節點並 push 到遠端釋出 Release。',
     scenarioContext: {
       role: 'Release 負責人',
       situation: '系統完成 v1.0.0 正式里程碑！你需要為當前的穩定 Commit 貼上正式的發布標籤，並為過往里程碑補簽版號，讓 CI/CD 觸發自動建置並供用戶下載。'
@@ -1087,7 +1087,7 @@ const COMMAND_GUIDES = {
         step: 5,
         cmd: 'git push origin --tags',
         category: 'optional',
-        why: '將本地建立的所有版本標籤一次性同步推送至遠端倉庫。'
+        why: '將本地建立的所有版本標籤一次性同步 push 至遠端 repo。'
       }
     ],
     variations: [
@@ -1114,28 +1114,28 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git tag <標籤名>',
         name: '輕量標籤 (Lightweight Tag)',
-        desc: '不帶額外訊息，僅僅是某個 Commit 的不可變別名指針。',
+        desc: '不帶額外訊息，僅僅是某個 Commit 的不可變別名指標。',
         isPopular: false
       },
       {
         cmd: 'git push origin --tags',
-        name: '推送所有本地標籤至遠端',
-        desc: '將本地建立的版本標籤同步發布到遠端倉庫。',
+        name: 'push 所有本地標籤至遠端',
+        desc: '將本地建立的版本標籤同步發布到遠端 repo。',
         isPopular: true,
-        popularReason: '平常 git push 不會主動推送 tags，必須加上此參數。'
+        popularReason: '平常 git push 不會主動 push tags，必須加上此參數。'
       }
     ],
     whyPopularTitle: '語意化版本號 (SemVer) 的重要性',
     whyPopularContent: '現代軟體開發普遍遵循 `vMAJOR.MINOR.PATCH`（例如 v1.2.3）：MAJOR 代表破壞性重大升級 (Breaking Change)，MINOR 代表向下相容的新功能，PATCH 代表向下相容的 Bug 修復。搭配 Git Tag 能讓團隊與使用者清楚掌握每次改版幅度。',
     pitfalls: [
-      '⚠️ 預設不推送：執行 `git push` 時，預設不會推送標籤！必須打 `git push origin <tag>` 或 `git push origin --tags`。',
+      '⚠️ 預設不 push：執行 `git push` 時，預設不會 push 標籤！必須打 `git push origin <tag>` 或 `git push origin --tags`。',
       '💡 刪除遠端標籤手勢：若標籤打錯，可打 `git tag -d <tag>` 刪除本地，再打 `git push origin :refs/tags/<tag>` 刪除遠端。'
     ]
   },
 
   '16': {
     targetCommand: 'git log -S "CRITICAL_SECRET_TOKEN" --oneline',
-    summary: '代碼考古學：使用鶴嘴鎬 (Pickaxe) 精準搜尋特定函式或變數在何時被新增或移除，搭配 blame 追查責任。',
+    summary: '程式碼考古學：使用鶴嘴鎬 (Pickaxe) 精準搜尋特定函式或變數在何時被新增或移除，搭配 blame 追查責任。',
     scenarioContext: {
       role: '架構考古學家',
       situation: '一個關鍵的加密密鑰變數突然找不到了！如果用普通搜尋會搜到大量排版變動的雜訊。你需要精準揪出到底是在哪一次提交中被真正引入或刪除的。'
@@ -1151,7 +1151,7 @@ const COMMAND_GUIDES = {
         step: 2,
         cmd: 'git blame db.js',
         category: 'required',
-        why: '逐行追溯檔案中每行代碼的最後修改者、提交 Hash 與修改時間。'
+        why: '逐行追溯檔案中每行程式碼的最後修改者、提交 Hash 與修改時間。'
       },
       {
         step: 3,
@@ -1179,7 +1179,7 @@ const COMMAND_GUIDES = {
         name: '逐行責任追查 (Git Blame)',
         desc: '列出指定行數範圍內每一行的最後修改者、Commit Hash 與修改日期。',
         isPopular: true,
-        popularReason: '了解一段奇怪代碼當初撰寫時的上下文背景。'
+        popularReason: '了解一段奇怪程式碼當初撰寫時的上下文背景。'
       },
       {
         cmd: 'git log --oneline --graph',
@@ -1191,12 +1191,12 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git log -p <檔案名稱>',
         name: '檢視單一檔案完整修補歷史',
-        desc: '逐一展開該檔案自誕生以來每次提交的詳細代碼差異 (Diff)。',
+        desc: '逐一展開該檔案自誕生以來每次提交的詳細程式碼差異 (Diff)。',
         isPopular: false
       }
     ],
     whyPopularTitle: 'git log -S 與普通搜尋有何根本不同？',
-    whyPopularContent: '一般的文字搜尋（如 `git log --grep`）只會搜尋 Commit 的「訊息標題與內文」；而 `git log -S` 則是深入檢查「代碼補丁內容 (Diff)」，且它只在該字串的「出現次數發生改變」時才匹配！這意味著如果有人只是重新排版整份文件，-S 不會誤報，只會精準命中真正新增或刪除該字串的那一刻。',
+    whyPopularContent: '一般的文字搜尋（如 `git log --grep`）只會搜尋 Commit 的「訊息標題與內文」；而 `git log -S` 則是深入檢查「程式碼 patch 內容 (Diff)」，且它只在該字串的「出現次數發生改變」時才匹配！這意味著如果有人只是重新排版整份檔案，-S 不會誤報，只會精準命中真正新增或刪除該字串的那一刻。',
     pitfalls: [
       '⚠️ Blame 的心態：Git Blame 的初衷不是為了推卸責任，而是為了找到當時修改的人請教該邏輯的設計背景。',
       '💡 忽略排版：在執行 blame 時加上 `-w` 可以自動忽略純粹的空白排版變動。'
@@ -1227,7 +1227,7 @@ const COMMAND_GUIDES = {
         step: 3,
         cmd: 'git rerere diff',
         category: 'optional',
-        why: '檢視當前工作目錄衝突狀態與 rerere 已記錄解決方案之間的代碼差異。'
+        why: '檢視當前工作目錄衝突狀態與 rerere 已記錄解決方案之間的程式碼差異。'
       },
       {
         step: 4,
@@ -1239,8 +1239,8 @@ const COMMAND_GUIDES = {
     variations: [
       {
         cmd: 'git config rerere.enabled true',
-        name: '開啟當前倉庫 Rerere',
-        desc: 'Git 會在背後悄悄記錄你每次解決衝突時的前後代碼指紋與解決方案。',
+        name: '開啟當前 repo Rerere',
+        desc: 'Git 會在背後悄悄記錄你每次解決衝突時的前後程式碼指紋與解決方案。',
         isPopular: true,
         popularReason: '【★ 長期 Rebase 救星】下次再遇到相同衝突時，Git 在 0 秒內全自動套用解法！'
       },
@@ -1303,7 +1303,7 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git commit --amend -m "新訊息"',
         name: '修改最後一筆 Commit 訊息',
-        desc: '不改代碼，純粹修正最新提交的打字錯誤 (Typo) 或補充說明。',
+        desc: '不改程式碼，純粹修正最新提交的打字錯誤 (Typo) 或補充說明。',
         isPopular: true,
         popularReason: '打錯標題時的快速救星。'
       },
@@ -1316,9 +1316,9 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '為什麼不能直接再 push 一個 "fix typo" commit？',
-    whyPopularContent: '頻繁產生 "fix typo", "oops forgotten file" 等補丁提交會污染歷史，讓未來的 `git log` 與 PR Review 充滿噪音。善用 `git commit --amend` 能讓最後一次提交保持原子性與完整性。',
+    whyPopularContent: '頻繁產生 "fix typo", "oops forgotten file" 等 patch commit 會污染歷史，讓未來的 `git log` 與 PR Review 充滿噪音。善用 `git commit --amend` 能讓最後一次提交保持原子性與完整性。',
     pitfalls: [
-      '🚨 已推送到遠端時請謹慎：`--amend` 會產生全新 Hash，若該提交已經 push 到遠端，再次推送需要 force push，可能影響正在依賴它的同事。',
+      '🚨 已 push 到遠端時請謹慎：`--amend` 會產生全新 Hash，若該提交已經 push 到遠端，再次 push 需要 force push，可能影響正在依賴它的同事。',
       '💡 本地修改隨意用：在提交尚未 push 上遠端之前，隨時都可以安全地 amend。'
     ]
   },
@@ -1353,7 +1353,7 @@ const COMMAND_GUIDES = {
         step: 4,
         cmd: 'git stash show -p',
         category: 'optional',
-        why: '以補丁差異格式詳細檢視暫存堆疊中最頂層的程式碼改動細節。'
+        why: '以 patch 差異格式詳細檢視暫存堆疊中最頂層的程式碼改動細節。'
       },
       {
         step: 5,
@@ -1379,8 +1379,8 @@ const COMMAND_GUIDES = {
       },
       {
         cmd: 'git stash show -p',
-        name: '檢視最新暫存補丁差異',
-        desc: '以完整 Diff 補丁格式展開暫存堆疊頂層修改的每行代碼細節。',
+        name: '檢視最新暫存 patch 差異',
+        desc: '以完整 Diff patch 格式展開暫存堆疊頂層修改的每行程式碼細節。',
         isPopular: true,
         popularReason: '在 pop 還原前確認暫存內容是否符合預期的最佳方式。'
       },
@@ -1416,7 +1416,7 @@ const COMMAND_GUIDES = {
     targetCommand: 'git clean -fd',
     summary: '乾淨俐落：強制清理工作目錄中所有未受控的臨時檔與垃圾目錄，搭配 -n 乾跑預覽防手滑。',
     scenarioContext: {
-      role: '代碼整潔專家',
+      role: '程式碼整潔專家',
       situation: '專案進行模組重構，需要更名核心檔案；同時本地測試留下了大量未受控的臨時檔與垃圾目錄需要徹底大掃除。'
     },
     guidedSteps: [
@@ -1471,14 +1471,14 @@ const COMMAND_GUIDES = {
     whyPopularTitle: '為什麼不能直接在檔案總管手動刪除或更名？',
     whyPopularContent: '若手動更名檔案，Git 在 status 裡可能會顯示為「刪除 old.js」與「新增 new.js」，導致部分歷史連貫性失真；使用 `git mv` 能讓 Git 直接辨識出更名動作。而當本地殘留大量未追蹤的編譯暫存檔時，手動挑選極易漏網，`git clean -fd` 能瞬間還原無瑕狀態。',
     pitfalls: [
-      '🚨 永遠無法救回警告：`git clean` 刪除的是未追蹤檔案，這些檔案從未進入過 Git 倉庫，因此無法透過 reflog 救回！',
+      '🚨 永遠無法救回警告：`git clean` 刪除的是未追蹤檔案，這些檔案從未進入過 Git repo，因此無法透過 reflog 救回！',
       '💡 避坑原則：養成習慣先打 `git clean -nd` 看清楚名單，確認沒有誤刪未存檔的重要程式碼，再打 `-fd`。'
     ]
   },
 
   '21': {
     targetCommand: 'git fetch upstream',
-    summary: '遠端全貌：安全拉取遠端最新節點與分支歷史，不觸動本地分支與工作目錄，安心比對審核。',
+    summary: '遠端全貌：安全 pull 遠端最新節點與分支歷史，不觸動本地分支與工作目錄，安心比對審核。',
     scenarioContext: {
       role: '開源專案貢獻者',
       situation: '你 Fork 了一個開源專案，需要新增官方 upstream 遠端節點。此時遠端有了新提交，你想先看清楚他人改了什麼，而不是盲目 pull 引發衝突。'
@@ -1488,13 +1488,13 @@ const COMMAND_GUIDES = {
         step: 1,
         cmd: 'git remote add upstream https://github.com/corp/upstream.git',
         category: 'required',
-        why: '新增上游官方倉庫的遠端關聯，建立協作同步來源。'
+        why: '新增上游官方 repo 的遠端關聯，建立協作同步來源。'
       },
       {
         step: 2,
         cmd: 'git fetch upstream',
         category: 'required',
-        why: '安全抓取上游最新提交與分支指針，不改動本地工作目錄與現有分支。'
+        why: '安全抓取上游最新提交與分支指標，不改動本地工作目錄與現有分支。'
       },
       {
         step: 3,
@@ -1506,20 +1506,20 @@ const COMMAND_GUIDES = {
         step: 4,
         cmd: 'git remote -v',
         category: 'optional',
-        why: '詳細列出當前所有已設定的遠端倉庫名稱與對應的 Fetch/Push 網址。'
+        why: '詳細列出當前所有已設定的遠端 repo 名稱與對應的 Fetch/Push 網址。'
       },
       {
         step: 5,
         cmd: 'git fetch --prune',
         category: 'optional',
-        why: '抓取遠端時同步清除本地快取中已被遠端刪除的失效分支指針。'
+        why: '抓取遠端時同步清除本地快取中已被遠端刪除的失效分支指標。'
       }
     ],
     variations: [
       {
         cmd: 'git fetch origin',
         name: '安全抓取遠端更新',
-        desc: '僅下載遠端最新的 Commit、分支與標籤至本地的 origin/* 快取，絕不自動合併或改動你的代碼。',
+        desc: '僅下載遠端最新的 Commit、分支與標籤至本地的 origin/* 快取，絕不自動合併或改動你的程式碼。',
         isPopular: true,
         popularReason: '【★ 資深開發者最愛】安全第一！先抓下來慢慢看 diff，確認無誤再手動合併。'
       },
@@ -1532,7 +1532,7 @@ const COMMAND_GUIDES = {
       },
       {
         cmd: 'git remote -v',
-        name: '檢視遠端倉庫詳細網址',
+        name: '檢視遠端 repo 詳細網址',
         desc: '列出當前 origin 對應的 fetch 與 push 網址。',
         isPopular: true,
         popularReason: '確認遠端連線目標必打。'
@@ -1541,17 +1541,17 @@ const COMMAND_GUIDES = {
     whyPopularTitle: 'git fetch vs git pull 的根本哲學差異',
     whyPopularContent: '`git pull` 本質上就是偷懶的 `git fetch + git merge`（或 rebase）。當你對遠端進度一無所知時，直接敲 `git pull` 很可能瞬間引發意外衝突；而 `git fetch` 只是把遠端最新資訊下載下來，你可以從容地執行 `git log HEAD..origin/main` 審閱他人變更，決定何時整合。',
     pitfalls: [
-      '⚠️ fetch 完代碼沒變是正常的：很多人打完 fetch 發現本地檔案沒更新以為失敗了，請記得 fetch 只更新遠端追蹤指針，需手動 merge 或 rebase 才會套用。',
+      '⚠️ fetch 完程式碼沒變是正常的：很多人打完 fetch 發現本地檔案沒更新以為失敗了，請記得 fetch 只更新遠端追蹤指標，需手動 merge 或 rebase 才會套用。',
       '💡 查看差異神技：打完 fetch 後，可輸入 `git diff main origin/main` 查看本地主線與遠端最新版的完整差異。'
     ]
   },
 
   '22': {
     targetCommand: 'git branch feature/oauth && git reset --hard HEAD~2',
-    summary: '移花接木：不小心把功能直接寫在 main 並提交了？用指針平移救星將 Commit 移駕新分支並恢復主線。',
+    summary: '移花接木：不小心把功能直接寫在 main 並提交了？用指標平移救星將 Commit 移駕新分支並恢復主線。',
     scenarioContext: {
       role: '恍神救星工程師',
-      situation: '高見龍老師書中超經典狀況題！寫得太順手忘了開分支，直接在 main 上面敲了 2 個功能提交！如何不傷及代碼的前提下，把這 2 個提交移到新分支並把 main 退回原狀？'
+      situation: '高見龍老師書中超經典狀況題！寫得太順手忘了開分支，直接在 main 上面敲了 2 個功能提交！如何不傷及程式碼的前提下，把這 2 個提交移到新分支並把 main 退回原狀？'
     },
     guidedSteps: [
       {
@@ -1564,7 +1564,7 @@ const COMMAND_GUIDES = {
         step: 2,
         cmd: 'git reset --hard HEAD~2',
         category: 'required',
-        why: '將 main 分支指針強制退回前兩個版本，使主線迅速恢復純淨狀態。'
+        why: '將 main 分支指標強制退回前兩個版本，使主線迅速恢復純淨狀態。'
       },
       {
         step: 3,
@@ -1576,20 +1576,20 @@ const COMMAND_GUIDES = {
         step: 4,
         cmd: 'git reset --soft HEAD~1',
         category: 'optional',
-        why: '撤銷最近一次提交但將所有代碼改動完整保留在暫存區，便於重新組織 Commit。'
+        why: '撤銷最近一次提交但將所有程式碼改動完整保留在暫存區，便於重新組織 Commit。'
       }
     ],
     variations: [
       {
         cmd: 'git branch <新分支名稱>',
-        name: '原處開出新分支保全代碼',
+        name: '原處開出新分支保全程式碼',
         desc: '在當前 HEAD 位置直接標記一個新分支名稱，牢牢抓住這個誤寫的 Commit。',
         isPopular: true,
-        popularReason: '【★ 救援第一步】先建分支錨定當前位置，絕不丟失代碼！'
+        popularReason: '【★ 救援第一步】先建分支錨定當前位置，絕不丟失程式碼！'
       },
       {
         cmd: 'git reset --hard HEAD~1 (或指定穩定Hash)',
-        name: '將 main 指針向後倒退',
+        name: '將 main 指標向後倒退',
         desc: '將當前所在分支（main）強制退回誤提交前的穩定節點。',
         isPopular: true,
         popularReason: '讓 main 回歸乾淨穩定狀態。'
@@ -1597,9 +1597,9 @@ const COMMAND_GUIDES = {
       {
         cmd: 'git reset --soft HEAD~1',
         name: '軟重設（撤銷提交保留暫存）',
-        desc: '將分支指針退回上一版本，但將所有修改保留在暫存區，方便重新拆分或修改提交。',
+        desc: '將分支指標退回上一版本，但將所有修改保留在暫存區，方便重新拆分或修改提交。',
         isPopular: true,
-        popularReason: '【★ 重整提交首選】撤銷最後一次 Commit 同時完好保全所有寫好的代碼！'
+        popularReason: '【★ 重整提交首選】撤銷最後一次 Commit 同時完好保全所有寫好的程式碼！'
       },
       {
         cmd: 'git switch <新分支名稱>',
@@ -1609,11 +1609,11 @@ const COMMAND_GUIDES = {
         popularReason: '平移完成後的開發接軌手勢。'
       }
     ],
-    whyPopularTitle: '為什麼這個指針技巧是每個工程師必備的肌肉記憶？',
+    whyPopularTitle: '為什麼這個指標技巧是每個工程師必備的肌肉記憶？',
     whyPopularContent: '在真實工作中，90% 的人都曾恍神「忘記開分支，直接在 main 上面敲了 git commit」。許多人手忙腳亂地開始複製貼上備份檔案。其實 Git 的分支本質上只是一個「貼紙（指標）」！只要在原地貼上新分支貼紙，再把 main 貼紙撕下來貼回前一個節點，10 秒內毫髮無傷化解危機！',
     pitfalls: [
       '🚨 順序不可顛倒：務必先執行 `git branch <new>` 錨定住 Commit，然後才執行 reset；如果先執行了 reset --hard，該 Commit 就會變成孤兒節點（需靠 reflog 找回）。',
-      '💡 適用情境：此操作適用於該 Commit 尚未被推送到遠端共享 main 的情況。'
+      '💡 適用情境：此操作適用於該 Commit 尚未被 push 到遠端共享 main 的情況。'
     ]
   },
 
@@ -1674,10 +1674,10 @@ const COMMAND_GUIDES = {
       }
     ],
     whyPopularTitle: '揭開 Git 的神秘面紗：本質就是一個內容定址鍵值資料庫！',
-    whyPopularContent: 'Git 的底層設計極其優雅簡單：Blob 代表檔案內容（不含檔名）；Tree 代表資料夾結構（紀錄檔名與對應的 Blob/Tree Hash）；Commit 代表一個版本快照，包含指向特定 Tree 的指針、父節點 Hash、作者與提交訊息。所有資料都以 SHA-1 Hash 作為 Key，儲存在 `.git/objects/` 中！',
+    whyPopularContent: 'Git 的底層設計極其優雅簡單：Blob 代表檔案內容（不含檔名）；Tree 代表資料夾結構（紀錄檔名與對應的 Blob/Tree Hash）；Commit 代表一個版本快照，包含指向特定 Tree 的指標、父節點 Hash、作者與提交訊息。所有資料都以 SHA-1 Hash 作為 Key，儲存在 `.git/objects/` 中！',
     pitfalls: [
       '⚠️ 檔名不屬於 Blob：Blob 只存檔案的內容，完全不記錄檔案名稱！這就是為什麼兩個不同路徑、不同檔名的檔案若內容完全相同，在 Git 裡只會共用同一個 Blob 物件。',
-      '💡 只要前 4~6 碼即可：在查詢 Hash 時，通常只需輸入前 4 到 6 位字元，只要在倉庫中不重複，Git 就能精確識別。'
+      '💡 只要前 4~6 碼即可：在查詢 Hash 時，通常只需輸入前 4 到 6 位字元，只要在 repo 中不重複，Git 就能精確識別。'
     ]
   }
 };

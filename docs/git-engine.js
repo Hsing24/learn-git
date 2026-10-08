@@ -169,7 +169,7 @@ class VirtualGit {
       }
       return {
         code: 0,
-        output: `[模擬互動暫存 (Patch Mode)]\n已將 ${targetFile} 中選定的代碼塊 (Hunk 1) 移入暫存區 (Staged)。\n剩餘改動 (Hunk 2) 仍保留在工作區未暫存。`,
+        output: `[模擬互動暫存 (Patch Mode)]\n已將 ${targetFile} 中選定的程式碼區塊 (Hunk 1) 移入暫存區 (Staged)。\n剩餘改動 (Hunk 2) 仍保留在工作區未暫存。`,
         isPatchPrompt: true,
         file: targetFile
       };
@@ -235,7 +235,7 @@ class VirtualGit {
         if (/PRIVATE_KEY|AWS_SECRET|API_TOKEN/i.test(content)) {
           return {
             code: 1,
-            output: `🔍 正在執行 pre-commit 程式碼安全檢查...\n❌ [安全警報] 檢測到暫存代碼中包含敏感金鑰 (PRIVATE_KEY / AWS_SECRET / API_TOKEN)！\n🚨 Git Hook 已攔截此次提交，請移至環境變數 (.env) 後重試。\ncommit failed.`
+            output: `🔍 正在執行 pre-commit 程式碼安全檢查...\n❌ [安全警報] 檢測到暫存程式碼中包含敏感金鑰 (PRIVATE_KEY / AWS_SECRET / API_TOKEN)！\n🚨 Git Hook 已攔截此次提交，請移至環境變數 (.env) 後重試。\ncommit failed.`
           };
         }
       }
