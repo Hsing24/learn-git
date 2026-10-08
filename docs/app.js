@@ -1327,6 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.executeLabCommand = (cmd) => executeCommand(cmd);
+  window.loadScenario = (idx) => loadScenario(idx);
   window.openCheatsheet = () => {
     const m = document.getElementById('cheatsheet-modal');
     if (m) m.style.display = 'flex';
