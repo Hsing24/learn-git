@@ -71,12 +71,23 @@
           <div class="control-dot dot-yellow"></div>
           <div class="control-dot dot-green"></div>
         </div>
-        <div class="terminal-title">bash — ~/learn-git/workspace (Virtual Git Terminal)</div>
-        <div style="width: 48px;"></div>
+        <div class="terminal-title">bash: ~/learn-git/workspace (Virtual Git Terminal)</div>
+        <div class="terminal-hotkey-badge">快捷鍵: <kbd>Ctrl+N</kbd> 下一關</div>
       </div>
 
       <!-- Output Scroll Area -->
       <div id="terminal-output" class="terminal-output"></div>
+
+      <!-- In-Terminal Completion Action Bar -->
+      <div id="terminal-next-bar" class="terminal-next-bar" style="display: none;">
+        <div class="next-bar-status">
+          <span class="next-check-icon">✔</span>
+          <span id="next-bar-msg">關卡目標已達成！</span>
+        </div>
+        <button id="btn-next-scenario" class="btn-terminal-advance" onclick="nextScenario()">
+          前往下一關 ➜ <span class="kbd-badge">Ctrl+N</span>
+        </button>
+      </div>
 
       <!-- Command Prompt & Input -->
       <div class="terminal-input-bar">
@@ -90,17 +101,21 @@
           autocapitalize="off"
           spellcheck="false"
           autofocus
-          placeholder="輸入 git 指令... (支援 Tab 自動補全、↑/↓ 歷史紀錄)"
+          placeholder="輸入 git 指令或 'next' 前往下一關 (Tab 自動補全、↑/↓ 歷史紀錄)"
         >
       </div>
     </section>
 
-    <!-- Right Panel: Visual Workbench (DAG Graph & File Inspector) -->
+    <!-- Right Panel: Visual Workbench (DAG Graph & File Inspector & Command Guide) -->
     <section class="visual-panel">
 
       <!-- Navigation Tabs -->
       <nav class="visual-tabs">
-        <button id="tab-btn-graph" class="tab-btn active" onclick="switchTab('graph')">
+        <button id="tab-btn-guide" class="tab-btn active" onclick="switchTab('guide')">
+          <span>📖</span>
+          <span>指令深度教室</span>
+        </button>
+        <button id="tab-btn-graph" class="tab-btn" onclick="switchTab('graph')">
           <span>🌳</span>
           <span>Git 樹狀圖 (DAG)</span>
         </button>
@@ -114,8 +129,15 @@
         </button>
       </nav>
 
+      <!-- Tab 0: Pedagogical Command Guide -->
+      <div id="tab-pane-guide" class="tab-content active">
+        <div id="guide-container" class="guide-scroll-container">
+          <!-- Dynamically populated by app.js from command-guides.js -->
+        </div>
+      </div>
+
       <!-- Tab 1: Interactive SVG Graph -->
-      <div id="tab-pane-graph" class="tab-content active">
+      <div id="tab-pane-graph" class="tab-content">
         <div class="graph-container">
           <svg id="git-graph-svg" width="800" height="480" viewBox="0 0 800 480"></svg>
           <div class="graph-legend">
@@ -368,6 +390,7 @@
   <!-- Scripts -->
   <script src="git-engine.js"></script>
   <script src="graph-renderer.js"></script>
+  <script src="command-guides.js"></script>
   <script src="scenarios-data.js"></script>
   <script src="app.js"></script>
 

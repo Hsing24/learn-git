@@ -28,12 +28,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const filesList = document.getElementById('files-list');
   const fileViewerContent = document.getElementById('file-viewer-content');
   const fileViewerName = document.getElementById('file-viewer-name');
+  const terminalNextBar = document.getElementById('terminal-next-bar');
+  const nextBarMsg = document.getElementById('next-bar-msg');
+  const guideContainer = document.getElementById('guide-container');
+  let isCurrentScenarioPassed = false;
 
   // Load Scenario by ID
   function loadScenario(index) {
     if (index < 0 || index >= SCENARIOS.length) index = 0;
     currentScenarioIndex = index;
     const scenario = SCENARIOS[index];
+    isCurrentScenarioPassed = false;
+
+    if (terminalNextBar) terminalNextBar.style.display = 'none';
 
     // Reset git and execute scenario setup
     git.resetAll();
@@ -49,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePrompt();
     refreshGraph();
     renderFileList();
+    renderCommandGuide(scenario);
 
     // Update Mission Tab Content
     const tabMissionTitle = document.getElementById('tab-mission-title');
@@ -58,21 +66,126 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabMissionGoals = document.getElementById('tab-mission-goals');
     if (tabMissionGoals) tabMissionGoals.innerHTML = scenario.goals.map(g => `<li>${g}</li>`).join('');
 
-    // Print welcome banner in terminal
+    // Print welcome banner in terminal (pure in-terminal immersion, no modal popup!)
     terminalOutput.innerHTML = '';
-    printOutput(`\x1b[38;2;88;166;255m╔══════════════════════════════════════════════════════════════════╗\x1b[0m`);
+    printOutput(`\x1b[38;2;88;166;255m╔══════════════════════════════════════════════════════════════════════════╗\x1b[0m`);
     printOutput(`\x1b[38;2;88;166;255m║  🚀 關卡 ${scenario.id}：${scenario.title}\x1b[0m`);
-    printOutput(`\x1b[38;2;88;166;255m╚══════════════════════════════════════════════════════════════════╝\x1b[0m`);
+    printOutput(`\x1b[38;2;88;166;255m╚══════════════════════════════════════════════════════════════════════════╝\x1b[0m`);
     printOutput(`\x1b[38;2;210;153;34m💼 職場情境：${scenario.story}\x1b[0m\n`);
-    printOutput(`\x1b[38;2;46;160;67m🎯 本關目標：\x1b[0m`);
+    printOutput(`\x1b[38;2;63;185;80m🎯 本關驗收目標：\x1b[0m`);
     scenario.goals.forEach((g, i) => {
       printOutput(`   ${i + 1}. ${g}`);
     });
-    printOutput(`\n輸入 \x1b[38;2;88;166;255mhelp\x1b[0m 查看指令幫助，輸入 \x1b[38;2;88;166;255mhint\x1b[0m 獲取解題提示。\n`);
+    printOutput(`\n輸入 \x1b[38;2;88;166;255mhelp\x1b[0m 查看指令表，輸入 \x1b[38;2;88;166;255mhint\x1b[0m 獲取解題提示。`);
+    printOutput(`👉 右側面板已開啟「📖 指令深度教室」，可點擊指令直接填入終端機！\n`);
 
-    showMissionModal(scenario);
     terminalInput.focus();
   }
+
+  // Render Pedagogical Command Guide for the Active Scenario
+  function renderCommandGuide(scenario) {
+    if (!guideContainer) return;
+    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
+
+    if (!guide) {
+      guideContainer.innerHTML = `
+        <div class="guide-header">
+          <div class="guide-title-row">
+            <span class="guide-tag">關卡 ${scenario.id}</span>
+            <h2 class="guide-heading">${escapeHtml(scenario.title)}</h2>
+          </div>
+          <p class="guide-summary">${escapeHtml(scenario.story)}</p>
+        </div>
+      `;
+      return;
+    }
+
+    const variantsHtml = guide.variations.map(v => `
+      <div class="guide-variant-card ${v.isPopular ? 'popular' : ''}">
+        <div class="variant-header">
+          <code class="variant-cmd">${escapeHtml(v.cmd)}</code>
+          <div class="variant-badges">
+            <span class="badge-variant-name">${escapeHtml(v.name)}</span>
+            ${v.isPopular ? `<span class="badge-popular">★ 業界最常用</span>` : ''}
+          </div>
+          <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(v.cmd)}')" title="點擊直接填入終端機">
+            填入 ➜
+          </button>
+        </div>
+        <p class="variant-desc">${escapeHtml(v.desc)}</p>
+        ${v.popularReason ? `<div class="variant-popular-note">💡 ${escapeHtml(v.popularReason)}</div>` : ''}
+      </div>
+    `).join('');
+
+    const pitfallsHtml = guide.pitfalls.map(p => `<li>${escapeHtml(p)}</li>`).join('');
+
+    guideContainer.innerHTML = `
+      <div class="guide-header">
+        <div class="guide-title-row">
+          <span class="guide-tag">關卡 ${scenario.id} 深度解析</span>
+          <h2 class="guide-heading">${escapeHtml(scenario.title)}</h2>
+        </div>
+        <p class="guide-summary">${escapeHtml(guide.summary)}</p>
+      </div>
+
+      <div class="guide-target-card">
+        <div class="target-card-label">🎯 本關核心操作指令</div>
+        <div class="target-card-body">
+          <code class="target-card-cmd">${escapeHtml(guide.targetCommand)}</code>
+          <button class="btn-paste-cmd btn-paste-primary" onclick="insertCommandToTerminal('${escapeJsString(guide.targetCommand)}')" title="填入終端機">
+            填入終端機 ➜
+          </button>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3 class="guide-section-title">⚡ 指令語法變體與不同打法對照</h3>
+        <p class="guide-section-desc">這項操作在 Git 中有多種打法，以下為完整選項比較與使用情境：</p>
+        <div class="guide-variants-list">
+          ${variantsHtml}
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3 class="guide-section-title">🤔 ${escapeHtml(guide.whyPopularTitle)}</h3>
+        <div class="guide-rationale-box">
+          <p>${escapeHtml(guide.whyPopularContent)}</p>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3 class="guide-section-title">🛡️ 避坑指南與實戰防線</h3>
+        <div class="guide-pitfalls-box">
+          <ul class="pitfalls-list">
+            ${pitfallsHtml}
+          </ul>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeJsString(str) {
+    if (!str) return '';
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+  }
+
+  window.insertCommandToTerminal = (rawCmd) => {
+    let clean = rawCmd.split(' (')[0].trim();
+    terminalInput.value = clean;
+    terminalInput.focus();
+    terminalInput.setSelectionRange(clean.length, clean.length);
+    scrollToBottom();
+  };
 
   // Update prompt with active branch
   function updatePrompt() {
@@ -165,6 +278,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const tokens = parseCommandTokens(cmd);
     const mainCmd = tokens[0];
     const args = tokens.slice(1);
+
+    if (mainCmd === 'next' || mainCmd === 'n') {
+      window.nextScenario();
+      return;
+    }
+
+    if (mainCmd === 'guide') {
+      window.switchTab('guide');
+      printOutput(`\x1b[38;2;88;166;255m[已切換至「📖 指令深度教室」頁籤]\x1b[0m`);
+      return;
+    }
 
     if (mainCmd === 'clear') {
       terminalOutput.innerHTML = '';
@@ -447,11 +571,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = sc.checkGoal(git);
 
     if (result.passed) {
+      const isFirstTimePass = !isCurrentScenarioPassed;
       if (!completedScenarios.has(sc.id)) {
         completedScenarios.add(sc.id);
         localStorage.setItem('git_lab_completed_scenarios', JSON.stringify(Array.from(completedScenarios)));
       }
-      showVictoryModal(sc, result.message);
+      isCurrentScenarioPassed = true;
+
+      if (isFirstTimePass || isManualVerify) {
+        const nextIndex = currentScenarioIndex + 1;
+        const hasNext = nextIndex < SCENARIOS.length;
+        const nextId = hasNext ? SCENARIOS[nextIndex].id : '大師結業';
+
+        // Render authentic TUI box banner directly in terminal stream (no popup modal!)
+        printOutput(`\n\x1b[38;2;63;185;80m╭──────────────────────────────────────────────────────────────────────────╮\x1b[0m`);
+        printOutput(`\x1b[38;2;63;185;80m│  ✔ [LEVEL ${sc.id} PASSED] ${sc.title}\x1b[0m`);
+        printOutput(`\x1b[38;2;63;185;80m│  ${result.message}\x1b[0m`);
+        printOutput(`\x1b[38;2;63;185;80m╰──────────────────────────────────────────────────────────────────────────╯\x1b[0m`);
+        if (hasNext) {
+          printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快捷鍵 [Ctrl + N]，亦可點擊下方按鈕前往下一關！\x1b[0m`);
+        } else {
+          printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已通關全部 24 大關卡！\x1b[0m`);
+        }
+
+        // Show terminal action strip
+        if (terminalNextBar) {
+          terminalNextBar.style.display = 'flex';
+          if (nextBarMsg) {
+            nextBarMsg.textContent = hasNext ? `✔ 關卡 ${sc.id} 通關！可前往下一關 (Level ${nextId})` : `🏆 全部 24 關通關完成！`;
+          }
+        }
+
+        // Also add an interactive button in the terminal output stream
+        if (hasNext) {
+          const actionDiv = document.createElement('div');
+          actionDiv.className = 'terminal-line terminal-victory-action';
+          actionDiv.innerHTML = `<button class="btn-terminal-next" onclick="nextScenario()">前往下一關 ➜ (${nextId}) <kbd>Ctrl+N</kbd></button>`;
+          terminalOutput.appendChild(actionDiv);
+        }
+
+        spawnConfetti();
+      }
     } else if (isManualVerify) {
       printOutput(`\x1b[38;2;248;81;73m❌ 尚未達成通關目標：\x1b[0m\n${result.message}`);
     }
@@ -505,8 +665,10 @@ document.addEventListener('DOMContentLoaded', () => {
   git reflog / git log / blame 查看歷史黑盒子日記
 
 平台輔助指令：
+  next (n)   前往下一關 (快捷鍵: Ctrl+N)
+  guide      切換至指令深度教室
   hint       查看當前關卡提示
-  goal       重新打開任務簡報
+  goal       開啟關卡任務簡報
   verify     驗收目標完成狀態
   reset      重設當前關卡
   levels     展開 24 關地圖抽屜
@@ -539,9 +701,17 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       // Simple autocomplete
       const val = terminalInput.value;
-      const suggestions = ['git status', 'git add .', 'git add -p', 'git commit -m "', 'git switch ', 'git switch -c ', 'git merge ', 'git rebase ', 'git cherry-pick ', 'git reset --hard ', 'git revert -m 1 ', 'git tag -a ', 'git worktree add ', 'git bisect start', 'git rm --cached ', 'verify', 'hint', 'help', 'reset'];
+      const suggestions = ['git status', 'git add .', 'git add -p', 'git commit -m "', 'git switch ', 'git switch -c ', 'git merge ', 'git rebase ', 'git cherry-pick ', 'git reset --hard ', 'git revert -m 1 ', 'git tag -a ', 'git worktree add ', 'git bisect start', 'git rm --cached ', 'next', 'guide', 'verify', 'hint', 'help', 'reset'];
       const match = suggestions.find(s => s.startsWith(val));
       if (match) terminalInput.value = match;
+    }
+  });
+
+  // Global Shortcut listener (Ctrl+N / Cmd+N for Next Level)
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+      e.preventDefault();
+      window.nextScenario();
     }
   });
 
@@ -579,7 +749,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentScenarioIndex < SCENARIOS.length - 1) {
       loadScenario(currentScenarioIndex + 1);
     } else {
-      printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已經完整通關了全部 24 大 Git 實戰宇宙！你已成為團隊不可或缺的 Git 大師！\x1b[0m`);
+      printOutput(`\n\x1b[38;2;255;215;0m╔══════════════════════════════════════════════════════════════════════════╗\x1b[0m`);
+      printOutput(`\x1b[38;2;255;215;0m║  🏆 狂賀！你已經完整通關了全部 24 大 Git 實戰宇宙！你已成為真正的 Git 大師！ ║\x1b[0m`);
+      printOutput(`\x1b[38;2;255;215;0m╚══════════════════════════════════════════════════════════════════════════╝\x1b[0m`);
+      printOutput(`\x1b[38;2;63;185;80m感謝你的學習與探索！歡迎將本專案分享給更多想學好 Git 的開發者：https://github.com/Hsing24/learn-git\x1b[0m\n`);
+      scrollToBottom();
     }
   };
 
