@@ -1016,12 +1016,53 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function ansiToHtml(str) {
-    return str
-      .replace(/\x1b\[38;2;(\d+);(\d+);(\d+)m/g, '<span style="color: rgb($1,$2,$3)">')
-      .replace(/\x1b\[0m/g, '</span>')
-      .replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/&lt;span style="color: rgb\((\d+),(\d+),(\d+)\)"&gt;/g, '<span style="color: rgb($1,$2,$3)">')
-      .replace(/&lt;\/span&gt;/g, '</span>');
+    if (!str) return '';
+    let escaped = str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    let openSpans = 0;
+    let res = escaped.replace(/\x1b\[([0-9;]*)m/g, (match, p1) => {
+      if (!p1 || p1 === '0') {
+        let closeTags = '</span>'.repeat(openSpans);
+        openSpans = 0;
+        return closeTags;
+      }
+      if (p1 === '1') {
+        openSpans++;
+        return '<span style="font-weight: 700; color: #fff;">';
+      }
+      if (p1 === '22') {
+        if (openSpans > 0) {
+          openSpans--;
+          return '</span>';
+        }
+        return '';
+      }
+      const rgbMatch = p1.match(/^38;2;(\d+);(\d+);(\d+)$/);
+      if (rgbMatch) {
+        openSpans++;
+        return `<span style="color: rgb(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]});">`;
+      }
+      const stdColors = {
+        '30': '#000', '31': '#f85149', '32': '#2ea043', '33': '#d29922',
+        '34': '#58a6ff', '35': '#bc8cff', '36': '#39c5bb', '37': '#c9d1d9',
+        '90': '#8b949e', '91': '#ff7b72', '92': '#3fb950', '93': '#e3b341',
+        '94': '#79c0ff', '95': '#d2a8ff', '96': '#56d4dd', '97': '#f0f6fc'
+      };
+      if (stdColors[p1]) {
+        openSpans++;
+        return `<span style="color: ${stdColors[p1]};">`;
+      }
+      return '';
+    });
+
+    res = res.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+    if (openSpans > 0) {
+      res += '</span>'.repeat(openSpans);
+    }
+    return res;
   }
 
   function scrollToBottom() {
