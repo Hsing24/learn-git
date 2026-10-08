@@ -1,12 +1,14 @@
 # 🚀 Git Scenario Lab
 
-> **專為單人開發者打造的 Git 本地終端機實戰情境實驗室。**
+> **專為單人開發者打造的 Git 實戰情境實驗室。**
 > 
-> 🌐 **線上教學網站與速查表**: [https://hsing24.github.io/learn-git/](https://hsing24.github.io/learn-git/)
-
----
-
-## 🎯 為什麼需要它？
+> 🌐 **瀏覽器互動式終端機 & 可視化 Commit 樹狀圖**: [https://hsing24.github.io/learn-git/](https://hsing24.github.io/learn-git/)
+> 
+> 具備類似 LearnGitBranching 的視覺介面，但**大幅強化真實職場工程情境**（如 身分配置、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Tags、Rerere 等 18 大專案現場）。免安裝任何套件，打開瀏覽器即可敲指令實戰！
+> 
+> 本專案同時支援：
+> 1. 🌐 **Web 線上模擬器**：瀏覽器即時 SVG DAG 樹狀圖、檔案衝突檢視器、18 關通關特效。
+> 2. 💻 **本地終端機 CLI (`./git-lab`)**：在自己的 macOS / Linux 終端機與真實 Git 沙盒環境中實戰練習。
 
 Git 最關鍵的核心技能（例如 **帳號配置與 SSH 免密連線**、**Merge Conflict 衝突解決**、**Rebase 歷史整容**、**Git Worktree 雙軌並行**、**Git Bisect 二分除錯**、**Reflog 災難救援**），通常都需要「第二個同事」或「龐大交錯的歷史紀錄」。
 
