@@ -26,6 +26,12 @@ from lab.scenarios.s14_revert_merge import Scenario14
 from lab.scenarios.s15_tags import Scenario15
 from lab.scenarios.s16_archaeology import Scenario16
 from lab.scenarios.s17_rerere import Scenario17
+from lab.scenarios.s18_amend import Scenario18
+from lab.scenarios.s19_stash import Scenario19
+from lab.scenarios.s20_mv_clean import Scenario20
+from lab.scenarios.s21_remote_fetch import Scenario21
+from lab.scenarios.s22_accidental_commit import Scenario22
+from lab.scenarios.s23_plumbing import Scenario23
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
@@ -390,6 +396,101 @@ def print_receipt(customer_name, items, total):
         )
         self.engine.run_git("add", "server.py")
         self.engine.run_git("commit", "-m", "merge: resolve server.py with rerere")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_18_amend(self):
+        sc = Scenario18()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: git add assets/logo.png, git commit --amend -m 'feat: release v1.0.0'
+        self.engine.run_git("add", "assets/logo.png")
+        self.engine.run_git("commit", "--amend", "-m", "feat: release v1.0.0")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_19_stash(self):
+        sc = Scenario19()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: git stash -u, switch main, hotfix on main, switch feature/cart, git stash pop
+        self.engine.run_git("stash", "-u")
+        self.engine.run_git("checkout", "main")
+        (self.engine.workspace / "hotfix.txt").write_text("HOTFIX\n")
+        self.engine.run_git("add", "hotfix.txt")
+        self.engine.run_git("commit", "-m", "fix: emergency hotfix on main")
+        self.engine.run_git("checkout", "feature/cart")
+        self.engine.run_git("stash", "pop")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_20_mv_clean(self):
+        sc = Scenario20()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: git mv utils.py helpers.py, git clean -fd, git commit
+        self.engine.run_git("mv", "utils.py", "helpers.py")
+        self.engine.run_git("clean", "-fd")
+        self.engine.run_git("commit", "-m", "refactor: rename utils to helpers")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_21_remote_fetch(self):
+        sc = Scenario21()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: read upstream_path, git remote add upstream, git fetch upstream, git merge upstream/main
+        path_hint = (self.engine.workspace / "upstream_path.txt").read_text().strip()
+        self.engine.run_git("remote", "add", "upstream", path_hint)
+        self.engine.run_git("fetch", "upstream")
+        self.engine.run_git("merge", "upstream/main", "--no-edit")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_22_accidental_commit(self):
+        sc = Scenario22()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: git branch feature/oauth, git switch main, git reset --hard HEAD~2
+        self.engine.run_git("branch", "feature/oauth")
+        self.engine.run_git("checkout", "main")
+        self.engine.run_git("reset", "--hard", "HEAD~2")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_23_plumbing(self):
+        sc = Scenario23()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # User steps: inspect blob hash of app.py and write into inspection.txt
+        _, ls_out, _ = self.engine.run_git("ls-tree", "HEAD", "app.py")
+        parts = ls_out.strip().split()
+        blob_hash = parts[2]
+        (self.engine.workspace / "inspection.txt").write_text(blob_hash + "\n", encoding="utf-8")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)

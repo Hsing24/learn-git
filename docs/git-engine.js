@@ -931,6 +931,222 @@ class VirtualGit {
     });
     return { code: 0, output: out };
   }
+
+  stashCmd(args = []) {
+    const sub = args[0] || 'push';
+    if (sub === 'list') {
+      if (this.stash.length === 0) return { code: 0, output: '' };
+      return {
+        code: 0,
+        output: this.stash.map((s, idx) => `stash@{${idx}}: WIP on ${s.branch}: ${s.headHash} ${s.message}`).join('\n') + '\n'
+      };
+    }
+    if (sub === 'pop' || sub === 'apply') {
+      if (this.stash.length === 0) {
+        return { code: 1, output: 'error: No stash entries found.\n' };
+      }
+      const entry = sub === 'pop' ? this.stash.shift() : this.stash[0];
+      for (const [f, c] of entry.workingTree.entries()) {
+        this.workingTree.set(f, c);
+      }
+      for (const [f, c] of entry.index.entries()) {
+        this.index.set(f, c);
+      }
+      let out = `On branch ${this.getCurrentBranch()}\nChanges restored from stash.\n`;
+      if (sub === 'pop') out += `Dropped refs/stash@{0} (${entry.headHash})\n`;
+      return { code: 0, output: out };
+    }
+    if (sub === 'drop') {
+      if (this.stash.length > 0) {
+        const dropped = this.stash.shift();
+        return { code: 0, output: `Dropped refs/stash@{0} (${dropped.headHash})\n` };
+      }
+      return { code: 1, output: 'No stash entries to drop.\n' };
+    }
+    if (sub === 'clear') {
+      this.stash = [];
+      return { code: 0, output: '' };
+    }
+
+    // Default: stash push / save
+    const headCommit = this.getHeadCommit();
+    const headHash = headCommit ? headCommit.id.substring(0, 7) : '0000000';
+    const headMsg = headCommit ? headCommit.message : 'initial';
+
+    const savedWorking = new Map(this.workingTree);
+    const savedIndex = new Map(this.index);
+
+    this.stash.unshift({
+      branch: this.getCurrentBranch() || 'detached',
+      headHash,
+      message: headMsg,
+      workingTree: savedWorking,
+      index: savedIndex
+    });
+
+    if (headCommit) {
+      this.workingTree = new Map(headCommit.tree);
+      this.index = new Map(headCommit.tree);
+    } else {
+      this.workingTree.clear();
+      this.index.clear();
+    }
+
+    return {
+      code: 0,
+      output: `Saved working directory and index state WIP on ${this.getCurrentBranch()}: ${headHash} ${headMsg}\n`
+    };
+  }
+
+  cleanCmd(args = []) {
+    const isDryRun = args.includes('-n') || args.includes('-nd') || args.includes('-dn');
+    const isForce = args.includes('-f') || args.includes('-fd') || args.includes('-df');
+
+    if (!isForce && !isDryRun) {
+      return { code: 1, output: 'fatal: clean.requireForce set and neither -i, -n, nor -f given; refusing to clean\n' };
+    }
+
+    const headTree = this.getHeadCommit() ? this.getHeadCommit().tree : new Map();
+    const untracked = [];
+    for (const [file] of this.workingTree.entries()) {
+      if (!this.index.has(file) && !headTree.has(file)) {
+        untracked.push(file);
+      }
+    }
+
+    if (untracked.length === 0) {
+      return { code: 0, output: '' };
+    }
+
+    let out = '';
+    for (const f of untracked) {
+      if (isDryRun) {
+        out += `Would remove ${f}\n`;
+      } else {
+        this.workingTree.delete(f);
+        out += `Removing ${f}\n`;
+      }
+    }
+    return { code: 0, output: out };
+  }
+
+  mvCmd(args = []) {
+    const nonFlags = args.filter(a => !a.startsWith('-'));
+    if (nonFlags.length < 2) {
+      return { code: 1, output: 'fatal: destination exists or missing destination\n' };
+    }
+    const [oldPath, newPath] = nonFlags;
+    const content = this.workingTree.get(oldPath) || this.index.get(oldPath);
+    if (content === undefined) {
+      return { code: 1, output: `fatal: bad source, source=${oldPath}, destination=${newPath}\n` };
+    }
+    this.workingTree.delete(oldPath);
+    this.index.delete(oldPath);
+    this.workingTree.set(newPath, content);
+    this.index.set(newPath, content);
+    return { code: 0, output: `renamed: ${oldPath} -> ${newPath}\n` };
+  }
+
+  remoteCmd(args = []) {
+    const sub = args[0];
+    if (!sub || sub === '-v') {
+      let out = '';
+      for (const [name, rem] of Object.entries(this.remotes)) {
+        out += `${name}\t${rem.url} (fetch)\n${name}\t${rem.url} (push)\n`;
+      }
+      return { code: 0, output: out };
+    }
+    if (sub === 'add') {
+      const name = args[1];
+      const url = args[2] || `https://github.com/upstream/${name}.git`;
+      if (!name) return { code: 1, output: 'fatal: remote name required\n' };
+      this.remotes[name] = { url, branches: new Map() };
+      return { code: 0, output: '' };
+    }
+    if (sub === 'remove' || sub === 'rm') {
+      const name = args[1];
+      delete this.remotes[name];
+      return { code: 0, output: '' };
+    }
+    return { code: 0, output: '' };
+  }
+
+  fetchCmd(args = []) {
+    const remoteName = args.find(a => !a.startsWith('-')) || 'origin';
+    const remote = this.remotes[remoteName];
+    if (!remote) {
+      return { code: 1, output: `fatal: '${remoteName}' does not appear to be a git repository\n` };
+    }
+    let out = `From ${remote.url}\n`;
+    for (const [b, cId] of remote.branches.entries()) {
+      out += ` * [new branch]      ${b} -> ${remoteName}/${b}\n`;
+    }
+    return { code: 0, output: out };
+  }
+
+  catFileCmd(args = []) {
+    this.hasExecutedCatFile = true;
+    const isType = args.includes('-t');
+    const isPretty = args.includes('-p');
+    const target = args.find(a => !a.startsWith('-')) || 'HEAD';
+
+    let resolvedId = target;
+    if (target === 'HEAD') {
+      resolvedId = this.getHeadCommitId();
+    } else if (this.branches.has(target)) {
+      resolvedId = this.branches.get(target);
+    }
+
+    const commit = this.commits.get(resolvedId);
+    if (commit) {
+      if (isType) return { code: 0, output: 'commit\n' };
+      if (isPretty) {
+        const treeHash = `tree_${resolvedId.substring(0, 6)}`;
+        let out = `tree ${treeHash}\n`;
+        if (commit.parents && commit.parents.length) {
+          commit.parents.forEach(p => out += `parent ${p}\n`);
+        }
+        out += `author ${commit.author} ${Math.floor(commit.timestamp/1000)} +0800\n`;
+        out += `committer ${commit.author} ${Math.floor(commit.timestamp/1000)} +0800\n\n`;
+        out += `${commit.message}\n`;
+        return { code: 0, output: out };
+      }
+    }
+
+    if (target.startsWith('tree_') || target.includes('tree')) {
+      if (isType) return { code: 0, output: 'tree\n' };
+      if (isPretty) {
+        let out = '';
+        const head = this.getHeadCommit();
+        if (head && head.tree) {
+          for (const [f] of head.tree.entries()) {
+            const blobHash = `blob_${f.replace(/\W/g, '')}_${(head.id || 'c01').substring(0, 4)}`;
+            out += `100644 blob ${blobHash}\t${f}\n`;
+          }
+        }
+        return { code: 0, output: out || '100644 blob blob_app_c01\tapp.py\n' };
+      }
+    }
+
+    if (target.startsWith('blob_') || target.includes('blob')) {
+      if (isType) return { code: 0, output: 'blob\n' };
+      if (isPretty) {
+        const head = this.getHeadCommit();
+        let content = '';
+        if (head && head.tree) {
+          for (const [f, c] of head.tree.entries()) {
+            if (target.includes(f.replace(/\W/g, ''))) {
+              content = c;
+              break;
+            }
+          }
+        }
+        return { code: 0, output: content || 'SECRET_DATABASE_PAYLOAD = "VAULT_CORE_778899"\n' };
+      }
+    }
+
+    return { code: 0, output: `commit ${resolvedId}\n` };
+  }
 }
 
 // Export for browser

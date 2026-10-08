@@ -663,6 +663,264 @@ const SCENARIOS = [
       }
       return { passed: false, message: '尚未開啟 rerere！請執行 git config rerere.enabled true。' };
     }
+  },
+
+  {
+    id: '18',
+    title: '完美補完：git commit --amend 追補漏檔與修改最後提交',
+    difficulty: '初階 ⭐⭐',
+    category: '提交修飾',
+    story: '高見龍老師《為你自己學 Git》經典狀況題：剛敲下 git commit，才驚覺漏掉了重要圖檔 assets/logo.png，且提交訊息打成了 feat: relase（拼錯字）。使用 git commit --amend 在不產生多餘碎提交的情況下無縫修補！',
+    goals: [
+      '暫存遺漏檔案：git add assets/logo.png',
+      '追加檔案並修正訊息：git commit --amend -m "feat: release v1.0.0"',
+      '確認專案歷史維持單一乾淨節點'
+    ],
+    hints: [
+      '先執行：git add assets/logo.png',
+      '接著執行：git commit --amend -m "feat: release v1.0.0"'
+    ],
+    setup: (git) => {
+      const c = git.createCommit({
+        message: 'feat: relase v1.0.0',
+        tree: new Map([['app.py', 'console.log("v1.0.0");']])
+      });
+      git.branches.set('main', c.id);
+      git.HEAD = { type: 'branch', target: 'main' };
+      git.workingTree.set('app.py', 'console.log("v1.0.0");');
+      git.index.set('app.py', 'console.log("v1.0.0");');
+      git.workingTree.set('assets/logo.png', '[PNG_LOGO_DATA]');
+    },
+    checkGoal: (git) => {
+      const head = git.getHeadCommit();
+      if (!head) return { passed: false, message: '尚未有任何提交！' };
+      if (!head.tree.has('assets/logo.png')) {
+        return { passed: false, message: '最後一次提交中尚未包含 assets/logo.png！請執行 git add assets/logo.png 並使用 git commit --amend。' };
+      }
+      if (head.message.includes('relase')) {
+        return { passed: false, message: '提交訊息中的拼寫尚未修正！請修正為包含 release。' };
+      }
+      return {
+        passed: true,
+        message: '🎉 完美收官！你成功使用 git commit --amend 追補了遺漏檔案並修正拼寫，保持了極致乾淨的提交歷史！'
+      };
+    }
+  },
+
+  {
+    id: '19',
+    title: '救急暫存：Git Stash 工作區暫存、彈出與清理',
+    difficulty: '初階 ⭐⭐',
+    category: '上下文切換',
+    story: '高見龍老師《為你自己學 Git》高頻狀況題：手邊做到一半臨時要切換任務！你在 feature/cart 修改了 cart.py 且新增了 coupon.py。此時 main 突發需要提交緊急 hotfix，切換分支會被擋下。請使用 git stash -u 暫存，切至 main 提交 hotfix，再切回分支執行 git stash pop 還原！',
+    goals: [
+      '使用 git stash -u 打包工作區修改與未追蹤檔案',
+      '切換至 main 分支並提交緊急修復：git switch main ➜ 提交 hotfix.txt',
+      '切回 feature/cart 分支並使用 git stash pop 彈出還原工作區'
+    ],
+    hints: [
+      '執行：git stash -u',
+      '切換主線：git switch main，建立 hotfix 並 commit',
+      '切回分支：git switch feature/cart，執行：git stash pop'
+    ],
+    setup: (git) => {
+      const c1 = git.createCommit({ message: 'feat: initial release', tree: new Map([['app.py', 'console.log("stable");']]) });
+      git.branches.set('main', c1.id);
+
+      const cCart = git.createCommit({
+        message: 'feat: scaffold cart',
+        parents: [c1.id],
+        tree: new Map([['app.py', 'console.log("stable");'], ['cart.py', 'export const cart = [];']])
+      });
+      git.branches.set('feature/cart', cCart.id);
+      git.checkoutOrSwitch('feature/cart');
+
+      git.workingTree.set('cart.py', 'export const cart = [/* with discount */];');
+      git.workingTree.set('coupon.py', 'export const coupon = "SUMMER_50";');
+    },
+    checkGoal: (git) => {
+      const mainCommit = git.commits.get(git.branches.get('main'));
+      if (!mainCommit || !mainCommit.message.toLowerCase().includes('hotfix')) {
+        return { passed: false, message: '尚未在 main 分支完成緊急 hotfix 提交！請先 stash 暫存後，切換至 main 提交修復。' };
+      }
+      if (git.getCurrentBranch() !== 'feature/cart') {
+        return { passed: false, message: '請切回 feature/cart 分支並執行 git stash pop！' };
+      }
+      if (!git.workingTree.has('coupon.py')) {
+        return { passed: false, message: '未追蹤的 coupon.py 尚未還原！請執行 git stash pop。' };
+      }
+      return {
+        passed: true,
+        message: '🎉 漂亮通關！你熟練運用了 git stash -u 與 git stash pop，在零殘留與零髒 commit 的情況下化解了上下文切換的危機！'
+      };
+    }
+  },
+
+  {
+    id: '20',
+    title: '乾淨俐落：git mv 檔案更名與 git clean -fd 清理雜物',
+    difficulty: '初階 ⭐⭐',
+    category: '工作區維護',
+    story: '架構重構規範要求將 utils.py 改名為 helpers.py；同時本地測試產生了殘留檔案 dump.tmp 與目錄 temp_test/。請使用 git mv 一步到位完成檔案更名，並使用 git clean -fd 一鍵徹底消除未追蹤垃圾！',
+    goals: [
+      '使用 git mv utils.py helpers.py 完成檔案更名並加入暫存',
+      '使用 git clean -fd 清除未追蹤的 dump.tmp 與 temp_test/',
+      '提交更名變更：git commit -m "refactor: rename utils to helpers"'
+    ],
+    hints: [
+      '更名指令：git mv utils.py helpers.py',
+      '清理指令：git clean -fd',
+      '提交變更：git commit -m "refactor: rename utils to helpers"'
+    ],
+    setup: (git) => {
+      const c = git.createCommit({
+        message: 'feat: scaffold utils',
+        tree: new Map([['utils.py', 'export const format = () => {};']])
+      });
+      git.branches.set('main', c.id);
+      git.checkoutOrSwitch('main');
+      git.workingTree.set('utils.py', 'export const format = () => {};');
+      git.index.set('utils.py', 'export const format = () => {};');
+      git.workingTree.set('dump.tmp', 'TEMP_DATA');
+      git.workingTree.set('temp_test/cache.pid', '9911');
+    },
+    checkGoal: (git) => {
+      const head = git.getHeadCommit();
+      if (!head || !head.tree.has('helpers.py')) {
+        return { passed: false, message: '尚未完成 helpers.py 提交！請使用 git mv utils.py helpers.py 並 commit。' };
+      }
+      if (git.workingTree.has('dump.tmp')) {
+        return { passed: false, message: 'dump.tmp 仍殘留在工作目錄！請執行 git clean -fd 清理。' };
+      }
+      return {
+        passed: true,
+        message: '🎉 太乾淨了！你掌握了 git mv 檔案更名規範與 git clean -fd 雜物清理神技，讓代碼庫保持最高水準的整潔！'
+      };
+    }
+  },
+
+  {
+    id: '21',
+    title: '遠端全貌：git remote 管理與 git fetch vs git pull 深度解密',
+    difficulty: '進階 ⭐⭐⭐',
+    category: '遠端協作',
+    story: '參與開源專案或跨團隊協作時，你需要配置上游倉庫 upstream。資深工程師的專業守則：『先 fetch 觀察遠端進度，再決定如何 merge』，避免盲目 pull 破壞本地代碼。請新增 upstream 遠端，執行 git fetch upstream 下載最新安全補丁，再整併進本地 main！',
+    goals: [
+      '新增上游遠端：git remote add upstream https://github.com/corp/upstream.git',
+      '抓取上游進度：git fetch upstream',
+      '將 upstream/main 的安全補丁合併至本地 main：git merge upstream/main'
+    ],
+    hints: [
+      '註冊遠端：git remote add upstream https://github.com/corp/upstream.git',
+      '下載進度：git fetch upstream',
+      '合併主線：git merge upstream/main'
+    ],
+    setup: (git) => {
+      const c1 = git.createCommit({ message: 'feat: initial release' });
+      git.branches.set('main', c1.id);
+      git.checkoutOrSwitch('main');
+
+      const cUpstream = git.createCommit({
+        message: 'fix: critical security patch from upstream',
+        parents: [c1.id],
+        tree: new Map([['security.js', 'export const verify = () => true;']])
+      });
+      git.remotes.upstream = {
+        url: 'https://github.com/corp/upstream.git',
+        branches: new Map([['main', cUpstream.id]])
+      };
+    },
+    checkGoal: (git) => {
+      const head = git.getHeadCommit();
+      if (!head || !head.tree.has('security.js')) {
+        return { passed: false, message: '本地 main 尚未合併上游的 security.js！請執行 git fetch upstream 與 git merge upstream/main。' };
+      }
+      return {
+        passed: true,
+        message: '🎉 太專業了！你解鎖了 git remote 與 git fetch 的完整協作思維，先看再合，完全避免了盲目 pull 的風險！'
+      };
+    }
+  },
+
+  {
+    id: '22',
+    title: '移花接木：錯在 main 提交的救星 (Branch & Reset 平移救援)',
+    difficulty: '初階 ⭐⭐',
+    category: '災難平移',
+    story: '高見龍老師《為你自己學 Git》神級救援題：『啊！我還沒開分支就直接 Commit 下去了！』本該在 feature/oauth 開發，卻一時大意在 main 連續做了 2 個 commits。利用『原地開分支，再把主線退回去』的神級兩步，零損平移拯救歷史！',
+    goals: [
+      '原地開出新分支：git branch feature/oauth',
+      '切回 main 分支：git switch main',
+      '將 main 分支回退 2 步：git reset --hard HEAD~2',
+      '確認 feature/oauth 保留全部進度，而 main 重回純淨初始狀態'
+    ],
+    hints: [
+      '原地開分支：git branch feature/oauth',
+      '切回主線：git switch main',
+      '重設指針：git reset --hard HEAD~2'
+    ],
+    setup: (git) => {
+      const c1 = git.createCommit({ message: 'feat: stable production foundation' });
+      const c2 = git.createCommit({ message: 'feat: oauth step 1 - add client credentials', parents: [c1.id] });
+      const c3 = git.createCommit({ message: 'feat: oauth step 2 - implement redirect login', parents: [c2.id] });
+      git.branches.set('main', c3.id);
+      git.checkoutOrSwitch('main');
+    },
+    checkGoal: (git) => {
+      if (!git.branches.has('feature/oauth')) {
+        return { passed: false, message: '尚未建立 feature/oauth 分支！請執行 git branch feature/oauth。' };
+      }
+      const mainId = git.branches.get('main');
+      const oauthId = git.branches.get('feature/oauth');
+      if (mainId === oauthId) {
+        return { passed: false, message: 'main 分支指針尚未回退！請切回 main 並執行 git reset --hard HEAD~2。' };
+      }
+      const oauthCommit = git.commits.get(oauthId);
+      if (!oauthCommit || !oauthCommit.message.includes('oauth step 2')) {
+        return { passed: false, message: 'feature/oauth 分支未能承接最新的 OAuth 提交！' };
+      }
+      return {
+        passed: true,
+        message: '🎉 神級平移！你完全掌握了 Git 分支指針貼紙的本質，一秒化解了誤在主線開發的大災難，代碼零丟失、主線零污染！'
+      };
+    }
+  },
+
+  {
+    id: '23',
+    title: '底層透視：.git 水管底層物件解密 (Plumbing: cat-file & SHA-1)',
+    difficulty: '進階 ⭐⭐⭐',
+    category: '底層解密',
+    story: '高見龍老師《為你自己學 Git》全書最震撼的解密章節：『在 .git 目錄裡到底有什麼東西？』Git 核心是一座鍵值資料庫，由 blob、tree、commit、tag 四種物件組成。在本關中，你將使用水管指令 git cat-file -t (查型別) 與 -p (印內容)，一層層順藤摸瓜直達檔案本體！',
+    goals: [
+      '查看 HEAD 物件型別：git cat-file -t HEAD',
+      '傾印 HEAD 提交內容：git cat-file -p HEAD',
+      '傾印 tree 內容：git cat-file -p tree_xxx',
+      '傾印 blob 內容：git cat-file -p blob_xxx'
+    ],
+    hints: [
+      '查型別：git cat-file -t HEAD',
+      '查內容：git cat-file -p HEAD',
+      '查 tree：git cat-file -p tree_xxxx',
+      '查 blob：git cat-file -p blob_xxxx'
+    ],
+    setup: (git) => {
+      const c = git.createCommit({
+        message: 'feat: scaffold core vault secret',
+        tree: new Map([['app.py', 'SECRET_DATABASE_PAYLOAD = "VAULT_CORE_778899"\n']])
+      });
+      git.branches.set('main', c.id);
+      git.checkoutOrSwitch('main');
+    },
+    checkGoal: (git) => {
+      if (!git.hasExecutedCatFile) {
+        return { passed: false, message: '尚未執行水管指令！請執行 git cat-file -t HEAD 或 git cat-file -p HEAD 探索物件。' };
+      }
+      return {
+        passed: true,
+        message: '🎉 嘆為觀止！你成功解構了 Git 的底層物件儲存模型 (Object Database)，從 Commit ➜ Tree ➜ Blob 摸透了版本控制的物理本質！'
+      };
+    }
   }
 ];
 

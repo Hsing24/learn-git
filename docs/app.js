@@ -359,6 +359,30 @@ document.addEventListener('DOMContentLoaded', () => {
         printOutput(git.rm(subArgs).output);
         break;
 
+      case 'stash':
+        printOutput(git.stashCmd(subArgs).output);
+        break;
+
+      case 'clean':
+        printOutput(git.cleanCmd(subArgs).output);
+        break;
+
+      case 'mv':
+        printOutput(git.mvCmd(subArgs).output);
+        break;
+
+      case 'remote':
+        printOutput(git.remoteCmd(subArgs).output);
+        break;
+
+      case 'fetch':
+        printOutput(git.fetchCmd(subArgs).output);
+        break;
+
+      case 'cat-file':
+        printOutput(git.catFileCmd(subArgs).output);
+        break;
+
       case 'config':
         printOutput(git.configCmd(subArgs).output);
         break;
@@ -462,10 +486,13 @@ document.addEventListener('DOMContentLoaded', () => {
     printOutput(`\x1b[38;2;88;166;255mGit Scenario Lab — 支援指令表：\x1b[0m
   git status                  查看分支與工作區狀態
   git add <file> | . | -p     加入暫存區 (支援 -p 局部暫存)
-  git commit -m "msg"         建立 Commit
+  git commit [--amend] -m     建立或修補 Commit
   git switch [-c <branch>]    切換或建立分支
   git merge <branch> [--no-ff] 合併分支 (支援衝突模擬)
   git rebase <branch>         變基保持線性歷史
+  git stash [list|pop|-u]     暫存工作區修改
+  git clean -fd               清除未追蹤檔案
+  git mv <old> <new>          版本控管更名
   git cherry-pick <hash>      單獨偷渡特定 Commit
   git reset [--hard|--soft]   移動 HEAD 指針
   git revert [-m 1] <hash>    安全反轉產生回滾提交
@@ -473,14 +500,16 @@ document.addEventListener('DOMContentLoaded', () => {
   git worktree add <dir> <b>  雙軌平行工作區
   git bisect [start|bad|good] 二分搜尋捉蟲
   git rm --cached <file>      自 Git 索引除名保全本地檔案
-  git reflog / git log        查看歷史黑盒子日記
+  git remote / git fetch      遠端節點管理與抓取
+  git cat-file [-t|-p]        解密水管底層物件
+  git reflog / git log / blame 查看歷史黑盒子日記
 
 平台輔助指令：
   hint       查看當前關卡提示
   goal       重新打開任務簡報
   verify     驗收目標完成狀態
   reset      重設當前關卡
-  levels     展開 18 關地圖抽屜
+  levels     展開 24 關地圖抽屜
   clear      清空終端機畫面
 `);
   }
@@ -550,7 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentScenarioIndex < SCENARIOS.length - 1) {
       loadScenario(currentScenarioIndex + 1);
     } else {
-      printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已經完整通關了全部 18 大 Git 實戰宇宙！你已成為團隊不可或缺的 Git 大師！\x1b[0m`);
+      printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已經完整通關了全部 24 大 Git 實戰宇宙！你已成為團隊不可或缺的 Git 大師！\x1b[0m`);
     }
   };
 

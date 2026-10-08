@@ -23,7 +23,7 @@ Git 最關鍵的核心技能（例如 **帳號配置與 SSH 免密連線**、**M
 git clone https://github.com/Hsing24/learn-git.git
 cd learn-git
 
-# 2. 列出所有 18 個實戰關卡
+# 2. 列出所有 24 個實戰關卡
 ./git-lab list
 
 # 3. 進入第 00 關：配備身分、SSH 免密金鑰與自動建立遠端分支
@@ -38,7 +38,7 @@ cd workspace
 
 ---
 
-## 📚 18 大實戰關卡
+## 📚 24 大實戰關卡
 
 | ID | 難度 | 關卡名稱 | 實戰重點 |
 | :---: | :---: | :--- | :--- |
@@ -60,6 +60,12 @@ cd workspace
 | **15** | 初階 ⭐⭐ | 版本里程碑：Git Tag 與語意化版號發布 (Semantic Versioning) | 輕量標籤 vs 附註標籤 (`git tag -a`), 歷史補簽, `git push --tags` |
 | **16** | 進階 ⭐⭐⭐ | 代碼考古學：git log -S 語意搜尋與 git blame 責任溯源 | `git log -S` (Pickaxe) 增減檢索、`git blame -w` 忽略格式排版 |
 | **17** | 實戰 ⭐⭐⭐⭐ | 重複衝突終結者：git rerere 記錄與自動重用解法 | `git config rerere.enabled true`, 自動記憶衝突解法、Rebase 省時黑魔法 |
+| **18** | 初階 ⭐⭐ | 完美補完：git commit --amend 追補漏檔與修改最後提交 | `git commit --amend -m`、追加檔案免碎提交、保持乾淨歷史 |
+| **19** | 初階 ⭐⭐ | 救急暫存：Git Stash 工作區暫存、彈出與清理 | `git stash -u`、`git stash list`、`git stash pop`、多任務切換神技 |
+| **20** | 初階 ⭐⭐ | 乾淨俐落：git mv 檔案更名與 git clean -fd 清理雜物 | `git mv` 一步更名暫存、`git clean -fd` 徹底剷除未追蹤垃圾 |
+| **21** | 進階 ⭐⭐⭐ | 遠端全貌：git remote 管理與 git fetch vs git pull 深度解密 | `git remote add upstream`、`git fetch` 先觀後合、Fork 協作工作流 |
+| **22** | 初階 ⭐⭐ | 移花接木：錯在 main 提交的救星 (Branch & Reset 平移救援) | 原地開分支貼紙、`git reset --hard HEAD~2`、零損平移救援主線 |
+| **23** | 進階 ⭐⭐⭐ | 底層透視：.git 水管底層物件解密 (Plumbing: cat-file & SHA-1) | `git cat-file -t / -p`、解密 blob / tree / commit 四大內部物件 |
 
 ---
 

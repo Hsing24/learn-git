@@ -3,6 +3,8 @@
 /.git-lab-remote/
 /.git-lab-state.json
 /hotfix-rescue/
+/mock_upstream.git/
+/temp_author/
 
 # Python cache
 __pycache__/

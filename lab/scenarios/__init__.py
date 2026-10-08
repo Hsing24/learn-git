@@ -20,6 +20,12 @@ from lab.scenarios.s14_revert_merge import Scenario14
 from lab.scenarios.s15_tags import Scenario15
 from lab.scenarios.s16_archaeology import Scenario16
 from lab.scenarios.s17_rerere import Scenario17
+from lab.scenarios.s18_amend import Scenario18
+from lab.scenarios.s19_stash import Scenario19
+from lab.scenarios.s20_mv_clean import Scenario20
+from lab.scenarios.s21_remote_fetch import Scenario21
+from lab.scenarios.s22_accidental_commit import Scenario22
+from lab.scenarios.s23_plumbing import Scenario23
 
 SCENARIOS: List[BaseScenario] = [
     Scenario00(),
@@ -40,6 +46,12 @@ SCENARIOS: List[BaseScenario] = [
     Scenario15(),
     Scenario16(),
     Scenario17(),
+    Scenario18(),
+    Scenario19(),
+    Scenario20(),
+    Scenario21(),
+    Scenario22(),
+    Scenario23(),
 ]
 
 SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in SCENARIOS}
@@ -106,6 +118,25 @@ ALIASES = {
     "blame": "16",
     "17": "17",
     "rerere": "17",
+    "18": "18",
+    "amend": "18",
+    "commit-amend": "18",
+    "19": "19",
+    "stash": "19",
+    "pop": "19",
+    "20": "20",
+    "mv": "20",
+    "clean": "20",
+    "rename": "20",
+    "21": "21",
+    "fetch": "21",
+    "upstream": "21",
+    "22": "22",
+    "accidental": "22",
+    "rescue-commit": "22",
+    "23": "23",
+    "plumbing": "23",
+    "cat-file": "23",
 }
 
 def get_scenario(key: str) -> Optional[BaseScenario]:
