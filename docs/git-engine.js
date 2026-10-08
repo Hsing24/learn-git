@@ -748,7 +748,8 @@ class VirtualGit {
   }
 
   revert(target, options = {}) {
-    const targetCommit = this.commits.get(target) || (target === 'HEAD' ? this.getHeadCommit() : null);
+    const targetCommitId = this.resolveCommit(target);
+    const targetCommit = targetCommitId ? this.commits.get(targetCommitId) : null;
     if (!targetCommit) {
       return { code: 1, output: `fatal: bad revision '${target}'\n` };
     }

@@ -793,8 +793,12 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'revert':
-        const targetRevert = subArgs.find(a => !a.startsWith('-')) || 'HEAD';
-        const mainline = subArgs.includes('-m') ? subArgs[subArgs.indexOf('-m') + 1] : null;
+        let mainline = null;
+        const mIdx = subArgs.indexOf('-m');
+        if (mIdx !== -1 && subArgs[mIdx + 1]) {
+          mainline = parseInt(subArgs[mIdx + 1], 10);
+        }
+        const targetRevert = subArgs.find((a, idx) => !a.startsWith('-') && (mIdx === -1 || idx !== mIdx + 1)) || 'HEAD';
         const resRevert = git.revert(targetRevert, { mainline });
         if (resRevert.output) printOutput(resRevert.output);
         break;
