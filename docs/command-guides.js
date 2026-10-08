@@ -1681,3 +1681,11 @@ const COMMAND_GUIDES = {
     ]
   }
 };
+
+// Export for browser and node
+if (typeof window !== 'undefined') {
+  window.COMMAND_GUIDES = COMMAND_GUIDES;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { COMMAND_GUIDES };
+}

@@ -206,6 +206,13 @@ class VirtualGit {
     let isAmend = false;
     let fixupHash = null;
 
+    if (typeof args === 'string') {
+      message = args;
+      args = ['-m', args];
+    } else if (!Array.isArray(args)) {
+      args = [];
+    }
+
     for (let i = 0; i < args.length; i++) {
       if ((args[i] === '-m' || args[i] === '-am') && args[i + 1]) {
         message = args[i + 1].replace(/^["']|["']$/g, '');
@@ -560,13 +567,40 @@ class VirtualGit {
     return !!this.getConflictingFile(commitA, commitB);
   }
 
+  resolveCommit(ref) {
+    if (!ref) return null;
+    if (this.commits.has(ref)) return ref;
+    if (this.branches.has(ref)) return this.branches.get(ref);
+    if (this.tags.has(ref)) return this.tags.get(ref).commitId;
+    if (ref === 'HEAD') return this.getHeadCommitId();
+    if (ref.startsWith('HEAD~')) {
+      const steps = parseInt(ref.replace('HEAD~', ''), 10) || 1;
+      let curr = this.getHeadCommit();
+      for (let i = 0; i < steps; i++) {
+        if (curr && curr.parents && curr.parents[0]) {
+          curr = this.commits.get(curr.parents[0]);
+        }
+      }
+      return curr ? curr.id : null;
+    }
+    if (ref.startsWith('HEAD@{')) {
+      const idx = parseInt(ref.replace(/HEAD@\{|\}/g, ''), 10) || 0;
+      return this.reflog[idx] ? this.reflog[idx].commitId : null;
+    }
+    // Prefix match
+    for (const id of this.commits.keys()) {
+      if (id.startsWith(ref)) return id;
+    }
+    return null;
+  }
+
   rebase(upstream, options = {}) {
     const currentBranch = this.getCurrentBranch();
     if (!currentBranch) {
       return { code: 1, output: 'fatal: cannot rebase detached HEAD\n' };
     }
 
-    const upstreamCommitId = this.branches.get(upstream) || (this.commits.has(upstream) ? upstream : null);
+    const upstreamCommitId = this.resolveCommit(upstream);
     if (!upstreamCommitId) {
       return { code: 1, output: `fatal: invalid upstream '${upstream}'\n` };
     }
@@ -592,17 +626,41 @@ class VirtualGit {
     }
 
     let newBaseId = upstreamCommitId;
-    for (const c of commitsToReplay) {
-      if (!c) continue;
-      const replayed = this.createCommit({
-        message: c.message,
+    if (options.interactive || options.squash) {
+      const mergedTree = new Map();
+      const baseCommit = this.commits.get(newBaseId);
+      if (baseCommit && baseCommit.tree) {
+        for (const [f, content] of baseCommit.tree.entries()) {
+          mergedTree.set(f, content);
+        }
+      }
+      for (const c of commitsToReplay) {
+        if (!c || !c.tree) continue;
+        for (const [f, content] of c.tree.entries()) {
+          mergedTree.set(f, content);
+        }
+      }
+      const squashed = this.createCommit({
+        message: options.message || 'feat: complete payment form feature',
         parents: [newBaseId],
-        tree: new Map(c.tree)
+        tree: mergedTree
       });
-      newBaseId = replayed.id;
+      newBaseId = squashed.id;
+    } else {
+      for (const c of commitsToReplay) {
+        if (!c) continue;
+        const replayed = this.createCommit({
+          message: c.message,
+          parents: [newBaseId],
+          tree: new Map(c.tree)
+        });
+        newBaseId = replayed.id;
+      }
     }
 
     this.branches.set(currentBranch, newBaseId);
+    this.workingTree = new Map(this.commits.get(newBaseId).tree);
+    this.index = new Map(this.commits.get(newBaseId).tree);
     this.logReflog('rebase', `checkout ${upstream}`);
     return {
       code: 0,
@@ -1253,7 +1311,10 @@ class VirtualGit {
   }
 }
 
-// Export for browser
+// Export for browser and node
 if (typeof window !== 'undefined') {
   window.VirtualGit = VirtualGit;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { VirtualGit };
 }

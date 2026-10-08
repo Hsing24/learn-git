@@ -764,11 +764,12 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'rebase':
-        if (subArgs.includes('-i') || subArgs.includes('--interactive')) {
+        const isInteractiveRebase = subArgs.includes('-i') || subArgs.includes('--interactive');
+        if (isInteractiveRebase) {
           printOutput(`[模擬互動式 rebase (rebase -i)]\n已自動壓縮 (squash/fixup) 零碎 commit，產生清晰單一語意 Commit！`);
         }
         const targetRebase = subArgs.find(a => !a.startsWith('-')) || 'main';
-        const resRebase = git.rebase(targetRebase);
+        const resRebase = git.rebase(targetRebase, { interactive: isInteractiveRebase });
         if (resRebase.output) printOutput(resRebase.output);
         break;
 

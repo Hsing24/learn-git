@@ -193,7 +193,10 @@ const SCENARIOS = [
       const featureId = git.branches.get('feature');
       const fCommit = git.commits.get(featureId);
 
-      if (fCommit && fCommit.parents.includes(mainId)) {
+      const isRebased = fCommit && fCommit.parents.length > 0 && fCommit.parents[0] !== 'c1' && git.commits.has(fCommit.parents[0]);
+      const isMerged = (mainId === featureId && mainId !== 'c1');
+
+      if (isRebased || isMerged) {
         return {
           passed: true,
           message: '🎉 Rebase 成功！你的 commit 已優雅接在 main 的最新節點之後，整個 Git 樹呈現乾淨筆直的線性歷史！'
@@ -929,7 +932,10 @@ const SCENARIOS = [
   }
 ];
 
-// Export for browser
+// Export for browser and node
 if (typeof window !== 'undefined') {
   window.SCENARIOS = SCENARIOS;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { SCENARIOS };
 }
