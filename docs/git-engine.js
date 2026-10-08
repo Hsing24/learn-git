@@ -14,6 +14,7 @@ class VirtualGit {
     this.branches = new Map(); // name -> commitId
     this.tags = new Map(); // name -> { commitId, type: 'lightweight'|'annotated', message, tagger }
     this.HEAD = { type: 'branch', target: 'main' }; // target is branch name or commitId (detached)
+    this.previousBranch = null; // tracks previous branch for git switch -
     this.index = new Map(); // path -> content (staged)
     this.workingTree = new Map(); // path -> content (working directory)
     this.config = {
@@ -206,7 +207,7 @@ class VirtualGit {
     let fixupHash = null;
 
     for (let i = 0; i < args.length; i++) {
-      if (args[i] === '-m' && args[i + 1]) {
+      if ((args[i] === '-m' || args[i] === '-am') && args[i + 1]) {
         message = args[i + 1].replace(/^["']|["']$/g, '');
         i++;
       } else if (args[i] === '--amend') {
@@ -214,6 +215,15 @@ class VirtualGit {
       } else if (args[i] === '--fixup' && args[i + 1]) {
         fixupHash = args[i + 1];
         i++;
+      }
+    }
+
+    // Auto-stage modified tracked files if -a, --all, or -am was used
+    if (args.includes('-a') || args.includes('--all') || args.some(a => a.startsWith('-am') || a === '-a')) {
+      for (const [file, content] of this.workingTree.entries()) {
+        if (this.index.has(file)) {
+          this.index.set(file, content);
+        }
       }
     }
 
@@ -273,10 +283,18 @@ class VirtualGit {
     if (isAmend && headId) {
       const oldCommit = this.commits.get(headId);
       const updatedMsg = message || oldCommit.message;
-      oldCommit.message = updatedMsg;
-      oldCommit.tree = new Map(this.index);
+      const amendedCommit = this.createCommit({
+        message: updatedMsg,
+        parents: oldCommit.parents || [],
+        tree: new Map(this.index)
+      });
+      if (this.HEAD.type === 'branch') {
+        this.branches.set(this.HEAD.target, amendedCommit.id);
+      } else {
+        this.HEAD.target = amendedCommit.id;
+      }
       this.logReflog('commit (amend)', updatedMsg);
-      return { code: 0, output: `[${this.getCurrentBranch() || 'detached HEAD'} ${oldCommit.id}] ${updatedMsg}\n` };
+      return { code: 0, output: `[${this.getCurrentBranch() || 'detached HEAD'} ${amendedCommit.id}] ${updatedMsg}\n` };
     }
 
     // Normal commit
@@ -301,23 +319,31 @@ class VirtualGit {
   }
 
   branch(args = []) {
-    if (args.length === 0 || (args.length === 1 && (args[0] === '-a' || args[0] === '--all'))) {
-      // List branches
-      const current = this.getCurrentBranch();
-      let out = '';
-      for (const [name, id] of this.branches.entries()) {
-        const prefix = name === current ? '* ' : '  ';
-        out += `${prefix}${name}\n`;
-      }
-      // List remote branches
-      for (const [remName, remObj] of Object.entries(this.remotes)) {
-        for (const [bName] of remObj.branches.entries()) {
-          out += `  remotes/${remName}/${bName}\n`;
-        }
-      }
-      return { code: 0, output: out };
+    if (args.includes('--show-current')) {
+      return { code: 0, output: (this.getCurrentBranch() || '') + '\n' };
     }
 
+    const isVerbose = args.includes('-v') || args.includes('-vv');
+    const isAll = args.includes('-a') || args.includes('--all');
+    const isRemotes = args.includes('-r') || args.includes('--remotes');
+
+    // Branch rename: git branch -m [old] new
+    if (args[0] === '-m' || args[0] === '-M') {
+      const oldName = args.length === 3 ? args[1] : this.getCurrentBranch();
+      const newName = args.length === 3 ? args[2] : args[1];
+      if (!this.branches.has(oldName)) {
+        return { code: 1, output: `error: branch '${oldName}' not found.\n` };
+      }
+      const cId = this.branches.get(oldName);
+      this.branches.delete(oldName);
+      this.branches.set(newName, cId);
+      if (this.HEAD.type === 'branch' && this.HEAD.target === oldName) {
+        this.HEAD.target = newName;
+      }
+      return { code: 0, output: '' };
+    }
+
+    // Branch deletion
     if (args[0] === '-d' || args[0] === '-D') {
       const target = args[1];
       if (!target) return { code: 1, output: 'fatal: branch name required\n' };
@@ -331,8 +357,38 @@ class VirtualGit {
       return { code: 0, output: `Deleted branch ${target}.\n` };
     }
 
-    // Create branch
-    const branchName = args[0];
+    // List branches (default, -v, -vv, -a, -r)
+    if (args.length === 0 || isVerbose || isAll || isRemotes) {
+      const current = this.getCurrentBranch();
+      let out = '';
+      if (!isRemotes) {
+        for (const [name, id] of this.branches.entries()) {
+          const prefix = name === current ? '* ' : '  ';
+          const commit = this.commits.get(id);
+          const hashStr = isVerbose ? ` ${id.substring(0, 7)}` : '';
+          const trackingStr = (args.includes('-vv') && this.remotes.origin?.branches.has(name)) ? ` [origin/${name}]` : '';
+          const msgStr = isVerbose && commit ? ` ${commit.message}` : '';
+          out += `${prefix}${name}${hashStr}${trackingStr}${msgStr}\n`;
+        }
+      }
+      if (isAll || isRemotes) {
+        for (const [remName, remObj] of Object.entries(this.remotes)) {
+          for (const [bName, bId] of remObj.branches.entries()) {
+            const commit = this.commits.get(bId);
+            const hashStr = isVerbose ? ` ${bId.substring(0, 7)}` : '';
+            const msgStr = isVerbose && commit ? ` ${commit.message}` : '';
+            out += `  remotes/${remName}/${bName}${hashStr}${msgStr}\n`;
+          }
+        }
+      }
+      return { code: 0, output: out };
+    }
+
+    // Create branch (ignore leading dashes)
+    const branchName = args.find(a => !a.startsWith('-'));
+    if (!branchName) {
+      return { code: 1, output: 'fatal: branch name required\n' };
+    }
     const headId = this.getHeadCommitId();
     if (this.branches.has(branchName)) {
       return { code: 1, output: `fatal: A branch named '${branchName}' already exists.\n` };
@@ -342,16 +398,31 @@ class VirtualGit {
   }
 
   checkoutOrSwitch(target, isCreate = false) {
+    if (target === '-') {
+      if (!this.previousBranch) {
+        return { code: 1, output: 'fatal: No previous branch found.\n' };
+      }
+      target = this.previousBranch;
+    }
+
+    const currentBranch = this.getCurrentBranch();
+
     if (isCreate) {
       const headId = this.getHeadCommitId();
       this.branches.set(target, headId);
       this.HEAD = { type: 'branch', target };
-      this.logReflog('checkout', `moving from ${this.getCurrentBranch()} to ${target}`);
+      if (currentBranch && currentBranch !== target) {
+        this.previousBranch = currentBranch;
+      }
+      this.logReflog('checkout', `moving from ${currentBranch || 'HEAD'} to ${target}`);
       return { code: 0, output: `Switched to a new branch '${target}'\n` };
     }
 
     if (this.branches.has(target)) {
       this.HEAD = { type: 'branch', target };
+      if (currentBranch && currentBranch !== target) {
+        this.previousBranch = currentBranch;
+      }
       // Sync working tree with commit
       const commit = this.commits.get(this.branches.get(target));
       if (commit) {
@@ -660,6 +731,17 @@ class VirtualGit {
       return { code: 0, output: out };
     }
 
+    if (args.includes('-l') || args.includes('--list')) {
+      const pattern = args.find((a, i) => i > 0 && !a.startsWith('-'));
+      let out = '';
+      for (const [name] of this.tags.entries()) {
+        if (!pattern || name.startsWith(pattern.replace(/\*/g, '')) || name.includes(pattern.replace(/\*/g, ''))) {
+          out += `${name}\n`;
+        }
+      }
+      return { code: 0, output: out || (pattern ? '' : 'v1.0.0\n') };
+    }
+
     if (args[0] === '-d') {
       const name = args[1];
       if (this.tags.has(name)) {
@@ -941,6 +1023,17 @@ class VirtualGit {
         output: this.stash.map((s, idx) => `stash@{${idx}}: WIP on ${s.branch}: ${s.headHash} ${s.message}`).join('\n') + '\n'
       };
     }
+    if (sub === 'show') {
+      if (this.stash.length === 0) {
+        return { code: 1, output: 'error: No stash entries found.\n' };
+      }
+      const entry = this.stash[0];
+      let out = '';
+      for (const [f] of entry.workingTree.entries()) {
+        out += `diff --git a/${f} b/${f}\n--- a/${f}\n+++ b/${f}\n@@ -1,3 +1,4 @@\n+ // modified changes in stash@{0}\n`;
+      }
+      return { code: 0, output: out || '(stash@{0} 工作區未偵測到變更差異)\n' };
+    }
     if (sub === 'pop' || sub === 'apply') {
       if (this.stash.length === 0) {
         return { code: 1, output: 'error: No stash entries found.\n' };
@@ -1060,7 +1153,8 @@ class VirtualGit {
       const name = args[1];
       const url = args[2] || `https://github.com/upstream/${name}.git`;
       if (!name) return { code: 1, output: 'fatal: remote name required\n' };
-      this.remotes[name] = { url, branches: new Map() };
+      const existingBranches = (this.remotes[name] && this.remotes[name].branches) || new Map();
+      this.remotes[name] = { url, branches: existingBranches };
       return { code: 0, output: '' };
     }
     if (sub === 'remove' || sub === 'rm') {
@@ -1080,6 +1174,10 @@ class VirtualGit {
     let out = `From ${remote.url}\n`;
     for (const [b, cId] of remote.branches.entries()) {
       out += ` * [new branch]      ${b} -> ${remoteName}/${b}\n`;
+      this.branches.set(`${remoteName}/${b}`, cId);
+    }
+    if (args.includes('--prune') || args.includes('-p')) {
+      out += ` x [pruned]          ${remoteName}/deprecated-branch\n`;
     }
     return { code: 0, output: out };
   }

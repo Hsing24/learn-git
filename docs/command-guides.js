@@ -33,13 +33,13 @@ const COMMAND_GUIDES = {
         step: 3,
         cmd: 'git config push.autoSetupRemote true',
         category: 'optional',
-        why: '【強烈推薦可選】開啟現代自動遠端分支追蹤（Git 2.37+）。以往每次開新分支 push 都要手動輸入 --set-upstream，開啟後只要敲 git push 即自動在遠端建立同名分支！'
+        why: '開啟現代自動遠端分支追蹤（Git 2.37+），開新分支後只要敲 git push 即自動在遠端建立同名分支，免除手動輸入 --set-upstream。'
       },
       {
         step: 4,
         cmd: 'git config init.defaultBranch main',
         category: 'optional',
-        why: '【推薦可選】現代開源標準，讓所有新建倉庫的初始預設分支自動命名為 main，告別過時的 master。'
+        why: '將所有新建倉庫的初始預設分支自動命名為 main，符合現代開源社群規範，告別過時的 master。'
       }
     ],
     configCategories: {
@@ -115,17 +115,32 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git status',
-        why: '先用肉眼審視工作目錄狀態，確認有哪些未追蹤 (untracked) 的新檔案。'
+        category: 'required',
+        why: '審視工作目錄狀態，確認有哪些未追蹤 (untracked) 的新檔案。'
       },
       {
         step: 2,
         cmd: 'git add .',
-        why: '將當前目錄及子目錄下的所有新檔案一次打包，推進「暫存區 (Staging Area)」，備妥待拍快照。'
+        category: 'required',
+        why: '將當前目錄及子目錄下的所有新檔案一次打包推進暫存區，備妥待拍快照。'
       },
       {
         step: 3,
         cmd: 'git commit -m "feat: initial commit"',
+        category: 'required',
         why: '正式拍下快照建立第一個版本歷史節點 (Commit)，附上職責明確的提交訊息。'
+      },
+      {
+        step: 4,
+        cmd: 'git status -s',
+        category: 'optional',
+        why: '以極簡雙欄代碼（如 ?? 代表未追蹤、M 代表修改）呈現狀態，檔案繁多時能光速掃描變更。'
+      },
+      {
+        step: 5,
+        cmd: 'git commit -v',
+        category: 'optional',
+        why: '在編輯提交訊息時直接在下方帶出本次完整 diff，方便提交前做最後自我代碼審查，防止誤交雜質代碼。'
       }
     ],
     variations: [
@@ -174,22 +189,38 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git switch -c feature/login',
+        category: 'required',
         why: '從 main 建立並切換至新功能分支，隔離新功能與主線，保護主線不受半成品干擾。'
       },
       {
         step: 2,
         cmd: 'git commit -m "feat: add login page"',
+        category: 'required',
         why: '在專屬分支上記錄登入功能成果，產生專屬提交節點。'
       },
       {
         step: 3,
         cmd: 'git switch main',
+        category: 'required',
         why: '登入功能開發完畢，切換回目標主線 main，準備接納新代碼。'
       },
       {
         step: 4,
         cmd: 'git merge feature/login',
+        category: 'required',
         why: '將功能分支合回 main。因為 main 在此期間無新提交，觸發俐落的 Fast-Forward 快進指標平移。'
+      },
+      {
+        step: 5,
+        cmd: 'git switch -',
+        category: 'optional',
+        why: '快速返回上一個停留的分支（類似終端機 cd -），在兩個分支間頻繁切換時大幅省去手動打字時間。'
+      },
+      {
+        step: 6,
+        cmd: 'git branch -vv',
+        category: 'optional',
+        why: '詳細檢視所有本地分支及其對應的遠端追蹤分支、領先或落後節點數與最新提交摘要。'
       }
     ],
     variations: [
@@ -239,22 +270,38 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git merge feature/dark-mode',
+        category: 'required',
         why: '啟動分支合併流程，Git 偵測到兩端修改重疊，暫停並在檔案中寫入衝突標記。'
       },
       {
         step: 2,
         cmd: '編輯 style.css 移除 <<<<<<< 與 >>>>>>> 標記',
+        category: 'required',
         why: '由人腦判斷保留兩端的最佳實作，刪除 Git 注入的標記符號。'
       },
       {
         step: 3,
         cmd: 'git add style.css',
+        category: 'required',
         why: '告訴 Git 該檔案的衝突已經妥善解決，標記已解決狀態。'
       },
       {
         step: 4,
         cmd: 'git commit -m "merge: resolve dark mode conflict"',
+        category: 'required',
         why: '完成三方合併並產生正式的 Merge Commit。'
+      },
+      {
+        step: 5,
+        cmd: 'git merge --abort',
+        category: 'optional',
+        why: '當衝突過於混亂、不小心合錯分支或需要退回原點重來時，一鍵安全取消合併並完全復原工作區。'
+      },
+      {
+        step: 6,
+        cmd: 'git diff --check',
+        category: 'optional',
+        why: '在送出合併提交前快速掃描所有檔案，主動抓出殘留的衝突標記符號與行尾多餘空白。'
       }
     ],
     variations: [
@@ -298,17 +345,32 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git rebase main',
+        category: 'required',
         why: '將當前 feature 分支的提交暫存抽起，將基底移到 main 最新頂端後重新逐一重放，消除歷史分叉。'
       },
       {
         step: 2,
         cmd: 'git switch main',
+        category: 'required',
         why: '切換回主線 main，準備接納已經線性化的功能分支。'
       },
       {
         step: 3,
         cmd: 'git merge feature',
+        category: 'required',
         why: '因為已經完成變基，此時合併直接觸發 Fast-Forward 快進，完美保持單一直線！'
+      },
+      {
+        step: 4,
+        cmd: 'git rebase --abort',
+        category: 'optional',
+        why: '變基過程中若遇到混亂衝突或操作失誤，一鍵放棄變基並將分支指標完全還原至操作前。'
+      },
+      {
+        step: 5,
+        cmd: 'git rebase --continue',
+        category: 'optional',
+        why: '在手動解決當前步驟衝突並執行 git add 標記後，通知 Git 繼續套用後續提交（變基時嚴禁執行 git commit）。'
       }
     ],
     variations: [
@@ -353,17 +415,32 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git log --oneline -n 5',
-        why: '先查看最近的幾筆零碎提交，確認目標 Commit 的 Hash。'
+        category: 'required',
+        why: '查看最近的零碎提交清單，確認需要整併的 Commit 範圍與 Hash。'
       },
       {
         step: 2,
-        cmd: 'git commit --fixup <hash> 或 git rebase -i HEAD~3',
-        why: '使用 fixup 自動標記修補對象，或使用互動式變基將多筆提交壓縮 (squash) 融合成一個。'
+        cmd: 'git rebase -i HEAD~2',
+        category: 'required',
+        why: '使用互動式變基將多筆零碎提交壓縮 (squash) 融合成單一語意清晰的功能節點。'
       },
       {
         step: 3,
         cmd: '保持最終 HEAD 只有 1 個完整功能的 commit',
-        why: '讓審查者一目了然，日後線上出問題時能清晰透過標題排查。'
+        category: 'required',
+        why: '整頓歷史清晰度，讓審查者一目了然，日後線上排查時更容易追蹤。'
+      },
+      {
+        step: 4,
+        cmd: 'git commit --fixup <commitHash>',
+        category: 'optional',
+        why: '針對指定歷史提交建立標註為 fixup! 的修補節點，省去手動思考臨時提交訊息的心智負擔。'
+      },
+      {
+        step: 5,
+        cmd: 'git rebase -i --autosquash HEAD~3',
+        category: 'optional',
+        why: '變基時自動依據 fixup! 標記重排並將修補提交融合進目標節點，免除手動調整順序的繁瑣步驟。'
       }
     ],
     variations: [
@@ -407,17 +484,26 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git push origin main (觀察 rejected 錯誤)',
+        category: 'required',
         why: '理解 Git 為了避免直接覆蓋他人代碼的安全防護機制。'
       },
       {
         step: 2,
         cmd: 'git pull --rebase origin main',
+        category: 'required',
         why: '先拉取遠端最新代碼，並把自己的本地提交優雅嫁接在最新頂端，杜絕菱形交叉節點。'
       },
       {
         step: 3,
         cmd: 'git push origin main',
+        category: 'required',
         why: '本地已整合遠端且保持線性超前，再次推送順利放行！'
+      },
+      {
+        step: 4,
+        cmd: 'git push --force-with-lease',
+        category: 'optional',
+        why: '安全強制推送防線，在覆蓋前檢查遠端是否有未知新提交，若有他人進度則自動阻擋，避免誤殺隊友代碼。'
       }
     ],
     variations: [
@@ -461,17 +547,32 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git switch main',
+        category: 'required',
         why: '切換到準備套用漏洞修補的穩定主線 main。'
       },
       {
         step: 2,
         cmd: 'git log experimental --oneline (查看修復 Commit Hash)',
+        category: 'required',
         why: '在實驗性分支中找出該修復提交的 Hash（如 sec001）。'
       },
       {
         step: 3,
         cmd: 'git cherry-pick <commitHash>',
+        category: 'required',
         why: '只摘取那一顆特定提交，精準複製修補到主線，完全不帶進未成熟的實驗代碼！'
+      },
+      {
+        step: 4,
+        cmd: 'git cherry-pick -n <commitHash>',
+        category: 'optional',
+        why: '摘取套用代碼變更但保留在暫存區而不立即建立 Commit，方便微調或與其他修改合併提交。'
+      },
+      {
+        step: 5,
+        cmd: 'git cherry-pick --abort',
+        category: 'optional',
+        why: '摘取過程遭遇衝突或挑錯提交時，一鍵放棄操作並將工作區復原至挑選前的狀態。'
       }
     ],
     variations: [
@@ -514,12 +615,20 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git reflog',
+        category: 'required',
         why: '開啟本地 HEAD 指針的黑盒子日記，找到誤刪前的那次提交 Hash。'
       },
       {
         step: 2,
         cmd: 'git reset --hard HEAD@{1}',
+        category: 'required',
         why: '時光倒流，將分支指針強制還原至特定動作點，找回心血代碼！'
+      },
+      {
+        step: 3,
+        cmd: 'git reflog show <branch>',
+        category: 'optional',
+        why: '特定分支黑盒子檢索，過濾其他分支與操作雜訊，精確鎖定目標分支的歷史移動紀錄。'
       }
     ],
     variations: [
@@ -564,17 +673,26 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git worktree add ../hotfix-dir hotfix/p1',
+        category: 'required',
         why: '在實體磁碟開闢獨立工作目錄並檢出分支，雙視窗平行作業，原專案伺服器與快取完全不動！'
       },
       {
         step: 2,
         cmd: 'git worktree list',
+        category: 'required',
         why: '檢視目前活躍掛載的所有實體工作樹目錄。'
       },
       {
         step: 3,
         cmd: 'git worktree remove ../hotfix-dir',
+        category: 'required',
         why: '修復並合併後，安全乾淨釋放該實體目錄。'
+      },
+      {
+        step: 4,
+        cmd: 'git worktree prune',
+        category: 'optional',
+        why: '清理已被手動刪除目錄但 Git 內部管理資訊仍殘留的失效工作樹紀錄，維持工作樹清單乾淨。'
       }
     ],
     variations: [
@@ -619,22 +737,32 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git bisect start',
+        category: 'required',
         why: '啟動 Git 二分搜尋捉蟲會話。'
       },
       {
         step: 2,
         cmd: 'git bisect bad',
+        category: 'required',
         why: '標記當前 HEAD 版本是有 Bug 的 (bad)。'
       },
       {
         step: 3,
         cmd: 'git bisect good <hash>',
+        category: 'required',
         why: '標記某個已知正常的歷史版本 (good)，Git 會自動跳到中間節點供你檢驗。'
       },
       {
         step: 4,
+        cmd: 'git bisect log',
+        category: 'optional',
+        why: '檢視二分搜尋目前的排查路徑與標記歷史，清楚掌握已判定好壞的提交紀錄。'
+      },
+      {
+        step: 5,
         cmd: 'git bisect reset',
-        why: '抓出問題提交後，結束除錯會話回到最初所在分支。'
+        category: 'optional',
+        why: '抓出問題提交後結束除錯會話，將 HEAD 指標復原切換回最初所在分支。'
       }
     ],
     variations: [
@@ -686,17 +814,26 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git config core.hooksPath .githooks',
+        category: 'required',
         why: '將 Git Hooks 讀取路徑由不受控的 .git/hooks 改為專案內的 .githooks，讓全團隊共享防線！'
       },
       {
         step: 2,
         cmd: 'chmod +x .githooks/pre-commit',
+        category: 'required',
         why: '賦予 pre-commit 檢查腳本可執行權限。'
       },
       {
         step: 3,
         cmd: '嘗試提交包含敏感關鍵字的檔案',
+        category: 'required',
         why: '親自驗證 pre-commit 守門員即時攔截並拒絕提交！'
+      },
+      {
+        step: 4,
+        cmd: 'git commit --no-verify',
+        category: 'optional',
+        why: '緊急情況跳過 pre-commit 等本機 hook 檢查強制提交，僅限事故搶修等特殊極端情境使用。'
       }
     ],
     variations: [
@@ -730,27 +867,36 @@ const COMMAND_GUIDES = {
   },
 
   '12': {
-    targetCommand: 'git add -p <file>',
+    targetCommand: 'git add -p shopping.py',
     summary: '精準原子暫存：以代碼塊 (Hunk) 為單位逐一審查暫存，實現乾淨純粹的單一職責原子提交。',
     scenarioContext: {
       role: '代碼潔癖架構師',
-      situation: '你在同一個檔案裡改了 20 行：其中 5 行是修 typo，10 行是新功能，5 行是除錯用的 console.log。如果一口氣 git add .，會混雜無關邏輯。你想把它拆分成單一職責的原子提交。'
+      situation: '你在同一個檔案裡改了兩處邏輯：一處是修復折扣計算，另一處是幣別顯示。前輩要求拆成獨立提交。如果直接 git add . 會混雜無關改動，需要用 git add -p 組織單一職責的原子提交。'
     },
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git add -p app.js',
-        why: '以代碼塊 (Hunk) 為單位逐一審閱，輸入 y 暫存目標區塊，輸入 n 略過除錯行。'
+        cmd: 'git add -p shopping.py',
+        category: 'required',
+        why: '以代碼塊 (Hunk) 為單位逐一審核，輸入 y 暫存折扣修復區塊，輸入 n 略過其他變更。'
       },
       {
         step: 2,
-        cmd: 'git diff --staged',
-        why: '檢視暫存區內容，確保只包含本次想提交的功能代碼。'
+        cmd: 'git commit -m "fix: apply discount in total calculation"',
+        category: 'required',
+        why: '將暫存區的折扣修復獨立建立原子提交，維持單一職責與清晰歷史。'
       },
       {
         step: 3,
-        cmd: 'git commit -m "feat: login logic"',
-        why: '拍下只包含核心功能的乾淨快照，實現完美的 Atomic Commit！'
+        cmd: 'git diff --staged',
+        category: 'optional',
+        why: '檢視暫存區與最新提交之間的代碼差異，確認即將提交的內容精確無誤。'
+      },
+      {
+        step: 4,
+        cmd: 'git diff -w',
+        category: 'optional',
+        why: '比對工作目錄變更時忽略所有空白與縮排，專注於實質代碼邏輯變更。'
       }
     ],
     variations: [
@@ -767,6 +913,12 @@ const COMMAND_GUIDES = {
         desc: '在 commit 前做最後確認，確保進入暫存區的只有本次想要的邏輯。',
         isPopular: true,
         popularReason: '提交前最好的自我審查習慣。'
+      },
+      {
+        cmd: 'git diff -w',
+        name: '比對時忽略空白與縮排',
+        desc: '在比對工作目錄與暫存區時忽略所有空白與縮排變更，聚焦核心邏輯修改。',
+        isPopular: false
       }
     ],
     whyPopularTitle: '為什麼優秀工程師堅持「原子提交 (Atomic Commit)」？',
@@ -778,7 +930,7 @@ const COMMAND_GUIDES = {
   },
 
   '13': {
-    targetCommand: 'git rm --cached <file>',
+    targetCommand: 'git rm --cached .env',
     summary: '亡羊補牢：停止追蹤已被納入版本庫的機密或暫存檔案，同時完整保全本地硬碟實體檔案。',
     scenarioContext: {
       role: '資安防護工程師',
@@ -788,12 +940,20 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git rm --cached .env',
-        why: '將其從 Git 暫存區與版本索引中除名，但「本地實體檔案完全不受損壞」。'
+        category: 'required',
+        why: '從 Git 暫存區與版本索引中移除追蹤，同時完整保全本地硬碟實體檔案。'
       },
       {
         step: 2,
-        cmd: 'git commit -m "chore: untrack .env file"',
-        why: '正式將刪除索引的動作記錄下來，配合 .gitignore 徹底停止追蹤！'
+        cmd: 'git commit -m "chore: untrack .env"',
+        category: 'required',
+        why: '正式提交索引移除變更，使 .gitignore 規則對該檔案全面生效。'
+      },
+      {
+        step: 3,
+        cmd: 'git check-ignore -v .env',
+        category: 'optional',
+        why: '排查檔案被忽略的具體原因，顯示命中的 .gitignore 檔案路徑與行號。'
       }
     ],
     variations: [
@@ -803,6 +963,13 @@ const COMMAND_GUIDES = {
         desc: '只從 Git 暫存區與版本控管名單移除，本地硬碟上的實體檔案完全不受損壞。',
         isPopular: true,
         popularReason: '【★ 解決 .env 外流救星】把已經誤推的設定檔退出版控，但本地繼續保留使用！'
+      },
+      {
+        cmd: 'git check-ignore -v <檔案名稱>',
+        name: '排查 .gitignore 命中規則',
+        desc: '顯示檔案被 Git 忽略的原因，精確印出命中哪一份 .gitignore 規則檔與行號。',
+        isPopular: true,
+        popularReason: '【★ 除錯利器】快速釐清特定檔案為何沒被 Git 追蹤到。'
       },
       {
         cmd: 'git rm -r --cached .',
@@ -827,7 +994,7 @@ const COMMAND_GUIDES = {
   },
 
   '14': {
-    targetCommand: 'git revert -m 1 <mergeCommitHash>',
+    targetCommand: 'git revert -m 1 HEAD',
     summary: '線上緊急回滾：解救生產事故，向前推進產生反轉提交，安全復原已合併的 Pull Request。',
     scenarioContext: {
       role: '線上值班負責人',
@@ -836,18 +1003,21 @@ const COMMAND_GUIDES = {
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git log --oneline -n 3 (確認 Merge Commit Hash)',
-        why: '找到引發事故的合併節點 Hash。'
+        cmd: 'git log --oneline -n 3',
+        category: 'required',
+        why: '確認提交歷史與當前引發線上事故的 Merge Commit 節點。'
       },
       {
         step: 2,
-        cmd: 'git revert -m 1 <mergeCommitHash>',
-        why: '產生反轉提交，`-m 1` 明確指定以 main 主線第一親代為基準撤銷功能分支改動。'
+        cmd: 'git revert -m 1 HEAD',
+        category: 'required',
+        why: '以主線第一親代為基準反轉合併變更，生成向前推進的安全回滾提交。'
       },
       {
         step: 3,
-        cmd: 'git log --oneline (確認回滾提交)',
-        why: '保留完整審計歷史，團隊其他人的本地分支完全不受破壞。'
+        cmd: 'git revert --no-edit HEAD',
+        category: 'optional',
+        why: '保留預設產生的 Revert 提交訊息，跳過文字編輯器確認直接完成反轉。'
       }
     ],
     variations: [
@@ -864,6 +1034,13 @@ const COMMAND_GUIDES = {
         desc: '不需要 -m 參數，直接反轉普通單親提交的代碼變動。',
         isPopular: true,
         popularReason: '日常回滾單一錯誤提交的首選。'
+      },
+      {
+        cmd: 'git revert --no-edit <CommitHash>',
+        name: '沿用預設反轉提交訊息',
+        desc: '跳過文字編輯器確認步驟，直接以預設 Revert 訊息產生回滾提交。',
+        isPopular: true,
+        popularReason: 'CI/CD 自動化或緊急快速回滾時省去編輯器互動。'
       }
     ],
     whyPopularTitle: '為什麼回滾 Merge PR 必須加上 -m 1 ？',
@@ -875,22 +1052,42 @@ const COMMAND_GUIDES = {
   },
 
   '15': {
-    targetCommand: 'git tag -a v1.0.0 -m "release: v1.0.0"',
+    targetCommand: 'git tag -a v1.0.0 -m "Release v1.0.0"',
     summary: '版本里程碑：建立附註標籤 (Annotated Tag)，綁定發布節點並推送到遠端釋出 Release。',
     scenarioContext: {
       role: 'Release 負責人',
-      situation: '系統完成 v1.0.0 正式里程碑！你需要為當前的穩定 Commit 貼上正式的發布標籤，讓 CI/CD 觸發自動建置並供用戶下載。'
+      situation: '系統完成 v1.0.0 正式里程碑！你需要為當前的穩定 Commit 貼上正式的發布標籤，並為過往里程碑補簽版號，讓 CI/CD 觸發自動建置並供用戶下載。'
     },
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git tag -a v1.0.0 -m "release: v1.0.0 production ready"',
-        why: '建立包含打標者、時間戳記與訊息的附註標籤 (Annotated Tag)。'
+        cmd: 'git tag -a v1.0.0 -m "Release v1.0.0"',
+        category: 'required',
+        why: '在當前穩定進度建立包含打標者與時間戳記的附註標籤，標定正式發布版號。'
       },
       {
         step: 2,
+        cmd: 'git tag -a v0.9.0 cAuth -m "Beta release"',
+        category: 'required',
+        why: '為指定的歷史提交補簽附註標籤，補足過往里程碑版本紀錄。'
+      },
+      {
+        step: 3,
+        cmd: 'git tag -l "v1.*"',
+        category: 'optional',
+        why: '使用萬用字元樣式過濾列出符合特定版號範圍的標籤清單。'
+      },
+      {
+        step: 4,
+        cmd: 'git show v1.0.0',
+        category: 'optional',
+        why: '檢視標籤中繼資料，包含打標者、簽署時間、附註訊息與指向的快照內容。'
+      },
+      {
+        step: 5,
         cmd: 'git push origin --tags',
-        why: '預設的 git push 不會推送標籤，必須主動將里程碑同步至遠端。'
+        category: 'optional',
+        why: '將本地建立的所有版本標籤一次性同步推送至遠端倉庫。'
       }
     ],
     variations: [
@@ -900,6 +1097,19 @@ const COMMAND_GUIDES = {
         desc: '建立包含打標者姓名、Email、時間戳記與專屬描述的完整標籤物件。',
         isPopular: true,
         popularReason: '【★ 正式軟體發布標準】CI/CD 自動化建置、Docker Image 版號與 GitHub Release 基準！'
+      },
+      {
+        cmd: 'git tag -l "<萬用字元樣式>"',
+        name: '樣式過濾標籤清單',
+        desc: '使用萬用字元（如 "v1.*"）列出符合特定版號範圍的所有標籤。',
+        isPopular: false
+      },
+      {
+        cmd: 'git show <標籤名>',
+        name: '檢視標籤詳細資訊',
+        desc: '顯示標籤的簽署中繼資料（打標者、日期、附註訊息）與其指向之 Commit 內容。',
+        isPopular: true,
+        popularReason: '驗證正式發布標籤內容與指向節點是否正確必用。'
       },
       {
         cmd: 'git tag <標籤名>',
@@ -924,22 +1134,36 @@ const COMMAND_GUIDES = {
   },
 
   '16': {
-    targetCommand: 'git log -S "關鍵字" --oneline',
+    targetCommand: 'git log -S "CRITICAL_SECRET_TOKEN" --oneline',
     summary: '代碼考古學：使用鶴嘴鎬 (Pickaxe) 精準搜尋特定函式或變數在何時被新增或移除，搭配 blame 追查責任。',
     scenarioContext: {
       role: '架構考古學家',
-      situation: '一個重要的支付加密函式突然不見了！如果用普通搜尋會搜到數百個排版變動的雜訊。你需要精準揪出到底是在哪一次提交中被真正刪除的。'
+      situation: '一個關鍵的加密密鑰變數突然找不到了！如果用普通搜尋會搜到大量排版變動的雜訊。你需要精準揪出到底是在哪一次提交中被真正引入或刪除的。'
     },
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git log -S "secret_api_key" --oneline',
-        why: '鶴嘴鎬只匹配「該字串出現次數有改變」的提交，排除單純排版與無關搬移。'
+        cmd: 'git log -S "CRITICAL_SECRET_TOKEN" --oneline',
+        category: 'required',
+        why: '鶴嘴鎬只匹配該字串出現次數有改變的提交，精準鎖定變數增減的關鍵節點。'
       },
       {
         step: 2,
-        cmd: 'git blame config.js',
-        why: '逐行追溯代碼最後修改者與提交日誌，了解背後的設計動機。'
+        cmd: 'git blame db.js',
+        category: 'required',
+        why: '逐行追溯檔案中每行代碼的最後修改者、提交 Hash 與修改時間。'
+      },
+      {
+        step: 3,
+        cmd: 'git log --oneline --graph',
+        category: 'optional',
+        why: '以單行 ASCII 樹狀圖視覺化呈現分支歷史與合併分叉拓撲結構。'
+      },
+      {
+        step: 4,
+        cmd: 'git blame -L 10,20 db.js',
+        category: 'optional',
+        why: '限制只追蹤指定行號範圍內的責任歸屬，避免大檔案資訊過量。'
       }
     ],
     variations: [
@@ -956,6 +1180,13 @@ const COMMAND_GUIDES = {
         desc: '列出指定行數範圍內每一行的最後修改者、Commit Hash 與修改日期。',
         isPopular: true,
         popularReason: '了解一段奇怪代碼當初撰寫時的上下文背景。'
+      },
+      {
+        cmd: 'git log --oneline --graph',
+        name: '視覺化單行歷史樹',
+        desc: '以 ASCII 樹狀圖單行呈現分支合併與分叉拓撲結構，直觀掌握版本演進。',
+        isPopular: true,
+        popularReason: '【★ 最推日誌檢視】終端機中最直觀好讀的分支歷史檢視方式。'
       },
       {
         cmd: 'git log -p <檔案名稱>',
@@ -983,17 +1214,26 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git config rerere.enabled true',
-        why: '開啟 Reuse Recorded Resolution，讓 Git 自動記憶你的衝突解決方案。'
+        category: 'required',
+        why: '啟用 Reuse Recorded Resolution 機制，讓 Git 自動記錄後續所有衝突解決方案。'
       },
       {
         step: 2,
-        cmd: '解完第一次衝突並提交',
-        why: 'Git 在背後悄悄記錄了衝突前後代碼指紋與你的解決結果。'
+        cmd: 'git merge feature/api',
+        category: 'required',
+        why: '執行分支合併以觸發衝突，建立初次衝突解法指紋記錄。'
       },
       {
         step: 3,
-        cmd: '未來再次遇到相同衝突',
-        why: 'Git 在 0 秒內全自動套用記憶解法！'
+        cmd: 'git rerere diff',
+        category: 'optional',
+        why: '檢視當前工作目錄衝突狀態與 rerere 已記錄解決方案之間的代碼差異。'
+      },
+      {
+        step: 4,
+        cmd: 'git rerere status',
+        category: 'optional',
+        why: '查看目前受 rerere 機制追蹤且正在處理中的衝突檔案清單。'
       }
     ],
     variations: [
@@ -1003,6 +1243,18 @@ const COMMAND_GUIDES = {
         desc: 'Git 會在背後悄悄記錄你每次解決衝突時的前後代碼指紋與解決方案。',
         isPopular: true,
         popularReason: '【★ 長期 Rebase 救星】下次再遇到相同衝突時，Git 在 0 秒內全自動套用解法！'
+      },
+      {
+        cmd: 'git rerere diff',
+        name: '檢視衝突與記憶解法差異',
+        desc: '比對當前工作區中的衝突狀態與 rerere 預先記錄之已解決方案的差異。',
+        isPopular: false
+      },
+      {
+        cmd: 'git rerere status',
+        name: '列出受 rerere 追蹤的檔案',
+        desc: '印出目前正在受 rerere 衝突記憶機制處理與追蹤的衝突檔案清單。',
+        isPopular: false
       },
       {
         cmd: 'git config --global rerere.enabled true',
@@ -1021,7 +1273,7 @@ const COMMAND_GUIDES = {
   },
 
   '18': {
-    targetCommand: 'git commit --amend --no-edit',
+    targetCommand: 'git commit --amend -m "feat: release v1.0.0"',
     summary: '完美補完：剛送出 Commit 卻發現漏加了一個檔案或有筆誤？在不增加歷史髒節點的前提下原處修補。',
     scenarioContext: {
       role: '專案開發者',
@@ -1031,28 +1283,36 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git add assets/logo.png',
-        why: '先把漏掉的檔案放進暫存區。'
+        category: 'required',
+        why: '將遺漏的檔案加入暫存區，準備補入最新一筆提交。'
       },
       {
         step: 2,
+        cmd: 'git commit --amend -m "feat: release v1.0.0"',
+        category: 'required',
+        why: '將暫存變更融合進最新提交，並同步更正打錯字的提交訊息。'
+      },
+      {
+        step: 3,
         cmd: 'git commit --amend --no-edit',
-        why: '直接將暫存變更融合進最新的一筆提交中，原處修補不增髒節點。'
+        category: 'optional',
+        why: '追加暫存區檔案至最新提交，但保留原有的提交訊息不變。'
       }
     ],
     variations: [
-      {
-        cmd: 'git commit --amend --no-edit',
-        name: '追補檔案不改訊息',
-        desc: '將當前暫存區的新變更直接融合進最新的一筆 Commit，保持原有訊息不變。',
-        isPopular: true,
-        popularReason: '【★ 日常高頻修補手勢】剛 commit 完才發現漏存一個檔案時的最優解！'
-      },
       {
         cmd: 'git commit --amend -m "新訊息"',
         name: '修改最後一筆 Commit 訊息',
         desc: '不改代碼，純粹修正最新提交的打字錯誤 (Typo) 或補充說明。',
         isPopular: true,
         popularReason: '打錯標題時的快速救星。'
+      },
+      {
+        cmd: 'git commit --amend --no-edit',
+        name: '追補檔案不改訊息',
+        desc: '將當前暫存區的新變更直接融合進最新的一筆 Commit，保持原有訊息不變。',
+        isPopular: true,
+        popularReason: '【★ 日常高頻修補手勢】剛 commit 完才發現漏存一個檔案時的最優解！'
       }
     ],
     whyPopularTitle: '為什麼不能直接再 push 一個 "fix typo" commit？',
@@ -1074,17 +1334,32 @@ const COMMAND_GUIDES = {
       {
         step: 1,
         cmd: 'git stash -u',
-        why: '連同未追蹤新檔案一起安全封存進貯藏棧堆，瞬間還原潔淨工作區。'
+        category: 'required',
+        why: '將工作區修改連同未追蹤檔案全數封存至暫存堆疊，瞬間還原乾淨工作區。'
       },
       {
         step: 2,
-        cmd: 'git switch main (修復緊急 Bug 後切回)',
-        why: '工作區乾淨後即可無縫切換分支修復。'
+        cmd: 'git switch main',
+        category: 'required',
+        why: '切換至主線分支以進行緊急修復任務。'
       },
       {
         step: 3,
         cmd: 'git stash pop',
-        why: '彈出並還原暫存代碼，無縫接軌繼續工作！'
+        category: 'required',
+        why: '切回原分支後彈出並還原暫存改動，同時自暫存堆疊中移除該紀錄。'
+      },
+      {
+        step: 4,
+        cmd: 'git stash show -p',
+        category: 'optional',
+        why: '以補丁差異格式詳細檢視暫存堆疊中最頂層的程式碼改動細節。'
+      },
+      {
+        step: 5,
+        cmd: 'git stash drop',
+        category: 'optional',
+        why: '手動丟棄指定或最頂層的暫存紀錄，清理已不再需要的草稿堆疊。'
       }
     ],
     variations: [
@@ -1101,6 +1376,19 @@ const COMMAND_GUIDES = {
         desc: '將堆疊頂部的暫存變更還原回工作目錄，並自 stash 列表中移除。',
         isPopular: true,
         popularReason: '做完緊急任務回來繼續工時的日常手勢。'
+      },
+      {
+        cmd: 'git stash show -p',
+        name: '檢視最新暫存補丁差異',
+        desc: '以完整 Diff 補丁格式展開暫存堆疊頂層修改的每行代碼細節。',
+        isPopular: true,
+        popularReason: '在 pop 還原前確認暫存內容是否符合預期的最佳方式。'
+      },
+      {
+        cmd: 'git stash drop',
+        name: '丟棄特定或最新暫存',
+        desc: '自暫存堆疊中刪除指定或最新的一筆暫存紀錄，釋放暫存空間。',
+        isPopular: false
       },
       {
         cmd: 'git stash list',
@@ -1134,18 +1422,27 @@ const COMMAND_GUIDES = {
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git mv old.js new.js',
-        why: '在作業系統與 Git 索引層級同步更名，保持歷史追蹤連貫性。'
+        cmd: 'git mv utils.py helpers.py',
+        category: 'required',
+        why: '在檔案系統與 Git 索引層級同步更名，保持檔案版本歷史連貫性。'
       },
       {
         step: 2,
-        cmd: 'git clean -nd',
-        why: '安全乾跑 (Dry-Run)，先預覽會被刪除的垃圾檔案，防止手滑誤刪重要代碼。'
+        cmd: 'git clean -fd',
+        category: 'required',
+        why: '強制刪除所有未追蹤的檔案與目錄，徹底清理工作目錄雜物。'
       },
       {
         step: 3,
-        cmd: 'git clean -fd',
-        why: '強制掃除所有未追蹤的檔案與目錄，還原無瑕環境。'
+        cmd: 'git commit -m "refactor: rename utils to helpers"',
+        category: 'required',
+        why: '正式提交檔案更名結果，完成模組重構。'
+      },
+      {
+        step: 4,
+        cmd: 'git clean -nd',
+        category: 'optional',
+        why: '以演習模式預覽即將被清除的未追蹤檔案與目錄，避免誤刪重要資料。'
       }
     ],
     variations: [
@@ -1180,7 +1477,7 @@ const COMMAND_GUIDES = {
   },
 
   '21': {
-    targetCommand: 'git fetch origin',
+    targetCommand: 'git fetch upstream',
     summary: '遠端全貌：安全拉取遠端最新節點與分支歷史，不觸動本地分支與工作目錄，安心比對審核。',
     scenarioContext: {
       role: '開源專案貢獻者',
@@ -1189,18 +1486,33 @@ const COMMAND_GUIDES = {
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git remote -v',
-        why: '檢視當前倉庫關聯的遠端節點與 URL。'
+        cmd: 'git remote add upstream https://github.com/corp/upstream.git',
+        category: 'required',
+        why: '新增上游官方倉庫的遠端關聯，建立協作同步來源。'
       },
       {
         step: 2,
-        cmd: 'git fetch origin',
-        why: '只下載遠端最新歷史與指針，完全不觸動本地分支與檔案，安全第一。'
+        cmd: 'git fetch upstream',
+        category: 'required',
+        why: '安全抓取上游最新提交與分支指針，不改動本地工作目錄與現有分支。'
       },
       {
         step: 3,
-        cmd: 'git diff main origin/main',
-        why: '檢閱比對差異後再決定如何整合，專業協作的嚴謹態度。'
+        cmd: 'git merge upstream/main',
+        category: 'required',
+        why: '將上游最新安全更新合併至本地當前分支。'
+      },
+      {
+        step: 4,
+        cmd: 'git remote -v',
+        category: 'optional',
+        why: '詳細列出當前所有已設定的遠端倉庫名稱與對應的 Fetch/Push 網址。'
+      },
+      {
+        step: 5,
+        cmd: 'git fetch --prune',
+        category: 'optional',
+        why: '抓取遠端時同步清除本地快取中已被遠端刪除的失效分支指針。'
       }
     ],
     variations: [
@@ -1235,7 +1547,7 @@ const COMMAND_GUIDES = {
   },
 
   '22': {
-    targetCommand: 'git branch <新分支> 搭配 git reset --hard <舊Hash>',
+    targetCommand: 'git branch feature/oauth && git reset --hard HEAD~2',
     summary: '移花接木：不小心把功能直接寫在 main 並提交了？用指針平移救星將 Commit 移駕新分支並恢復主線。',
     scenarioContext: {
       role: '恍神救星工程師',
@@ -1244,18 +1556,27 @@ const COMMAND_GUIDES = {
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git branch feature/payment',
-        why: '在當前位置貼上新分支貼紙，牢牢錨定這 2 個提交，確保代碼絕不丟失。'
+        cmd: 'git branch feature/oauth',
+        category: 'required',
+        why: '在當前 HEAD 位置建立新分支貼紙，牢牢錨定誤寫在主線上的功能提交。'
       },
       {
         step: 2,
         cmd: 'git reset --hard HEAD~2',
-        why: '將 main 貼紙撕下並向後退回 2 個版本，主線瞬間恢復純潔！'
+        category: 'required',
+        why: '將 main 分支指針強制退回前兩個版本，使主線迅速恢復純淨狀態。'
       },
       {
         step: 3,
-        cmd: 'git switch feature/payment',
-        why: '切到新分支繼續推進，神級指標平移救援完成！'
+        cmd: 'git switch feature/oauth',
+        category: 'required',
+        why: '切換至剛建立的功能分支，承接進度無縫繼續開發。'
+      },
+      {
+        step: 4,
+        cmd: 'git reset --soft HEAD~1',
+        category: 'optional',
+        why: '撤銷最近一次提交但將所有代碼改動完整保留在暫存區，便於重新組織 Commit。'
       }
     ],
     variations: [
@@ -1272,6 +1593,13 @@ const COMMAND_GUIDES = {
         desc: '將當前所在分支（main）強制退回誤提交前的穩定節點。',
         isPopular: true,
         popularReason: '讓 main 回歸乾淨穩定狀態。'
+      },
+      {
+        cmd: 'git reset --soft HEAD~1',
+        name: '軟重設（撤銷提交保留暫存）',
+        desc: '將分支指針退回上一版本，但將所有修改保留在暫存區，方便重新拆分或修改提交。',
+        isPopular: true,
+        popularReason: '【★ 重整提交首選】撤銷最後一次 Commit 同時完好保全所有寫好的代碼！'
       },
       {
         cmd: 'git switch <新分支名稱>',
@@ -1299,13 +1627,21 @@ const COMMAND_GUIDES = {
     guidedSteps: [
       {
         step: 1,
-        cmd: 'git cat-file -t <hash>',
-        why: '查詢該 SHA-1 雜湊對應的物件型別（commit, tree, blob, 或 tag）。'
+        cmd: 'git cat-file -t HEAD',
+        category: 'required',
+        why: '查詢指定物件的底層資料型別（commit、tree 或 blob）。'
       },
       {
         step: 2,
-        cmd: 'git cat-file -p <hash>',
-        why: '美化傾印 (Pretty-print) 物件的真實內容，親眼見證樹狀快照與檔案文字。'
+        cmd: 'git cat-file -p HEAD',
+        category: 'required',
+        why: '美化傾印 HEAD 提交物件內容，透視作者資訊、父節點與關聯 Tree 雜湊。'
+      },
+      {
+        step: 3,
+        cmd: 'git rev-parse HEAD',
+        category: 'optional',
+        why: '解析引用並輸出當前 HEAD 提交對應的完整 40 位 SHA-1 雜湊字串。'
       }
     ],
     variations: [
@@ -1322,6 +1658,13 @@ const COMMAND_GUIDES = {
         desc: '輸出該 40 位 SHA-1 雜湊代表的物件種類：commit, tree, blob, 或 tag。',
         isPopular: true,
         popularReason: '快速辨識物件性質。'
+      },
+      {
+        cmd: 'git rev-parse HEAD',
+        name: '輸出完整 40 位 SHA-1 雜湊',
+        desc: '解析 HEAD 引用符號，印出其對應的完整 40 位 SHA-1 雜湊字串。',
+        isPopular: true,
+        popularReason: '在 CI/CD 腳本或自動化部署中取得精確 Commit SHA 的標準指令。'
       },
       {
         cmd: 'git ls-tree <Hash>',

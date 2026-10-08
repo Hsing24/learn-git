@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   );
   let commandHistory = [];
   let historyIndex = -1;
+  let currentDraft = '';
 
   // DOM Elements
   const terminalOutput = document.getElementById('terminal-output');
@@ -197,11 +198,28 @@ document.addEventListener('DOMContentLoaded', () => {
     window.openMissionModal();
   }
 
+  function normalizeGitCmd(cmdStr) {
+    if (!cmdStr) return '';
+    return cmdStr
+      .trim()
+      .replace(/^[\$#>]\s+/, '')
+      .replace(/[\u3000\t]+/g, ' ')
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/;+$/, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase()
+      .replace(/^git checkout -b\s+/, 'git switch -c ')
+      .replace(/^git checkout\s+/, 'git switch ')
+      .replace(/^git add -a\b|^git add --all\b/, 'git add .')
+      .replace(/["']/g, ''); // ignore quote difference
+  }
+
   // Check Task Progress on Every Command Execution
   function checkTaskProgress(rawCmd) {
     const sc = SCENARIOS[currentScenarioIndex];
     const requiredSteps = getRequiredSteps(sc);
-    const cleanCmd = rawCmd.trim();
+    const normalizedInput = normalizeGitCmd(rawCmd);
 
     // Check each required step
     requiredSteps.forEach((s, idx) => {
@@ -219,19 +237,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Check command matching
-      const targetClean = s.cmd.split(' (')[0].trim().toLowerCase();
-      const inputClean = cleanCmd.toLowerCase();
+      const targetBase = s.cmd.split(' (')[0].trim();
+      const normalizedTarget = normalizeGitCmd(targetBase);
 
-      if (inputClean === targetClean) {
+      if (normalizedInput === normalizedTarget) {
         completedTasks.add(idx);
-      } else {
-        const targetTokens = targetClean.split(/\s+/);
-        const inputTokens = inputClean.split(/\s+/);
-        if (targetTokens.length >= 2 && inputTokens.length >= 2) {
-          if (targetTokens[0] === inputTokens[0] && targetTokens[1] === inputTokens[1]) {
-            completedTasks.add(idx);
-          }
+      } else if (targetBase.includes('<') && targetBase.includes('>')) {
+        // e.g. git cherry-pick <commitHash> or git reflog show <branch>
+        const targetPrefix = normalizeGitCmd(targetBase.split('<')[0]);
+        if (normalizedInput.startsWith(targetPrefix) && normalizedInput.length > targetPrefix.length) {
+          completedTasks.add(idx);
         }
       }
     });
@@ -554,14 +569,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function preprocessInput(raw) {
+    let cmd = (raw || '').trim();
+    cmd = cmd.replace(/^[\$#>]\s+/, '');
+    cmd = cmd.replace(/[\u3000\t]+/g, ' ');
+    cmd = cmd.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+    cmd = cmd.replace(/;+$/, '');
+    return cmd.trim();
+  }
+
   // Command Execution Dispatcher
   function executeCommand(rawCmd) {
-    const cmd = rawCmd.trim();
+    const cmd = preprocessInput(rawCmd);
     if (!cmd) return;
 
-    // Record history
-    commandHistory.push(cmd);
+    // Record history with deduplication
+    if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
+      commandHistory.push(cmd);
+    }
     historyIndex = commandHistory.length;
+    currentDraft = '';
 
     // Echo input command with prompt
     const promptText = `user@git-lab:~/workspace ${promptBranchSpan.textContent} $ ${cmd}`;
@@ -651,7 +678,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     switch (sub) {
       case 'status':
+        const isShort = subArgs.includes('-s') || subArgs.includes('--short');
         const st = git.status();
+        if (isShort) {
+          let sOut = '';
+          if (subArgs.includes('-b') || subArgs.includes('--branch')) {
+            sOut += `## ${st.branch || 'HEAD (no branch)'}\n`;
+          }
+          if (st.conflict) {
+            sOut += `\x1b[38;2;248;81;73mUU ${st.conflict.file}\x1b[0m\n`;
+          }
+          st.staged.forEach(s => {
+            const code = s.status === 'new file' ? 'A' : (s.status === 'deleted' ? 'D' : 'M');
+            sOut += `\x1b[38;2;46;160;67m${code}  ${s.file}\x1b[0m\n`;
+          });
+          st.unstaged.forEach(s => {
+            const code = s.status === 'deleted' ? 'D' : 'M';
+            sOut += `\x1b[38;2;210;153;34m ${code} ${s.file}\x1b[0m\n`;
+          });
+          st.untracked.forEach(f => {
+            sOut += `\x1b[38;2;248;81;73m?? ${f}\x1b[0m\n`;
+          });
+          printOutput(sOut || '');
+          break;
+        }
         let out = `位於分支 ${st.branch || 'detached HEAD'}\n`;
         if (st.conflict) {
           out += `\x1b[38;2;248;81;73m您有尚未合併的衝突路徑！\n  （修復衝突並執行 "git commit"）\n未合併的路徑：\n  雙方修改：   ${st.conflict.file}\x1b[0m\n`;
@@ -689,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'checkout':
       case 'switch':
         let isCreate = subArgs.includes('-c') || subArgs.includes('-b');
-        let target = subArgs.find(a => !a.startsWith('-'));
+        let target = subArgs.find(a => a === '-' || !a.startsWith('-'));
         if (isCreate) {
           const idx = subArgs.findIndex(a => a === '-c' || a === '-b');
           target = subArgs[idx + 1];
@@ -806,7 +856,46 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'diff':
-        printOutput('(工作目錄比對完成)');
+        if (subArgs.includes('--staged') || subArgs.includes('--cached')) {
+          printOutput(`diff --git a/shopping.py b/shopping.py\n--- a/shopping.py\n+++ b/shopping.py\n@@ -10,3 +10,3 @@\n- total = price\n+ total = price * discount\n(暫存區比對完成：僅顯示已暫存待提交之代碼差異)`);
+        } else if (subArgs.includes('-w') || subArgs.includes('--ignore-all-space')) {
+          printOutput(`(工作目錄比對完成：已忽略所有空白字元與縮排差異)`);
+        } else {
+          printOutput('(工作目錄比對完成)');
+        }
+        break;
+
+      case 'check-ignore':
+        const targetIgnore = subArgs.find(a => !a.startsWith('-')) || '.env';
+        printOutput(`.gitignore:1:${targetIgnore}\t${targetIgnore}`);
+        break;
+
+      case 'show':
+        const showTarget = subArgs.find(a => !a.startsWith('-')) || 'HEAD';
+        if (git.tags.has(showTarget)) {
+          const t = git.tags.get(showTarget);
+          printOutput(`tag ${showTarget}\nTagger: ${t.tagger}\nDate:   ${new Date().toISOString()}\n\n    ${t.message}\n\ncommit ${t.commitId}\nAuthor: ${git.config['user.name'] || 'Developer'}\n\n    Release commit`);
+        } else {
+          const c = git.commits.get(showTarget) || git.getHeadCommit();
+          printOutput(`commit ${c ? c.id : showTarget}\nAuthor: ${c ? c.author : (git.config['user.name'] || 'Developer')}\nDate:   ${new Date().toISOString()}\n\n    ${c ? c.message : 'Initial commit'}`);
+        }
+        break;
+
+      case 'rerere':
+        const rSub = subArgs[0] || 'status';
+        if (rSub === 'diff') {
+          printOutput(`--- a/server.js\n+++ b/server.js\n@@ -5,3 +5,3 @@\n-<<<<<<< HEAD\n-const port = 8080;\n-=======\n-const port = 3000;\n->>>>>>> feature/api\n+const port = 3000;\n(rerere diff：比對當前衝突標記與記憶庫中已記錄之解法差異)`);
+        } else if (rSub === 'status') {
+          printOutput(`server.js\n(rerere status：檔案正在受 rerere 衝突記憶機制追蹤中)`);
+        } else {
+          printOutput(`Recorded preimage for 'server.js'`);
+        }
+        break;
+
+      case 'rev-parse':
+        const curHeadId = git.getHeadCommitId() || 'c1a2b3c';
+        const fullSha = (curHeadId + '7890abcdef1234567890abcdef1234567890abcdef').substring(0, 40);
+        printOutput(fullSha);
         break;
 
       case 'pull':
@@ -973,36 +1062,147 @@ document.addEventListener('DOMContentLoaded', () => {
 `);
   }
 
-  // Keyboard navigation & history
+  // Keyboard navigation & history & advanced terminal shortcuts
+  let lastTabTime = 0;
+
   terminalInput.addEventListener('keydown', (e) => {
+    // 1. Enter: execute command
     if (e.key === 'Enter') {
       const val = terminalInput.value;
       terminalInput.value = '';
       executeCommand(val);
-    } else if (e.key === 'ArrowUp') {
+      return;
+    }
+
+    // 2. Ctrl+L / Cmd+K: Clear screen keeping current input value
+    if ((e.ctrlKey && e.key.toLowerCase() === 'l') || (e.metaKey && e.key.toLowerCase() === 'k')) {
       e.preventDefault();
+      terminalOutput.innerHTML = '';
+      return;
+    }
+
+    // 3. Ctrl+C: Interrupt current line
+    if (e.ctrlKey && e.key.toLowerCase() === 'c') {
+      if (window.getSelection().toString() === '') {
+        e.preventDefault();
+        const val = terminalInput.value;
+        const promptText = `user@git-lab:~/workspace ${promptBranchSpan.textContent} $ ${val}^C`;
+        printOutput(`\x1b[38;2;139;148;158m${promptText}\x1b[0m`);
+        terminalInput.value = '';
+        currentDraft = '';
+        historyIndex = commandHistory.length;
+        scrollToBottom();
+        return;
+      }
+    }
+
+    // 4. Ctrl+U: Clear entire input line
+    if (e.ctrlKey && e.key.toLowerCase() === 'u') {
+      e.preventDefault();
+      terminalInput.value = '';
+      return;
+    }
+
+    // 5. ArrowUp: History Previous with draft preservation
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+      if (historyIndex === commandHistory.length) {
+        currentDraft = terminalInput.value;
+      }
       if (historyIndex > 0) {
         historyIndex--;
-        terminalInput.value = commandHistory[historyIndex] || '';
+        terminalInput.value = commandHistory[historyIndex];
+        terminalInput.setSelectionRange(terminalInput.value.length, terminalInput.value.length);
       }
-    } else if (e.key === 'ArrowDown') {
+      return;
+    }
+
+    // 6. ArrowDown: History Next with draft restoration
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (historyIndex < commandHistory.length - 1) {
         historyIndex++;
-        terminalInput.value = commandHistory[historyIndex] || '';
-      } else {
+        terminalInput.value = commandHistory[historyIndex];
+        terminalInput.setSelectionRange(terminalInput.value.length, terminalInput.value.length);
+      } else if (historyIndex === commandHistory.length - 1) {
         historyIndex = commandHistory.length;
-        terminalInput.value = '';
+        terminalInput.value = currentDraft;
+        terminalInput.setSelectionRange(terminalInput.value.length, terminalInput.value.length);
       }
-    } else if (e.key === 'Tab') {
+      return;
+    }
+
+    // 7. Tab: Context-aware Autocomplete & Double Tab Candidates
+    if (e.key === 'Tab') {
       e.preventDefault();
-      // Simple autocomplete
-      const val = terminalInput.value;
-      const suggestions = ['git status', 'git add .', 'git add -p', 'git commit -m "', 'git switch ', 'git switch -c ', 'git merge ', 'git rebase ', 'git cherry-pick ', 'git reset --hard ', 'git revert -m 1 ', 'git tag -a ', 'git worktree add ', 'git bisect start', 'git rm --cached ', 'next', 'guide', 'verify', 'hint', 'help', 'reset'];
-      const match = suggestions.find(s => s.startsWith(val));
-      if (match) terminalInput.value = match;
+      const input = terminalInput.value;
+      const tokens = input.split(' ');
+      const now = Date.now();
+      const isDoubleTab = (now - lastTabTime) < 500;
+      lastTabTime = now;
+
+      let candidates = [];
+
+      if (tokens.length <= 1) {
+        const topCmds = ['git', 'next', 'guide', 'hint', 'help', 'verify', 'reset', 'clear', 'levels'];
+        candidates = topCmds.filter(c => c.startsWith(tokens[0]));
+      } else if (tokens[0] === 'git') {
+        if (tokens.length === 2) {
+          const gitSubs = [
+            'status', 'add', 'commit', 'branch', 'switch', 'checkout', 'merge',
+            'rebase', 'cherry-pick', 'reset', 'revert', 'tag', 'worktree',
+            'bisect', 'rm', 'stash', 'clean', 'mv', 'remote', 'fetch',
+            'pull', 'push', 'diff', 'log', 'reflog', 'blame', 'cat-file', 'config'
+          ];
+          candidates = gitSubs.filter(s => s.startsWith(tokens[1])).map(s => `git ${s}`);
+        } else {
+          const sub = tokens[1];
+          const partial = tokens[tokens.length - 1];
+          const prefix = tokens.slice(0, -1).join(' ') + ' ';
+
+          if (['switch', 'checkout', 'merge', 'rebase', 'branch'].includes(sub)) {
+            const branches = Array.from(git.branches.keys());
+            candidates = branches.filter(b => b.startsWith(partial)).map(b => prefix + b);
+          } else if (['add', 'rm', 'restore', 'diff'].includes(sub)) {
+            const files = Array.from(new Set([...git.workingTree.keys(), ...git.index.keys()]));
+            candidates = files.filter(f => f.startsWith(partial)).map(f => prefix + f);
+          }
+        }
+      }
+
+      if (candidates.length === 1) {
+        terminalInput.value = candidates[0];
+        if (candidates[0].endsWith('commit -m "')) {
+          terminalInput.setSelectionRange(candidates[0].length, candidates[0].length);
+        }
+      } else if (candidates.length > 1) {
+        let lcp = candidates[0];
+        for (let i = 1; i < candidates.length; i++) {
+          while (!candidates[i].startsWith(lcp)) {
+            lcp = lcp.slice(0, -1);
+          }
+        }
+        if (lcp.length > input.length) {
+          terminalInput.value = lcp;
+        } else if (isDoubleTab) {
+          printOutput(`\x1b[38;2;139;148;158m${input}\x1b[0m`);
+          printOutput(candidates.map(c => c.split(' ').pop()).join('   '));
+          scrollToBottom();
+        }
+      }
     }
   });
+
+  // Auto-focus terminal input when clicking anywhere in terminal area
+  const terminalPanelEl = document.querySelector('.terminal-panel') || (terminalOutput && terminalOutput.parentElement);
+  if (terminalPanelEl) {
+    terminalPanelEl.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'BUTTON' && window.getSelection().toString() === '') {
+        terminalInput.focus();
+      }
+    });
+  }
 
   // Global Shortcut listener (Ctrl+N / Cmd+N for Next Level)
   window.addEventListener('keydown', (e) => {
