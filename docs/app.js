@@ -10,6 +10,75 @@ document.addEventListener('DOMContentLoaded', () => {
   const graphRenderer = new GraphRenderer(graphSvg);
 
   // App State
+  let ORDERED_SCENARIOS = [];
+
+  function initCurriculumOrder() {
+    if (typeof CURRICULUM === 'undefined' || !CURRICULUM.chapters) {
+      console.warn('CURRICULUM manifest not loaded, fallback to raw SCENARIOS');
+      ORDERED_SCENARIOS = typeof SCENARIOS !== 'undefined' ? [...SCENARIOS] : [];
+      return;
+    }
+
+    const scenarioMap = new Map((typeof SCENARIOS !== 'undefined' ? SCENARIOS : []).map(s => [s.id, s]));
+    const manifestIds = new Set();
+    const ordered = [];
+
+    CURRICULUM.chapters.forEach((ch, chIdx) => {
+      (ch.levels || []).forEach((lvl, lIdx) => {
+        manifestIds.add(lvl.id);
+        const raw = scenarioMap.get(lvl.id);
+        if (raw) {
+          ordered.push({
+            ...raw,
+            chapterKey: ch.key,
+            chapterTitle: ch.title,
+            chapterSummary: ch.summary,
+            chapterIndex: chIdx,
+            displayNum: `${chIdx}-${lIdx + 1}`,
+            slug: lvl.slug,
+            difficulty: lvl.difficulty || raw.difficulty,
+            defaultTab: lvl.defaultTab || 'mission',
+            isOptional: false
+          });
+        } else {
+          console.error(`Curriculum level id "${lvl.id}" not found in SCENARIOS!`);
+        }
+      });
+    });
+
+    (CURRICULUM.optional || []).forEach((opt, optIdx) => {
+      manifestIds.add(opt.id);
+      const raw = scenarioMap.get(opt.id);
+      if (raw) {
+        ordered.push({
+          ...raw,
+          chapterKey: 'optional',
+          chapterTitle: '選修主題',
+          chapterSummary: '特定進階議題（選修實戰）',
+          chapterIndex: 99,
+          displayNum: `選修-${optIdx + 1}`,
+          slug: opt.slug,
+          difficulty: opt.difficulty || raw.difficulty,
+          defaultTab: opt.defaultTab || 'files',
+          isOptional: true
+        });
+      } else {
+        console.error(`Curriculum optional level id "${opt.id}" not found in SCENARIOS!`);
+      }
+    });
+
+    // Consistency check
+    (typeof SCENARIOS !== 'undefined' ? SCENARIOS : []).forEach(s => {
+      if (!manifestIds.has(s.id)) {
+        console.error(`Scenario id "${s.id}" in SCENARIOS is missing from CURRICULUM manifest!`);
+      }
+    });
+
+    ORDERED_SCENARIOS = ordered;
+  }
+
+  initCurriculumOrder();
+
   let currentScenarioIndex = 0;
   const completedScenarios = new Set(
     JSON.parse(localStorage.getItem('git_lab_completed_scenarios') || '[]')
@@ -138,6 +207,18 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
 
+      <div class="mission-story-box">
+        <details class="story-details" open>
+          <summary class="story-summary">
+            <span>🎭 關卡職場情境</span>
+            <span class="story-toggle-icon">▾</span>
+          </summary>
+          <div class="story-content">
+            <p>${escapeHtml(scenario.story)}</p>
+          </div>
+        </details>
+      </div>
+
       <div class="mission-section">
         <h3 class="mission-section-title">
           <span>🎯 本關必要任務</span>
@@ -164,11 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  // Load Scenario by ID
+  // Load Scenario by Index
   function loadScenario(index) {
-    if (index < 0 || index >= SCENARIOS.length) index = 0;
+    if (index < 0 || index >= ORDERED_SCENARIOS.length) index = 0;
     currentScenarioIndex = index;
-    const scenario = SCENARIOS[index];
+    const scenario = ORDERED_SCENARIOS[index];
     isCurrentScenarioPassed = false;
     completedTasks.clear();
 
@@ -180,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update UI elements
     levelSelectBtn.innerHTML = `
-      <span class="level-badge">${scenario.id}</span>
+      <span class="level-badge">${scenario.displayNum || scenario.id}</span>
       <span class="level-name">${scenario.title}</span>
       <span class="arrow-down">▼</span>
     `;
@@ -191,11 +272,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCommandGuide(scenario);
     renderMissionPanel(scenario);
 
-    // Default right panel to Mission tab
-    window.switchTab('mission');
+    // Default right panel to scenario's defaultTab
+    window.switchTab(scenario.defaultTab || 'mission');
 
-    // Open Scenario Intro Modal Alert
-    window.openMissionModal();
+    // Open Scenario Intro Modal Alert if not disabled
+    if (localStorage.getItem('git_lab_hide_intro_modal') !== 'true') {
+      window.openMissionModal();
+    }
   }
 
   function normalizeGitCmd(cmdStr) {
@@ -217,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check Task Progress on Every Command Execution
   function checkTaskProgress(rawCmd) {
-    const sc = SCENARIOS[currentScenarioIndex];
+    const sc = ORDERED_SCENARIOS[currentScenarioIndex];
     const requiredSteps = getRequiredSteps(sc);
     const normalizedInput = normalizeGitCmd(rawCmd);
 
@@ -497,8 +580,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Update prompt with active branch
   function updatePrompt() {
-    const branch = git.getCurrentBranch() || `detached@${(git.getHeadCommitId() || 'none').substring(0, 4)}`;
-    promptBranchSpan.textContent = `(${branch})`;
+    if (git.HEAD.type === 'detached') {
+      const targetId = git.HEAD.target;
+      const matchingTag = [...git.tags.entries()].find(([_, t]) => t.commitId === targetId);
+      if (matchingTag) {
+        promptBranchSpan.textContent = `(HEAD detached at ${matchingTag[0]})`;
+      } else {
+        const shortHash = targetId ? targetId.substring(0, 7) : 'HEAD';
+        promptBranchSpan.textContent = `(HEAD detached at ${shortHash})`;
+      }
+    } else {
+      const branch = git.getCurrentBranch() || 'main';
+      promptBranchSpan.textContent = `(${branch})`;
+    }
   }
 
   // Re-render SVG Graph
@@ -621,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (mainCmd === 'hint') {
-      const sc = SCENARIOS[currentScenarioIndex];
+      const sc = ORDERED_SCENARIOS[currentScenarioIndex];
       printOutput(`\x1b[38;2;210;153;34m💡 [通關提示]：\x1b[0m\n${sc.hints.join('\n')}\n`);
       return;
     }
@@ -649,6 +743,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mainCmd === 'tree') {
       printOutput(git.logCmd(['--oneline', '--graph']).output);
+      return;
+    }
+
+    if (mainCmd === 'echo') {
+      const raw = cmd.replace(/^echo\s+/, '');
+      const match = raw.match(/^(.*?)\s*(>{1,2})\s*([^\s]+)$/);
+      if (match) {
+        let content = match[1].trim().replace(/^['"]|['"]$/g, '');
+        const append = match[2] === '>>';
+        const filename = match[3].trim();
+        const existing = git.workingTree.get(filename) || '';
+        git.workingTree.set(filename, append ? existing + content + '\n' : content + '\n');
+      } else {
+        printOutput(raw.replace(/^['"]|['"]$/g, ''));
+      }
+      updatePrompt();
+      refreshGraph();
+      renderFileList();
+      return;
+    }
+
+    if (mainCmd === 'touch') {
+      const file = args[0] || '.gitignore';
+      if (!git.workingTree.has(file)) {
+        git.workingTree.set(file, '');
+      }
+      updatePrompt();
+      refreshGraph();
+      renderFileList();
       return;
     }
 
@@ -739,37 +862,105 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'checkout':
       case 'switch':
         let isCreate = subArgs.includes('-c') || subArgs.includes('-b');
+        let isDetach = subArgs.includes('--detach');
         let target = subArgs.find(a => a === '-' || !a.startsWith('-'));
         if (isCreate) {
           const idx = subArgs.findIndex(a => a === '-c' || a === '-b');
           target = subArgs[idx + 1];
+        } else if (isDetach) {
+          target = subArgs.find(a => !a.startsWith('-'));
         }
         if (!target) {
-          printOutput(`fatal: missing branch name`);
+          printOutput(`fatal: missing branch name or reference`);
           return;
         }
-        const resSwitch = git.checkoutOrSwitch(target, isCreate);
+        const resSwitch = git.checkoutOrSwitch(target, isCreate, isDetach);
         if (resSwitch.output) printOutput(resSwitch.output);
         break;
 
+      case 'restore':
+        const resRestore = git.restore(subArgs);
+        if (resRestore.output) printOutput(resRestore.output);
+        break;
+
       case 'merge':
-        const targetMerge = subArgs.find(a => !a.startsWith('-'));
+        const isAbort = subArgs.includes('--abort');
+        const isSquash = subArgs.includes('--squash');
         const noFf = subArgs.includes('--no-ff');
-        if (!targetMerge) {
+        const targetMerge = subArgs.find(a => !a.startsWith('-'));
+        if (isAbort) {
+          const resMerge = git.merge('--abort', { abort: true });
+          if (resMerge.output) printOutput(resMerge.output);
+          break;
+        }
+        if (!targetMerge && !isSquash) {
           printOutput('fatal: No branch specified to merge.');
           return;
         }
-        const resMerge = git.merge(targetMerge, { noFf });
+        const resMerge = git.merge(targetMerge, { noFf, squash: isSquash });
         if (resMerge.output) printOutput(resMerge.output);
         break;
 
       case 'rebase':
         const isInteractiveRebase = subArgs.includes('-i') || subArgs.includes('--interactive');
-        if (isInteractiveRebase) {
-          printOutput(`[模擬互動式 rebase (rebase -i)]\n已自動壓縮 (squash/fixup) 零碎 commit，產生清晰單一語意 Commit！`);
+        const hasAutosquash = subArgs.includes('--autosquash');
+        const isContinue = subArgs.includes('--continue');
+        const isAbortRebase = subArgs.includes('--abort');
+        const isSkip = subArgs.includes('--skip');
+        const ontoIdx = subArgs.indexOf('--onto');
+
+        if (isContinue) {
+          const resCont = git.rebase('--continue');
+          if (resCont.output) printOutput(resCont.output);
+          break;
         }
+        if (isAbortRebase) {
+          const resAb = git.rebase('--abort');
+          if (resAb.output) printOutput(resAb.output);
+          break;
+        }
+        if (isSkip) {
+          const resSk = git.rebase('--skip');
+          if (resSk.output) printOutput(resSk.output);
+          break;
+        }
+
+        if (ontoIdx !== -1) {
+          const ontoArgs = subArgs.slice(ontoIdx + 1).filter(a => !a.startsWith('-'));
+          const newbase = ontoArgs[0];
+          const upstream = ontoArgs[1];
+          const targetBranch = ontoArgs[2] || null;
+          if (!newbase || !upstream) {
+            printOutput('fatal: Needed --onto <newbase> <upstream> [<branch>]');
+            break;
+          }
+          const resOnto = git.rebaseOnto(newbase, upstream, targetBranch);
+          if (resOnto.output) printOutput(resOnto.output);
+          break;
+        }
+
         const targetRebase = subArgs.find(a => !a.startsWith('-')) || 'main';
-        const resRebase = git.rebase(targetRebase, { interactive: isInteractiveRebase });
+        if (isInteractiveRebase) {
+          const plan = git.rebaseInteractivePlan(targetRebase, { autosquash: hasAutosquash });
+          if (plan.code !== 0) {
+            printOutput(plan.output);
+            return;
+          }
+          if (plan.commits.length === 0) {
+            printOutput(plan.output || `Current branch ${git.getCurrentBranch()} is up to date.`);
+            return;
+          }
+          let todoOut = '';
+          plan.commits.forEach(c => {
+            const action = c.action || 'pick';
+            todoOut += `${action} ${c.shortHash} ${c.message}\n`;
+          });
+          todoOut += `\n# Rebase onto ${targetRebase} (${plan.commits.length} commands)\n[開啟 Interactive Rebase Todo 視窗中...]`;
+          printOutput(todoOut);
+          openRebaseModal(plan);
+          return;
+        }
+        const resRebase = git.rebase(targetRebase);
         if (resRebase.output) printOutput(resRebase.output);
         break;
 
@@ -861,12 +1052,15 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'diff':
-        if (subArgs.includes('--staged') || subArgs.includes('--cached')) {
-          printOutput(`diff --git a/shopping.py b/shopping.py\n--- a/shopping.py\n+++ b/shopping.py\n@@ -10,3 +10,3 @@\n- total = price\n+ total = price * discount\n(staging area 比對完成：僅顯示已暫存待 commit 之程式碼差異)`);
-        } else if (subArgs.includes('-w') || subArgs.includes('--ignore-all-space')) {
-          printOutput(`(工作目錄比對完成：已忽略所有空白字元與縮排差異)`);
+        const resDiff = git.diffCmd(subArgs);
+        if (resDiff.output) {
+          printOutput(resDiff.output);
         } else {
-          printOutput('(工作目錄比對完成)');
+          if (subArgs.includes('-w') || subArgs.includes('--ignore-all-space')) {
+            printOutput(`(工作目錄比對完成：已忽略所有空白字元與縮排差異)`);
+          } else {
+            printOutput('(比對完成：無任何差異)');
+          }
         }
         break;
 
@@ -876,14 +1070,13 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'show':
-        const showTarget = subArgs.find(a => !a.startsWith('-')) || 'HEAD';
-        if (git.tags.has(showTarget)) {
-          const t = git.tags.get(showTarget);
-          printOutput(`tag ${showTarget}\nTagger: ${t.tagger}\nDate:   ${new Date().toISOString()}\n\n    ${t.message}\n\ncommit ${t.commitId}\nAuthor: ${git.config['user.name'] || 'Developer'}\n\n    Release commit`);
-        } else {
-          const c = git.commits.get(showTarget) || git.getHeadCommit();
-          printOutput(`commit ${c ? c.id : showTarget}\nAuthor: ${c ? c.author : (git.config['user.name'] || 'Developer')}\nDate:   ${new Date().toISOString()}\n\n    ${c ? c.message : 'Initial commit'}`);
-        }
+        const resShow = git.showCmd(subArgs);
+        if (resShow.output) printOutput(resShow.output);
+        break;
+
+      case 'clone':
+        const resClone = git.clone(subArgs[0], subArgs[1]);
+        if (resClone.output) printOutput(resClone.output);
         break;
 
       case 'rerere':
@@ -903,21 +1096,20 @@ document.addEventListener('DOMContentLoaded', () => {
         printOutput(fullSha);
         break;
 
+      case 'filter-repo':
+      case 'filter-branch':
+        const resFilter = git.filterRepo(subArgs);
+        if (resFilter.output) printOutput(resFilter.output);
+        break;
+
       case 'pull':
-        if (subArgs.includes('--rebase')) {
-          printOutput(`Successfully rebased against origin/main.\nFast-forwarded to origin/main.`);
-          git.branches.set(git.getCurrentBranch(), git.remotes.origin.branches.get('main'));
-        } else {
-          printOutput(`Merge made by the 'ort' strategy.`);
-        }
+        const resPull = git.pull(subArgs);
+        if (resPull.output) printOutput(resPull.output);
         break;
 
       case 'push':
-        const curBranch = git.getCurrentBranch();
-        if (curBranch) {
-          git.remotes.origin.branches.set(curBranch, git.branches.get(curBranch));
-          printOutput(`To https://github.com/Hsing24/learn-git.git\n * [new branch]      ${curBranch} -> ${curBranch}`);
-        }
+        const resPush = git.push(subArgs);
+        if (resPush.output) printOutput(resPush.output);
         break;
 
       default:
@@ -955,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check if scenario goals achieved
   function checkScenarioSuccess(isManualVerify = false) {
-    const sc = SCENARIOS[currentScenarioIndex];
+    const sc = ORDERED_SCENARIOS[currentScenarioIndex];
     const result = sc.checkGoal(git);
 
     if (result.passed) {
@@ -968,28 +1160,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isFirstTimePass || isManualVerify) {
         const nextIndex = currentScenarioIndex + 1;
-        const hasNext = nextIndex < SCENARIOS.length;
-        const nextId = hasNext ? SCENARIOS[nextIndex].id : '大師結業';
+        const hasNext = nextIndex < ORDERED_SCENARIOS.length;
+        const nextSc = hasNext ? ORDERED_SCENARIOS[nextIndex] : null;
+        const nextId = nextSc ? (nextSc.displayNum || nextSc.id) : '大師結業';
 
         // Render authentic TUI box banner directly in terminal stream (no popup modal!)
         const msgLines = (result.message || '').split('\n');
         printOutput(`\n\x1b[38;2;63;185;80m╭──────────────────────────────────────────────────────────────────────────╮\x1b[0m`);
-        printOutput(`\x1b[38;2;63;185;80m│  ✔ [LEVEL ${sc.id} PASSED] ${sc.title}\x1b[0m`);
+        printOutput(`\x1b[38;2;63;185;80m│  ✔ [LEVEL ${sc.displayNum || sc.id} PASSED] ${sc.title}\x1b[0m`);
         msgLines.forEach(line => {
           printOutput(`\x1b[38;2;63;185;80m│  ${line}\x1b[0m`);
         });
         printOutput(`\x1b[38;2;63;185;80m╰──────────────────────────────────────────────────────────────────────────╯\x1b[0m`);
         if (hasNext) {
-          printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快速鍵 [Ctrl + N]，亦可點擊下方按鈕前往下一關！\x1b[0m`);
+          printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快捷鍵 [Alt + →]，亦可點擊下方按鈕前往下一關！\x1b[0m`);
         } else {
-          printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已通關全部 24 大關卡！\x1b[0m`);
+          printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已通關全部 ${ORDERED_SCENARIOS.length} 大關卡！\x1b[0m`);
         }
 
         // Show terminal action strip
         if (terminalNextBar) {
           terminalNextBar.style.display = 'flex';
           if (nextBarMsg) {
-            nextBarMsg.textContent = hasNext ? `✔ 關卡 ${sc.id} 通關！可前往下一關 (Level ${nextId})` : `🏆 全部 24 關通關完成！`;
+            nextBarMsg.textContent = hasNext ? `✔ 關卡 ${sc.displayNum || sc.id} 通關！可前往下一關 (${nextId})` : `🏆 全部 ${ORDERED_SCENARIOS.length} 關通關完成！`;
           }
         }
 
@@ -997,11 +1190,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hasNext) {
           const actionDiv = document.createElement('div');
           actionDiv.className = 'terminal-line terminal-victory-action';
-          actionDiv.innerHTML = `<button class="btn-terminal-next" onclick="nextScenario()">前往下一關 ➜ (${nextId}) <kbd>Ctrl+N</kbd></button>`;
+          actionDiv.innerHTML = `<button class="btn-terminal-next" onclick="nextScenario()">前往下一關 ➜ (${nextId}) <kbd>Alt+→</kbd></button>`;
           terminalOutput.appendChild(actionDiv);
         }
 
         spawnConfetti();
+
+        // Check Chapter Graduation (§7.6)
+        if (isFirstTimePass && sc.chapterKey && sc.chapterKey !== 'optional') {
+          const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey);
+          const isLastInChapter = chLevels.length > 0 && chLevels[chLevels.length - 1].id === sc.id;
+          if (isLastInChapter) {
+            setTimeout(() => {
+              openChapterGraduationModal(sc);
+            }, 600);
+          }
+        }
       }
     } else if (isManualVerify) {
       printOutput(`\x1b[38;2;248;81;73m❌ 尚未達成通關目標：\x1b[0m\n${result.message}`);
@@ -1250,9 +1454,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Global Shortcut listener (Ctrl+N / Cmd+N for Next Level)
+  // Global Shortcut listener (Alt+Right / Option+Right for Next Level, or Enter when passed)
   window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+    if (e.altKey && (e.key === 'ArrowRight' || e.key === 'Right')) {
+      e.preventDefault();
+      window.nextScenario();
+    } else if (e.key === 'Enter' && terminalNextBar && terminalNextBar.style.display !== 'none' && document.activeElement !== terminalInput) {
       e.preventDefault();
       window.nextScenario();
     }
@@ -1261,13 +1468,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal Handling
   window.openMissionModal = () => {
     if (!missionModal) return;
-    const sc = SCENARIOS[currentScenarioIndex];
+    const sc = ORDERED_SCENARIOS[currentScenarioIndex];
     const bracketTag = document.getElementById('modal-bracket-tag');
-    if (bracketTag) bracketTag.textContent = `[關卡 ${sc.id}]`;
+    if (bracketTag) bracketTag.textContent = `[關卡 ${sc.displayNum || sc.id}]`;
     const titleEl = document.getElementById('modal-title');
     if (titleEl) titleEl.textContent = sc.title;
     const storyEl = document.getElementById('modal-story');
     if (storyEl) storyEl.textContent = sc.story;
+    const hideCb = document.getElementById('modal-hide-intro-cb');
+    if (hideCb) hideCb.checked = (localStorage.getItem('git_lab_hide_intro_modal') === 'true');
     missionModal.style.display = 'flex';
     const btn = document.getElementById('btn-modal-confirm');
     if (btn) btn.focus();
@@ -1279,8 +1488,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.confirmScenarioStart = () => {
+    const hideCb = document.getElementById('modal-hide-intro-cb');
+    if (hideCb && hideCb.checked) {
+      localStorage.setItem('git_lab_hide_intro_modal', 'true');
+    } else if (hideCb) {
+      localStorage.removeItem('git_lab_hide_intro_modal');
+    }
     if (missionModal) missionModal.style.display = 'none';
-    const sc = SCENARIOS[currentScenarioIndex];
+    const sc = ORDERED_SCENARIOS[currentScenarioIndex];
     const requiredSteps = getRequiredSteps(sc);
 
     terminalOutput.innerHTML = '';
@@ -1306,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showVictoryModal(scenario, message) {
     if (!victoryModal) return;
-    document.getElementById('victory-title').textContent = `🎉 關卡 ${scenario.id} 順利通關！`;
+    document.getElementById('victory-title').textContent = `🎉 關卡 ${scenario.displayNum || scenario.id} 順利通關！`;
     document.getElementById('victory-msg').textContent = message;
     victoryModal.style.display = 'flex';
     spawnConfetti();
@@ -1319,11 +1534,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.nextScenario = () => {
     closeVictoryModal();
-    if (currentScenarioIndex < SCENARIOS.length - 1) {
+    if (currentScenarioIndex < ORDERED_SCENARIOS.length - 1) {
       loadScenario(currentScenarioIndex + 1);
     } else {
       printOutput(`\n\x1b[38;2;255;215;0m╔══════════════════════════════════════════════════════════════════════════╗\x1b[0m`);
-      printOutput(`\x1b[38;2;255;215;0m║  🏆 狂賀！你已經完整通關了全部 24 大 Git 實戰宇宙！你已成為真正的 Git 大師！ ║\x1b[0m`);
+      printOutput(`\x1b[38;2;255;215;0m║  🏆 狂賀！你已經完整通關了全部 ${ORDERED_SCENARIOS.length} 大 Git 實戰宇宙！你已成為真正的 Git 大師！ ║\x1b[0m`);
       printOutput(`\x1b[38;2;255;215;0m╚══════════════════════════════════════════════════════════════════════════╝\x1b[0m`);
       printOutput(`\x1b[38;2;63;185;80m感謝你的學習與探索！歡迎將本專案分享給更多想學好 Git 的開發者：https://github.com/Hsing24/learn-git\x1b[0m\n`);
       scrollToBottom();
@@ -1342,24 +1557,196 @@ document.addEventListener('DOMContentLoaded', () => {
     terminalInput.focus();
   };
 
-  // Level Drawer Generator
+  // Interactive Rebase Modal State & Handlers
+  let activeRebaseState = null;
+
+  function openRebaseModal(plan) {
+    activeRebaseState = {
+      upstreamId: plan.upstreamId,
+      commits: plan.commits,
+      step: 'todo',
+      todo: []
+    };
+
+    const modal = document.getElementById('rebase-modal');
+    const todoContainer = document.getElementById('rebase-todo-list');
+    const stepTodo = document.getElementById('rebase-step-todo');
+    const stepMsg = document.getElementById('rebase-step-msg');
+    const btnSubmit = document.getElementById('btn-rebase-submit');
+
+    if (!modal || !todoContainer) return;
+
+    stepTodo.style.display = 'block';
+    stepMsg.style.display = 'none';
+    btnSubmit.textContent = '開始 Rebase ➜';
+
+    todoContainer.innerHTML = '';
+    plan.commits.forEach((c) => {
+      const row = document.createElement('div');
+      row.className = 'rebase-todo-row';
+      row.innerHTML = `
+        <select class="rebase-action-select" data-commit-id="${c.id}">
+          <option value="pick" ${(!c.action || c.action === 'pick') ? 'selected' : ''}>pick</option>
+          <option value="reword" ${c.action === 'reword' ? 'selected' : ''}>reword</option>
+          <option value="squash" ${c.action === 'squash' ? 'selected' : ''}>squash</option>
+          <option value="fixup" ${c.action === 'fixup' ? 'selected' : ''}>fixup</option>
+          <option value="drop" ${c.action === 'drop' ? 'selected' : ''}>drop</option>
+        </select>
+        <code class="rebase-short-hash">${escapeHtml(c.shortHash)}</code>
+        <span class="rebase-commit-msg">${escapeHtml(c.message)}</span>
+      `;
+      todoContainer.appendChild(row);
+    });
+
+    modal.style.display = 'flex';
+  }
+
+  window.abortInteractiveRebase = () => {
+    const modal = document.getElementById('rebase-modal');
+    if (modal) modal.style.display = 'none';
+    activeRebaseState = null;
+    printOutput('rebase aborted');
+    terminalInput.focus();
+    scrollToBottom();
+  };
+
+  window.proceedInteractiveRebase = () => {
+    if (!activeRebaseState) return;
+    const stepTodo = document.getElementById('rebase-step-todo');
+    const stepMsg = document.getElementById('rebase-step-msg');
+    const msgEditor = document.getElementById('rebase-msg-editor');
+    const btnSubmit = document.getElementById('btn-rebase-submit');
+
+    if (activeRebaseState.step === 'todo') {
+      const selects = document.querySelectorAll('.rebase-action-select');
+      const todo = [];
+      selects.forEach(sel => {
+        const id = sel.getAttribute('data-commit-id');
+        const action = sel.value;
+        const commit = activeRebaseState.commits.find(c => c.id === id);
+        todo.push({
+          id,
+          action,
+          origMessage: commit ? commit.message : ''
+        });
+      });
+
+      const nonDrop = todo.filter(t => t.action !== 'drop');
+      if (nonDrop.length > 0 && (nonDrop[0].action === 'squash' || nonDrop[0].action === 'fixup')) {
+        alert("error: cannot 'squash' or 'fixup' without a previous commit");
+        return;
+      }
+
+      activeRebaseState.todo = todo;
+
+      const hasSquashOrReword = todo.some(t => t.action === 'squash' || t.action === 'reword');
+      if (hasSquashOrReword) {
+        activeRebaseState.step = 'editor';
+        stepTodo.style.display = 'none';
+        stepMsg.style.display = 'block';
+        btnSubmit.textContent = '確認送出 ➜';
+
+        let editorLines = [];
+        editorLines.push('# This is a combination of commits.');
+        todo.forEach((t, i) => {
+          if (t.action === 'pick' || t.action === 'squash' || t.action === 'reword' || t.action === 'fixup') {
+            editorLines.push(`# This is the commit message #${i + 1}:`);
+            editorLines.push(t.origMessage);
+            editorLines.push('');
+          }
+        });
+        editorLines.push('# Please enter the commit message for your changes. Lines starting');
+        editorLines.push("# with '#' will be ignored.");
+
+        msgEditor.value = editorLines.join('\n');
+        msgEditor.focus();
+        return;
+      }
+
+      finalizeInteractiveRebase();
+    } else if (activeRebaseState.step === 'editor') {
+      const rawText = msgEditor.value || '';
+      const cleaned = rawText
+        .split('\n')
+        .filter(line => !line.trim().startsWith('#'))
+        .join('\n')
+        .trim();
+
+      const squashOrReword = activeRebaseState.todo.filter(t => t.action === 'squash' || t.action === 'reword');
+      if (squashOrReword.length > 0) {
+        squashOrReword[squashOrReword.length - 1].message = cleaned || 'feat: squashed commit';
+      }
+
+      finalizeInteractiveRebase();
+    }
+  };
+
+  function finalizeInteractiveRebase() {
+    const modal = document.getElementById('rebase-modal');
+    if (modal) modal.style.display = 'none';
+
+    const res = git.rebaseInteractiveApply(activeRebaseState.upstreamId, activeRebaseState.todo);
+    if (res.output) printOutput(res.output);
+
+    activeRebaseState = null;
+    updatePrompt();
+    refreshGraph();
+    renderFileList();
+    checkTaskProgress('git rebase -i');
+    checkScenarioSuccess(false);
+    scrollToBottom();
+    terminalInput.focus();
+  }
+
+  // Level Drawer Generator with Chapter Grouping (§7.2)
   function renderLevelDropdown() {
     if (!levelDropdown) return;
     levelDropdown.innerHTML = '';
-    SCENARIOS.forEach((sc, idx) => {
+
+    const suggestedIdx = ORDERED_SCENARIOS.findIndex(s => !completedScenarios.has(s.id) && !s.isOptional);
+
+    let currentChapter = null;
+    ORDERED_SCENARIOS.forEach((sc, idx) => {
       const isDone = completedScenarios.has(sc.id);
       const isCurrent = idx === currentScenarioIndex;
+      const isSuggested = idx === suggestedIdx && !isDone;
+      const isCliOnly = sc.isOptional && (sc.id === '34' || sc.id === '35');
+
+      // Group header
+      if (sc.chapterTitle && sc.chapterTitle !== currentChapter) {
+        currentChapter = sc.chapterTitle;
+        const groupHeader = document.createElement('div');
+        groupHeader.className = 'level-group-header';
+
+        const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterTitle === currentChapter);
+        const chDoneCount = chLevels.filter(s => completedScenarios.has(s.id)).length;
+
+        groupHeader.innerHTML = `
+          <span class="group-title">📖 ${escapeHtml(sc.chapterTitle)}</span>
+          <span class="group-progress">${chDoneCount}/${chLevels.length}</span>
+        `;
+        levelDropdown.appendChild(groupHeader);
+      }
+
       const item = document.createElement('div');
-      item.className = `level-item ${isCurrent ? 'active' : ''} ${isDone ? 'completed' : ''}`;
+      item.className = `level-item ${isCurrent ? 'active' : ''} ${isDone ? 'completed' : ''} ${isCliOnly ? 'disabled' : ''}`;
       item.innerHTML = `
-        <span class="level-id">${sc.id}</span>
+        <span class="level-id">${sc.displayNum || sc.id}</span>
         <span class="level-info">
-          <span class="item-title">${sc.title}</span>
-          <span class="item-diff">${sc.difficulty}</span>
+          <span class="item-title">
+            ${escapeHtml(sc.title)}
+            ${isSuggested ? '<span class="badge-suggested">建議下一關</span>' : ''}
+            ${isCliOnly ? '<span class="badge-cli-only">僅 CLI</span>' : ''}
+          </span>
+          <span class="item-diff">${escapeHtml(sc.difficulty)}</span>
         </span>
         <span class="item-status">${isDone ? '✔' : ''}</span>
       `;
       item.onclick = () => {
+        if (isCliOnly) {
+          alert(`（關卡 ${sc.id} 為 CLI 專屬選修實戰，請使用 ./git-lab start ${sc.id} 在本機真實環境練習）`);
+          return;
+        }
         loadScenario(idx);
         toggleLevelDropdown();
       };
@@ -1385,8 +1772,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Tab Switching
+  // Tab Switching (§7.3)
   window.switchTab = (tabId) => {
+    // If widescreen (>= 1440px) and graph tab requested, default to mission since graph is already pinned
+    if (tabId === 'graph' && window.innerWidth >= 1440) {
+      tabId = 'mission';
+    }
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     const btn = document.getElementById(`tab-btn-${tabId}`);
@@ -1406,6 +1797,163 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFileList();
     selectFile(file);
     terminalInput.focus();
+  };
+
+  // Header More Menu (§7.4)
+  window.toggleHeaderMoreMenu = (e) => {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById('header-more-dropdown');
+    if (dropdown) dropdown.classList.toggle('show');
+  };
+
+  window.closeHeaderMoreMenu = () => {
+    const dropdown = document.getElementById('header-more-dropdown');
+    if (dropdown) dropdown.classList.remove('show');
+  };
+
+  document.addEventListener('click', (e) => {
+    const moreBtn = document.getElementById('header-more-btn');
+    const dropdown = document.getElementById('header-more-dropdown');
+    if (dropdown && !dropdown.contains(e.target) && e.target !== moreBtn) {
+      dropdown.classList.remove('show');
+    }
+  });
+
+  // Course Map Modal (§7.1)
+  window.openCourseMapModal = () => {
+    const modal = document.getElementById('course-map-modal');
+    const grid = document.getElementById('course-map-grid');
+    if (!modal || !grid) return;
+
+    if (typeof CURRICULUM !== 'undefined' && CURRICULUM.chapters) {
+      grid.innerHTML = CURRICULUM.chapters.map((ch, chIdx) => {
+        const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === ch.key);
+        const chDoneCount = chLevels.filter(s => completedScenarios.has(s.id)).length;
+        const total = chLevels.length;
+        const pct = total > 0 ? Math.round((chDoneCount / total) * 100) : 0;
+
+        return `
+          <div class="course-chapter-card" onclick="jumpToChapterFromMap('${ch.key}')">
+            <div class="chapter-card-top">
+              <span class="chapter-badge">第 ${chIdx} 章</span>
+              <span class="chapter-progress-text">${chDoneCount}/${total} (${pct}%)</span>
+            </div>
+            <h4 class="chapter-card-title">${escapeHtml(ch.title)}</h4>
+            <p class="chapter-card-summary">${escapeHtml(ch.summary)}</p>
+            <div class="chapter-card-bar">
+              <div class="chapter-card-fill" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    modal.style.display = 'flex';
+  };
+
+  window.closeCourseMapModal = () => {
+    const modal = document.getElementById('course-map-modal');
+    if (modal) modal.style.display = 'none';
+    terminalInput.focus();
+  };
+
+  window.jumpToChapterFromMap = (chKey) => {
+    const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === chKey);
+    if (chLevels.length === 0) return;
+    let target = chLevels.find(s => !completedScenarios.has(s.id));
+    if (!target) target = chLevels[0];
+    const idx = ORDERED_SCENARIOS.indexOf(target);
+    if (idx !== -1) {
+      loadScenario(idx);
+      closeCourseMapModal();
+    }
+  };
+
+  // Chapter Graduation Modal (§7.6)
+  function openChapterGraduationModal(sc) {
+    const modal = document.getElementById('chapter-graduation-modal');
+    if (!modal) return;
+    const titleEl = document.getElementById('graduation-modal-title');
+    const descEl = document.getElementById('graduation-modal-desc');
+    const listEl = document.getElementById('graduation-commands-list');
+    const nextBtn = document.getElementById('btn-graduation-next');
+
+    if (titleEl) titleEl.textContent = `🎓 恭喜完成第 ${sc.chapterIndex} 章：${sc.chapterTitle}！`;
+    if (descEl) descEl.innerHTML = `你已全數通關本章所有關卡！<strong>${escapeHtml(sc.chapterSummary)}</strong>。實戰心法已融會貫通！`;
+
+    const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey);
+    const commands = [];
+    chLevels.forEach(lvl => {
+      const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[lvl.id]) || (typeof COMMAND_GUIDES_EXTRA !== 'undefined' && COMMAND_GUIDES_EXTRA[lvl.id]);
+      if (guide && guide.guidedSteps) {
+        guide.guidedSteps.filter(s => s.category === 'required').forEach(s => {
+          if (!commands.some(c => c.cmd === s.cmd)) {
+            commands.push({ cmd: s.cmd, why: s.why });
+          }
+        });
+      }
+    });
+
+    if (listEl) {
+      listEl.innerHTML = commands.map(c => `
+        <div class="graduation-cmd-item">
+          <code class="graduation-cmd-code">${escapeHtml(c.cmd)}</code>
+          <span class="graduation-cmd-why">${escapeHtml(c.why)}</span>
+        </div>
+      `).join('');
+    }
+
+    const nextChapLvlIdx = ORDERED_SCENARIOS.findIndex(s => s.chapterIndex === sc.chapterIndex + 1);
+    if (nextBtn) {
+      if (nextChapLvlIdx !== -1) {
+        nextBtn.style.display = 'block';
+        nextBtn.textContent = `前往下一章 (${ORDERED_SCENARIOS[nextChapLvlIdx].chapterTitle}) 🚀`;
+        nextBtn.onclick = () => {
+          closeGraduationModal();
+          loadScenario(nextChapLvlIdx);
+        };
+      } else {
+        nextBtn.style.display = 'none';
+      }
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  window.closeGraduationModal = () => {
+    const modal = document.getElementById('chapter-graduation-modal');
+    if (modal) modal.style.display = 'none';
+    terminalInput.focus();
+  };
+
+  // Cheatsheet Data-Driven Rendering (§7.7)
+  function renderCheatsheetTable() {
+    const tbody = document.getElementById('cheatsheet-table-body');
+    if (!tbody) return;
+    const data = typeof CHEATSHEET_DATA !== 'undefined' ? CHEATSHEET_DATA : [];
+    tbody.innerHTML = data.map(item => `
+      <tr>
+        <td><strong>${escapeHtml(item.scene)}</strong></td>
+        <td><code>${escapeHtml(item.legacy)}</code></td>
+        <td><span class="tag-better">${escapeHtml(item.modern)}</span></td>
+        <td>${escapeHtml(item.why)}</td>
+        <td>
+          <button class="btn-cheat-practice" onclick="goToScenarioFromCheat('${item.levelId}')">
+            去練習 ➜
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  window.goToScenarioFromCheat = (lvlId) => {
+    const idx = ORDERED_SCENARIOS.findIndex(s => s.id === lvlId);
+    if (idx !== -1) {
+      loadScenario(idx);
+      closeCheatsheet();
+    } else {
+      alert(`找不到關卡 ${lvlId}`);
+    }
   };
 
   // Confetti Particle Effect
@@ -1451,6 +1999,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     animate();
+  }
+
+  // Initial startup
+  renderCheatsheetTable();
+
+  // First visit check: auto open Course Map modal
+  if (!localStorage.getItem('git_lab_has_visited') && completedScenarios.size === 0) {
+    localStorage.setItem('git_lab_has_visited', 'true');
+    setTimeout(() => {
+      openCourseMapModal();
+    }, 400);
   }
 
   // Start with Level 00

@@ -9,16 +9,14 @@ const SCENARIOS = [
     title: '起點裝備：Git 身分、SSH 憑證與 Auto-Push',
     difficulty: '新手必備 🔰',
     category: '基礎裝備',
-    story: '身為小菜雞的您到公司報到，拿到公司買新電腦給資深同事後換下來重灌後的舊電腦並安裝了 git，此時請為您的電腦環境設定 git 吧',
+    story: '今天是身為小菜雞的你，公司報到的第一天，拿到公司新購入給資深同事後換下來重灌後的舊電腦，並安裝了 Git，趕快將 Git 環境設定好吧！',
     goals: [
-      '[必備] 配置使用者身分：git config user.name "你的名字" (或加上 --global)',
-      '[必備] 配置使用者信箱：git config user.email "you@example.com" (或加上 --global)',
-      '[推薦可選] 開啟自動遠端追蹤：git config push.autoSetupRemote true'
+      '配置使用者身分：git config user.name "你的名字" (或加上 --global)',
+      '配置使用者信箱：git config user.email "you@example.com" (或加上 --global)'
     ],
     hints: [
-      '【必備 1】設定名稱：git config user.name "Alex Chen"',
-      '【必備 2】設定信箱：git config user.email "alex@company.com"',
-      '【推薦可選】自動遠端追蹤：git config push.autoSetupRemote true'
+      '設定名稱：git config user.name "Alex Chen"',
+      '設定信箱：git config user.email "alex@company.com"'
     ],
     setup: (git) => {
       git.config['user.name'] = '';
@@ -32,8 +30,8 @@ const SCENARIOS = [
       const hasEmail = Boolean(email && email.includes('@'));
       const hasAutoPush = git.config['push.autoSetupRemote'] === 'true';
 
-      if (!hasName) return { passed: false, message: '【必要設定未完成】尚未配置 user.name！請執行：git config user.name "你的名字"' };
-      if (!hasEmail) return { passed: false, message: '【必要設定未完成】尚未配置 user.email！請執行：git config user.email "you@example.com"' };
+      if (!hasName) return { passed: false, message: '尚未配置 user.name！請執行：git config user.name "你的名字"' };
+      if (!hasEmail) return { passed: false, message: '尚未配置 user.email！請執行：git config user.email "you@example.com"' };
 
       const bonusMsg = hasAutoPush
         ? '\n⭐ [解鎖進階神器成就] 你同時開啟了 push.autoSetupRemote，未來任何新分支只需敲 git push 即可自動同步遠端！'
@@ -51,7 +49,7 @@ const SCENARIOS = [
     title: '工作區、暫存區與第一個 Commit',
     difficulty: '入門 ⭐',
     category: '基礎裝備',
-    story: '剛接手專案的小菜雞寫好了第一版 index.html 與 style.css，現在要把這些新寫好的程式碼打包暫存並拍照存檔，建立專案的第一個正式 Commit。',
+    story: '你寫好了 index.html 與 style.css，現在要把這些臭臭的程式碼提交，來建立你在這專案的第一個正式 Commit。',
     goals: [
       '使用 git status 查看當前未追蹤檔案',
       '使用 git add . 將所有檔案加入暫存區',
@@ -80,7 +78,7 @@ const SCENARIOS = [
     title: '分支流動與 Fast-Forward 合併',
     difficulty: '初階 ⭐⭐',
     category: '分支合併',
-    story: '資深前輩提醒菜雞：「千萬別直接在 main 上亂改！」請從小菜雞的角度開出 feature/login 分支開發登入功能，完成後安全快進合併回 main。',
+    story: '資深前輩提醒你：「千萬別直接在 main 上亂改！」請從 main 分支開出 feature/login 分支來開發登入功能，完成後安全快進合併回 main。',
     goals: [
       '開出並切換至新分支：git switch -c feature/login',
       '在新分支上提交程式碼：git commit -m "feat: add login page"',
@@ -119,7 +117,7 @@ const SCENARIOS = [
     title: '迎戰衝突：手動解決 Merge Conflict',
     difficulty: '進階 ⭐⭐⭐',
     category: '分支合併',
-    story: '小菜雞跟同事改到了同一支檔案同一行，git merge 跳出衝突大爆炸！請冷靜打開檔案手動化解衝突標記並完成合併。',
+    story: '同事跟你改到了同一支檔案同一行，因為你的手速慢，他已經先推至 remote，git merge 跳出衝突！請認命的打開檔案手動化解衝突並完成合併。',
     goals: [
       '嘗試合併：git merge feature/dark-mode（觸發衝突）',
       '解決衝突：編輯 style.css，移除 <<<<<<< 與 >>>>>>> 標記',
@@ -157,7 +155,7 @@ const SCENARIOS = [
       }
       return {
         passed: true,
-        message: '🎉 太厲害了！你成功馴服了初學者最害怕的 Merge Conflict！掌握了處理衝突的完整黃金 SOP！'
+        message: '🎉 太厲害了！你成功馴服了初學者最害怕的 Merge Conflict！而且趕在另一個同事推送前你已經解完衝突並推送了'
       };
     }
   },
@@ -187,22 +185,39 @@ const SCENARIOS = [
       const c3 = git.createCommit({ message: 'feat: feature step 1', parents: [c1.id] });
       git.branches.set('feature', c3.id);
       git.checkoutOrSwitch('feature');
+      git.scenarioMeta = { baseId: c1.id, mainTipId: c2.id, featureTipId: c3.id };
     },
     checkGoal: (git) => {
+      const { mainTipId, featureTipId } = git.scenarioMeta || {};
       const mainId = git.branches.get('main');
       const featureId = git.branches.get('feature');
-      const fCommit = git.commits.get(featureId);
+      if (!featureId) return { passed: false, message: 'feature 分支不見了！請按「重設」重來。' };
+      if (featureId === featureTipId) return { passed: false, message: 'feature 尚未 rebase！請在 feature 上執行 git rebase main。' };
+      if (!git.isAncestor(mainTipId, featureId)) return { passed: false, message: 'feature 還沒接到 main 的最新 commit 後面。' };
 
-      const isRebased = fCommit && fCommit.parents.length > 0 && fCommit.parents[0] !== 'c1' && git.commits.has(fCommit.parents[0]);
-      const isMerged = (mainId === featureId && mainId !== 'c1');
-
-      if (isRebased || isMerged) {
-        return {
-          passed: true,
-          message: '🎉 Rebase 成功！你的 commit 已優雅接在 main 的最新節點之後，整個 Git 樹呈現乾淨筆直的線性歷史！'
-        };
+      let curr = featureId;
+      let hasFeatureCommit = false;
+      let hasMergeCommit = false;
+      while (curr && curr !== mainTipId) {
+        const c = git.commits.get(curr);
+        if (!c) break;
+        if (c.parents && c.parents.length > 1) {
+          hasMergeCommit = true;
+        }
+        if (c.message === 'feat: feature step 1') {
+          hasFeatureCommit = true;
+        }
+        curr = (c.parents && c.parents[0]) ? c.parents[0] : null;
       }
-      return { passed: false, message: 'feature 分支尚未 rebase 到 main 之上！請執行 git rebase main。' };
+
+      if (hasMergeCommit) return { passed: false, message: '出現了 merge commit，這關要用 rebase 保持線性。' };
+      if (!hasFeatureCommit) return { passed: false, message: '你的 feature commit 不見了，可以用 git reflog 找回。' };
+      if (mainId !== featureId) return { passed: false, message: 'rebase 完成！最後一步：git switch main && git merge feature（會是 fast-forward）。' };
+
+      return {
+        passed: true,
+        message: '🎉 Rebase 成功！你的 commit 已優雅接在 main 的最新節點之後，整個 Git 樹呈現乾淨筆直的線性歷史！'
+      };
     }
   },
 
@@ -221,18 +236,53 @@ const SCENARIOS = [
       '或者使用 git commit --amend 修補最新提交'
     ],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: scaffold' });
-      const c2 = git.createCommit({ message: 'wip: payment form', parents: [c1.id] });
-      const c3 = git.createCommit({ message: 'fix: typo in card input', parents: [c2.id] });
+      const c1 = git.createCommit({ message: 'feat: scaffold', tree: new Map([['payment.js', '// payment module\n']]) });
+      const c2 = git.createCommit({
+        message: 'wip: payment form',
+        parents: [c1.id],
+        tree: new Map([['payment.js', '// payment module\nfunction renderForm() { cardNumbr(); }\n']])
+      });
+      const c3 = git.createCommit({
+        message: 'fix: typo in card input',
+        parents: [c2.id],
+        tree: new Map([['payment.js', '// payment module\nfunction renderForm() { cardNumber(); }\n']])
+      });
       git.branches.set('main', c3.id);
       git.checkoutOrSwitch('main');
+      git.scenarioMeta = { baseId: c1.id, finalContent: c3.tree.get('payment.js') };
     },
     checkGoal: (git) => {
-      const commits = Array.from(git.commits.values());
+      const { baseId, finalContent } = git.scenarioMeta || {};
       const head = git.getHeadCommit();
-      if (head && (head.message.toLowerCase().includes('wip') || head.message.includes('typo'))) {
-        return { passed: false, message: '最新提交訊息依然是零碎的 "wip" 或 "typo"！請整理提交訊息。' };
+      if (!head) return { passed: false, message: '找不到 HEAD commit。' };
+
+      // 從 head 沿著 parents[0] 數到 baseId 為止的 commit 數 = n
+      let n = 0;
+      let curr = head.id;
+      let reachedBase = false;
+      while (curr) {
+        if (curr === baseId) {
+          reachedBase = true;
+          break;
+        }
+        n++;
+        const c = git.commits.get(curr);
+        curr = (c && c.parents && c.parents[0]) ? c.parents[0] : null;
       }
+
+      if (!reachedBase) {
+        return { passed: false, message: '歷史基礎跑掉了，請按「重設」重來。' };
+      }
+      if (n !== 1) {
+        return { passed: false, message: `scaffold 之上應該只剩 1 個 commit，目前有 ${n} 個。試試 git rebase -i HEAD~2，把第 2 行改成 squash 或 fixup。` };
+      }
+      if (head.tree.get('payment.js') !== finalContent) {
+        return { passed: false, message: 'payment.js 的內容不對，可能是用了 drop 把變更丟掉了。請按「重設」再試一次。' };
+      }
+      if (/^wip\b|typo/i.test(head.message)) {
+        return { passed: false, message: 'commit 已經合併了，但訊息還是零碎的 wip / typo，請用 squash 編輯訊息，或用 reword 改掉。' };
+      }
+
       return {
         passed: true,
         message: '🎉 歷史整形完成！PR 提交紀錄變得無比乾淨專業，Code Reviewer 一目了然！'
@@ -256,29 +306,69 @@ const SCENARIOS = [
       '接著執行 git push origin main'
     ],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: initial common base' });
+      const c1 = git.createCommit({
+        message: 'feat: initial common base',
+        tree: new Map([['app.js', '// base application\n']])
+      });
       git.remotes.origin.branches.set('main', c1.id);
       git.branches.set('main', c1.id);
 
       // Remote colleague pushed c2
-      const c2 = git.createCommit({ message: 'feat: colleague feature on remote', parents: [c1.id] });
+      const c2 = git.createCommit({
+        message: 'feat: colleague feature on remote',
+        parents: [c1.id],
+        tree: new Map([['app.js', '// base application\n'], ['notice.txt', 'Important update by colleague\n']])
+      });
       git.remotes.origin.branches.set('main', c2.id);
 
       // Local user committed c3
-      const c3 = git.createCommit({ message: 'feat: my local feature', parents: [c1.id] });
+      const c3 = git.createCommit({
+        message: 'feat: my local feature',
+        parents: [c1.id],
+        tree: new Map([['app.js', '// base application\n'], ['points.js', 'const points = 100;\n']])
+      });
       git.branches.set('main', c3.id);
       git.checkoutOrSwitch('main');
+      git.scenarioMeta = { baseId: c1.id, colleagueId: c2.id, mineMessage: 'feat: my local feature' };
     },
     checkGoal: (git) => {
-      const localMain = git.branches.get('main');
-      const remoteMain = git.remotes.origin.branches.get('main');
-      if (localMain === remoteMain && git.isAncestor(git.remotes.origin.branches.get('main'), localMain)) {
-        return {
-          passed: true,
-          message: '🎉 成功克服 Non-Fast-Forward push 被拒！利用 git pull --rebase 避免了菱形交叉節點，團隊協作天衣無縫！'
-        };
+      const { colleagueId, mineMessage } = git.scenarioMeta || {};
+      const localId = git.branches.get('main');
+      const remoteId = git.remotes.origin?.branches?.get('main');
+
+      const firstParentChain = [];
+      let curr = localId;
+      while (curr) {
+        const c = git.commits.get(curr);
+        if (!c) break;
+        firstParentChain.push(c);
+        curr = (c.parents && c.parents[0]) ? c.parents[0] : null;
       }
-      return { passed: false, message: '本地 main 尚未與遠端 origin/main 同步！請執行 git pull --rebase' };
+
+      const hasMine = firstParentChain.some(c => c.message === mineMessage);
+      const hasColleague = git.isAncestor(colleagueId, localId);
+      const hasMerge = firstParentChain.some(c => c.parents && c.parents.length > 1);
+
+      if (!hasColleague && remoteId === localId) {
+        return { passed: false, message: '同事的 commit 被你的 force push 蓋掉了！真實團隊裡這會造成事故，請按「重設」重來，不要用 --force。' };
+      }
+      if (!hasMine) {
+        return { passed: false, message: '你的本地 commit 不見了！可以用 git reflog 找到它的 hash，再用 git reset --hard <hash> 救回來。' };
+      }
+      if (!hasColleague) {
+        return { passed: false, message: '還沒同步遠端上同事的 commit，請執行 git pull --rebase。' };
+      }
+      if (hasMerge) {
+        return { passed: false, message: '出現了 merge commit（你用了沒加 --rebase 的 pull）。請用 git reset --hard HEAD~1 退回去，再改用 git pull --rebase。' };
+      }
+      if (remoteId !== localId) {
+        return { passed: false, message: '本地已經整理好了，最後一步：git push origin main。' };
+      }
+
+      return {
+        passed: true,
+        message: '🎉 成功克服 Non-Fast-Forward push 被拒！利用 git pull --rebase 避免了菱形交叉節點，團隊協作天衣無縫！'
+      };
     }
   },
 

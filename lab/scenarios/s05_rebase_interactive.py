@@ -65,10 +65,17 @@ class Scenario05(BaseScenario):
 
         code, out, _ = engine.run_git("log", "-1", "--pretty=%B", check=False)
         msg = out.strip().lower()
+        if msg.startswith("wip") or msg.startswith("fix typo") or msg.startswith("really fix"):
+            return False, f"最新 Commit 的訊息為 '{out.strip()}'，不能以 wip 或 typo 為開頭，請整理 Commit 訊息。"
+
         if "user authentication" not in msg and "auth" not in msg:
             return False, f"最新 Commit 的訊息為 '{out.strip()}'，請確保包含 'feat: implement user authentication'。"
 
         if not engine.file_exists("auth.py"):
             return False, "auth.py 遺失，請確認程式碼是否正確保留。"
+
+        auth_content = engine.read_file("auth.py")
+        if auth_content.strip() != AUTH_FINAL_CODE.strip():
+            return False, "auth.py 的內容不符，可能有變更在 rebase 過程中遺失。"
 
         return True, "太神了！你掌握了互動式變基 (rebase -i)，這是保持 Git Commit 歷史整潔專業的終極利器！"

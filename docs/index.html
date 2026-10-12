@@ -33,10 +33,6 @@
 
     <!-- Header Action Controls -->
     <div class="header-right">
-      <button class="btn-header" onclick="openMissionModal()" title="重新開啟本關情境說明">
-        <span>🎯</span>
-        <span>關卡情境</span>
-      </button>
       <button class="btn-header" onclick="executeLabCommand('hint')" title="終端機印出通關提示">
         <span>💡</span>
         <span>提示</span>
@@ -49,14 +45,28 @@
         <span>✅</span>
         <span>驗收通關</span>
       </button>
-      <button class="btn-header" onclick="openCheatsheet()" title="開啟新舊指令對照手冊">
-        <span>📖</span>
-        <span>現代指令速查</span>
-      </button>
-      <a href="https://github.com/Hsing24/learn-git" target="_blank" class="btn-header" title="前往 GitHub Repo">
-        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
-        <span>GitHub</span>
-      </a>
+
+      <!-- More Menu Dropdown -->
+      <div class="header-more-wrapper">
+        <button id="header-more-btn" class="btn-header" onclick="toggleHeaderMoreMenu(event)" title="更多功能">
+          <span>⋯</span>
+          <span>更多</span>
+        </button>
+        <div id="header-more-dropdown" class="header-more-dropdown">
+          <button class="more-menu-item" onclick="openCourseMapModal(); closeHeaderMoreMenu();">
+            <span>🗺️</span>
+            <span>課程地圖</span>
+          </button>
+          <button class="more-menu-item" onclick="openCheatsheet(); closeHeaderMoreMenu();">
+            <span>📖</span>
+            <span>現代指令速查</span>
+          </button>
+          <a href="https://github.com/Hsing24/learn-git" target="_blank" class="more-menu-item" onclick="closeHeaderMoreMenu();">
+            <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
+            <span>GitHub</span>
+          </a>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -72,7 +82,7 @@
           <div class="control-dot dot-green"></div>
         </div>
         <div class="terminal-title">bash: ~/learn-git/workspace (Virtual Git Terminal)</div>
-        <div class="terminal-hotkey-badge">快速鍵: <kbd>Ctrl+N</kbd> 下一關</div>
+        <div class="terminal-hotkey-badge">快速鍵: <kbd>Alt+→</kbd> 下一關</div>
       </div>
 
       <!-- Output Scroll Area -->
@@ -85,7 +95,7 @@
           <span id="next-bar-msg">關卡目標已達成！</span>
         </div>
         <button id="btn-next-scenario" class="btn-terminal-advance" onclick="nextScenario()">
-          前往下一關 ➜ <span class="kbd-badge">Ctrl+N</span>
+          前往下一關 ➜ <span class="kbd-badge">Alt+→</span>
         </button>
       </div>
 
@@ -195,7 +205,10 @@
           <p id="modal-story" class="scenario-card-text"></p>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <label class="modal-hide-checkbox-label">
+          <input type="checkbox" id="modal-hide-intro-cb"> 不再自動彈出情境提示
+        </label>
         <button id="btn-modal-confirm" class="btn-modal btn-modal-primary" onclick="confirmScenarioStart()">確定 ➜</button>
       </div>
     </div>
@@ -220,6 +233,36 @@
     </div>
   </div>
 
+  <!-- Interactive Rebase Modal -->
+  <div id="rebase-modal" class="modal-overlay">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <h3 id="rebase-modal-title">🔄 互動式變基 (Interactive Rebase)</h3>
+        <button class="btn-modal" onclick="abortInteractiveRebase()">✕</button>
+      </div>
+      <div class="modal-body" id="rebase-modal-body">
+        <!-- Step 1: Todo List -->
+        <div id="rebase-step-todo">
+          <p style="color: var(--text-muted); margin-bottom: 1rem;">
+            為每個 Commit 選擇要執行的動作（由舊到新排序）：
+          </p>
+          <div id="rebase-todo-list" class="rebase-todo-table-container"></div>
+        </div>
+        <!-- Step 2: Commit Message Editor (Squash / Reword) -->
+        <div id="rebase-step-msg" style="display: none;">
+          <p style="color: var(--text-muted); margin-bottom: 0.5rem;">
+            請編輯合併或修改後的 Commit 訊息（以 <code>#</code> 開頭的行會被自動忽略）：
+          </p>
+          <textarea id="rebase-msg-editor" class="rebase-msg-textarea" rows="8"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="abortInteractiveRebase()">取消 (Abort)</button>
+        <button id="btn-rebase-submit" class="btn-modal btn-modal-primary" onclick="proceedInteractiveRebase()">開始 Rebase ➜</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modern Git Cheatsheet Modal -->
   <div id="cheatsheet-modal" class="modal-overlay">
     <div class="modal-card modal-card-large">
@@ -240,99 +283,11 @@
               <th>傳統舊指令</th>
               <th>現代更優替代指令</th>
               <th>為什麼現代實現更好？</th>
+              <th>實戰練習</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td><strong>切換分支</strong></td>
-              <td><code>git checkout &lt;branch&gt;</code></td>
-              <td><span class="tag-better">git switch &lt;branch&gt;</span></td>
-              <td><code>checkout</code> 承擔切分支與復原檔案雙重職責；<code>switch</code> 專門切分支，安全明確。</td>
-            </tr>
-            <tr>
-              <td><strong>建立並切換新分支</strong></td>
-              <td><code>git checkout -b &lt;new&gt;</code></td>
-              <td><span class="tag-better">git switch -c &lt;new&gt;</span></td>
-              <td>語意更直觀對稱（<code>-c</code> 代表 create），降低初學者認知負擔。</td>
-            </tr>
-            <tr>
-              <td><strong>放棄工作區修改</strong></td>
-              <td><code>git checkout -- &lt;file&gt;</code></td>
-              <td><span class="tag-better">git restore &lt;file&gt;</span></td>
-              <td><code>checkout --</code> 語法晦澀；<code>restore</code> 顧名思義就是還原，直覺不易打錯。</td>
-            </tr>
-            <tr>
-              <td><strong>移出暫存區 (Unstage)</strong></td>
-              <td><code>git reset HEAD &lt;file&gt;</code></td>
-              <td><span class="tag-better">git restore --staged &lt;file&gt;</span></td>
-              <td>不用搬出危險的 <code>reset</code>，<code>restore --staged</code> 精準描述取消暫存。</td>
-            </tr>
-            <tr>
-              <td><strong>跨分支平行開發 (Hotfix)</strong></td>
-              <td><code>git stash</code> ➜ 切換 ➜ pop</td>
-              <td><span class="tag-better">git worktree add &lt;dir&gt; &lt;branch&gt;</span></td>
-              <td>實體目錄隔離，避免重編譯快取與 node_modules 失效，免除 pop 衝突風險。</td>
-            </tr>
-            <tr>
-              <td><strong>新分支首次 push</strong></td>
-              <td><code>git push -u origin &lt;branch&gt;</code></td>
-              <td><span class="tag-better">push.autoSetupRemote true + git push</span></td>
-              <td>設定一次一勞永逸，任何新分支直接 <code>git push</code>，自動建立遠端同名分支。</td>
-            </tr>
-            <tr>
-              <td><strong>微調修正歷史 Commit</strong></td>
-              <td>手動 <code>rebase -i</code> 逐行改 squash</td>
-              <td><span class="tag-better">git commit --fixup + --autosquash</span></td>
-              <td>自動將 fixup commit 移到目標下方自動合併，零手動編輯出錯風險。</td>
-            </tr>
-            <tr>
-              <td><strong>pull 遠端最新程式碼</strong></td>
-              <td><code>git pull</code>（預設 merge）</td>
-              <td><span class="tag-better">git pull --rebase</span></td>
-              <td>避免產生雜亂無章的菱形交叉 Merge Commit，保持乾淨線性歷史。</td>
-            </tr>
-            <tr>
-              <td><strong>二分法除錯 (Bisect)</strong></td>
-              <td>手動一步步 <code>good/bad</code></td>
-              <td><span class="tag-better">git bisect run &lt;test_script&gt;</span></td>
-              <td>全自動化執行測試腳本，數十秒內直接揪出第一個壞掉的 commit。</td>
-            </tr>
-            <tr>
-              <td><strong>Git Hooks 團隊共享</strong></td>
-              <td>手動複製腳本到 <code>.git/hooks/</code></td>
-              <td><span class="tag-better">git config core.hooksPath .githooks</span></td>
-              <td><code>.git/hooks</code> 不受版本控制；<code>core.hooksPath</code> 讓全團隊自動共享守門員防線。</td>
-            </tr>
-            <tr>
-              <td><strong>同檔局部暫存 (Atomic)</strong></td>
-              <td>盲目全包 <code>git add .</code></td>
-              <td><span class="tag-better">git add -p &lt;file&gt;</span></td>
-              <td>依 Hunk 逐塊挑選（y/n/s），確保每個 Commit 具備單一職責，大幅提升 CR 品質。</td>
-            </tr>
-            <tr>
-              <td><strong>停止追蹤機密檔案</strong></td>
-              <td>刪除本地實體檔案再加 ignore</td>
-              <td><span class="tag-better">git rm --cached &lt;file&gt;</span></td>
-              <td>只從 Git 索引除名，完整保全本地環境變數 (.env) 與開發資料。</td>
-            </tr>
-            <tr>
-              <td><strong>線上 revert Merge PR</strong></td>
-              <td>危險覆蓋主線的 force push</td>
-              <td><span class="tag-better">git revert -m 1 &lt;hash&gt;</span></td>
-              <td>向前推進產生 revert commit，清楚保留審計歷史，不破壞團隊他人進度。</td>
-            </tr>
-            <tr>
-              <td><strong>重用衝突解法 (Rebase)</strong></td>
-              <td>每次 rebase 手動解 10 次</td>
-              <td><span class="tag-better">git config rerere.enabled true</span></td>
-              <td>Git 自動記憶衝突解決方案，後續相同衝突區塊 0 秒全自動填入！</td>
-            </tr>
-            <tr>
-              <td><strong>精確程式碼考古</strong></td>
-              <td>大海撈針盲翻 commit 訊息</td>
-              <td><span class="tag-better">git log -S "&lt;字串&gt;" --oneline</span></td>
-              <td>鶴嘴鎬 (Pickaxe) 精準鎖定增減該字串次數的 commit，比文字搜尋精準百倍。</td>
-            </tr>
+          <tbody id="cheatsheet-table-body">
+            <!-- Dynamically populated by app.js from cheatsheet-data.js -->
           </tbody>
         </table>
 
@@ -376,15 +331,64 @@
     </div>
   </div>
 
+  <!-- Course Map Modal -->
+  <div id="course-map-modal" class="modal-overlay">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="bracket-tag">[課綱全景]</span>
+          <h3 class="modal-title">🗺️ Git 實戰工程師修煉地圖 (8 大章節)</h3>
+        </div>
+        <button class="btn-modal" onclick="closeCourseMapModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
+          點擊任意章節卡片即可直接跳轉至該章第一個尚未通關的關卡。建議循序漸進建立現代化專業工程師思維：
+        </p>
+        <div id="course-map-grid" class="course-map-grid">
+          <!-- Dynamically populated by app.js from CURRICULUM -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal btn-modal-primary" onclick="closeCourseMapModal()">開始修煉 ➜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter Graduation Celebration Modal -->
+  <div id="chapter-graduation-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="graduation-modal-title">🎓 章節圓滿結業！</h3>
+        <button class="btn-modal" onclick="closeGraduationModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="graduation-modal-desc" class="graduation-desc"></div>
+        <h4 class="cheat-section-title" style="margin-top: 1rem;">📌 本章掌握的現代指令心法</h4>
+        <div id="graduation-commands-list" class="graduation-cmds-list">
+          <!-- Dynamically populated by app.js -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="closeGraduationModal()">留在此關複習</button>
+        <button id="btn-graduation-next" class="btn-modal btn-modal-primary">前往下一章 🚀</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Particle Confetti Canvas -->
   <canvas id="confetti-canvas"></canvas>
 
   <!-- Scripts -->
-  <script src="git-engine.js?v=20261008-7"></script>
-  <script src="graph-renderer.js?v=20261008-7"></script>
-  <script src="command-guides.js?v=20261008-7"></script>
-  <script src="scenarios-data.js?v=20261008-7"></script>
-  <script src="app.js?v=20261008-7"></script>
+  <script src="git-engine.js?v=20261012-3"></script>
+  <script src="graph-renderer.js?v=20261012-3"></script>
+  <script src="command-guides.js?v=20261012-3"></script>
+  <script src="command-guides-extra.js?v=20261012-3"></script>
+  <script src="cheatsheet-data.js?v=20261012-3"></script>
+  <script src="scenarios-data.js?v=20261012-3"></script>
+  <script src="scenarios-extra.js?v=20261012-3"></script>
+  <script src="curriculum.js?v=20261012-3"></script>
+  <script src="app.js?v=20261012-3"></script>
 
 </body>
 </html>

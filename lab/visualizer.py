@@ -72,13 +72,20 @@ def print_fail_card(title: str, reason: str, hint_cmd: str = "./git-lab hint"):
 
 def print_scenarios_table(scenarios_info: List[dict]):
     print_banner()
-    print(f"\n{bold('📚 關卡清單 (Scenario List):')}\n")
-    header = f"  {'ID':<6} {'難度':<10} {'狀態':<10} {'關卡名稱與重點'}"
-    print(header)
-    print("  " + "─" * (get_terminal_width() - 4))
+    print(f"\n{bold('📚 關卡課綱清單 (Scenario Curriculum Map):')}")
     
+    current_ch = None
     for sc in scenarios_info:
+        ch_title = sc.get('chapterTitle')
+        ch_summary = sc.get('chapterSummary', '')
+        if ch_title and ch_title != current_ch:
+            current_ch = ch_title
+            summary_str = f" {dim(f'— {ch_summary}')}" if ch_summary else ""
+            print(f"\n  {bold(cyan(f'📖 {current_ch}'))}{summary_str}")
+            print("  " + "─" * (get_terminal_width() - 4))
+        
         sc_id = sc['id']
+        disp = sc.get('displayNum', sc_id)
         diff = sc['difficulty']
         status = sc['status']
         title = sc['title']
@@ -90,6 +97,8 @@ def print_scenarios_table(scenarios_info: List[dict]):
         else:
             status_str = dim("○ 未開始")
             
-        print(f"  {bold(sc_id):<15} {diff:<14} {status_str:<19} {title}")
+        tag = f"[{disp}] (id {sc_id})"
+        print(f"  {bold(tag):<20} {diff:<14} {status_str:<18} {title}")
         
-    print("\n" + dim("  使用指令：") + yellow("./git-lab start <ID>") + dim(" 啟動關卡，例如：") + yellow("./git-lab start 03") + "\n")
+    print("\n" + dim("  使用指令：") + yellow("./git-lab start <編號/ID/別名>") + dim(" 啟動關卡，例如：") + yellow("./git-lab start 2-3") + dim(" 或 ") + yellow("./git-lab start 03") + "\n")
+

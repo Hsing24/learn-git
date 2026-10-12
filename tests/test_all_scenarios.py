@@ -494,5 +494,35 @@ def print_receipt(customer_name, items, total):
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
+    def test_curriculum_consistency(self):
+        import re
+        from lab.curriculum import get_curriculum
+        from lab.scenarios import SCENARIO_MAP
+
+        # 1. Manifest IDs
+        curr = get_curriculum()
+        manifest_ids = set()
+        for ch in curr.get("chapters", []):
+            for lvl in ch.get("levels", []):
+                manifest_ids.add(lvl["id"])
+        for opt in curr.get("optional", []):
+            manifest_ids.add(opt["id"])
+
+        # 2. Python Scenario Map IDs
+        python_ids = set(SCENARIO_MAP.keys())
+
+        # 3. JavaScript Scenarios IDs from scenarios-data.js and scenarios-extra.js
+        js_ids = set()
+        id_pattern = re.compile(r"id:\s*['\"]([0-9]{2})['\"]")
+        for fn in ["scenarios-data.js", "scenarios-extra.js"]:
+            p = REPO_ROOT / "docs" / fn
+            if p.exists():
+                matches = id_pattern.findall(p.read_text(encoding="utf-8"))
+                js_ids.update(matches)
+
+        self.assertEqual(manifest_ids, python_ids, f"Manifest IDs != Python IDs: {manifest_ids ^ python_ids}")
+        self.assertEqual(manifest_ids, js_ids, f"Manifest IDs != JS IDs: {manifest_ids ^ js_ids}")
+
 if __name__ == "__main__":
     unittest.main()
+

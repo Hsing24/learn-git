@@ -1,7 +1,8 @@
-"""Scenario registry and aliases."""
+"""Scenario registry and aliases ordered by curriculum manifest."""
 
 from typing import Dict, List, Optional
 from lab.base import BaseScenario
+from lab.curriculum import get_ordered_level_items
 from lab.scenarios.s00_config import Scenario00
 from lab.scenarios.s01_basics import Scenario01
 from lab.scenarios.s02_branching import Scenario02
@@ -26,8 +27,20 @@ from lab.scenarios.s20_mv_clean import Scenario20
 from lab.scenarios.s21_remote_fetch import Scenario21
 from lab.scenarios.s22_accidental_commit import Scenario22
 from lab.scenarios.s23_plumbing import Scenario23
+from lab.scenarios.s24_inspect_changes import Scenario24
+from lab.scenarios.s25_undo_matrix import Scenario25
+from lab.scenarios.s26_merge_strategies import Scenario26
+from lab.scenarios.s27_detached_head import Scenario27
+from lab.scenarios.s28_clone_and_track import Scenario28
+from lab.scenarios.s29_rebase_conflict import Scenario29
+from lab.scenarios.s30_fixup_autosquash import Scenario30
+from lab.scenarios.s31_pr_lifecycle import Scenario31
+from lab.scenarios.s32_rebase_onto import Scenario32
+from lab.scenarios.s33_secret_purge import Scenario33
+from lab.scenarios.s34_submodule import Scenario34
+from lab.scenarios.s35_sparse_checkout import Scenario35
 
-SCENARIOS: List[BaseScenario] = [
+_ALL_INSTANCES: List[BaseScenario] = [
     Scenario00(),
     Scenario01(),
     Scenario02(),
@@ -52,11 +65,39 @@ SCENARIOS: List[BaseScenario] = [
     Scenario21(),
     Scenario22(),
     Scenario23(),
+    Scenario24(),
+    Scenario25(),
+    Scenario26(),
+    Scenario27(),
+    Scenario28(),
+    Scenario29(),
+    Scenario30(),
+    Scenario31(),
+    Scenario32(),
+    Scenario33(),
+    Scenario34(),
+    Scenario35(),
 ]
 
-SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in SCENARIOS}
+SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in _ALL_INSTANCES}
 
-ALIASES = {
+# Order SCENARIOS according to curriculum manifest
+_curriculum_items = get_ordered_level_items()
+SCENARIOS: List[BaseScenario] = []
+_seen = set()
+for item in _curriculum_items:
+    sc_id = item["id"]
+    if sc_id in SCENARIO_MAP and sc_id not in _seen:
+        SCENARIOS.append(SCENARIO_MAP[sc_id])
+        _seen.add(sc_id)
+
+# Fallback in case any scenario was omitted from manifest
+for sc in _ALL_INSTANCES:
+    if sc.id not in _seen:
+        SCENARIOS.append(sc)
+        _seen.add(sc.id)
+
+ALIASES: Dict[str, str] = {
     "0": "00",
     "00": "00",
     "config": "00",
@@ -137,7 +178,29 @@ ALIASES = {
     "23": "23",
     "plumbing": "23",
     "cat-file": "23",
+    "24": "24",
+    "25": "25",
+    "26": "26",
+    "27": "27",
+    "28": "28",
+    "29": "29",
+    "30": "30",
+    "31": "31",
+    "32": "32",
+    "33": "33",
+    "34": "34",
+    "35": "35",
 }
+
+# Automatically add slug and displayNum aliases from curriculum
+for item in _curriculum_items:
+    sc_id = item["id"]
+    slug = item.get("slug")
+    disp = item.get("displayNum")
+    if slug:
+        ALIASES[slug.lower()] = sc_id
+    if disp:
+        ALIASES[disp.lower()] = sc_id
 
 def get_scenario(key: str) -> Optional[BaseScenario]:
     norm = key.strip().lower()

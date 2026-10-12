@@ -160,8 +160,13 @@ class GraphRenderer {
       // HEAD badge
       if (id === headCommitId) {
         const isDetached = git.HEAD.type === 'detached';
+        let headLabel = 'HEAD';
+        if (isDetached) {
+          const matchingTag = [...git.tags.entries()].find(([_, t]) => t.commitId === id);
+          headLabel = matchingTag ? `HEAD (detached at ${matchingTag[0]})` : `HEAD (detached at ${id.substring(0, 4)})`;
+        }
         badges.push({
-          label: isDetached ? 'HEAD (detached)' : 'HEAD',
+          label: headLabel,
           color: '#f0f6fc',
           bg: '#21262d',
           border: '#58a6ff',
@@ -171,6 +176,7 @@ class GraphRenderer {
 
       // Local Branches
       for (const [branchName, commitId] of git.branches.entries()) {
+        if (branchName.startsWith('origin/') || branchName.startsWith('upstream/')) continue;
         if (commitId === id) {
           const isCurrent = git.getCurrentBranch() === branchName;
           badges.push({
@@ -182,18 +188,34 @@ class GraphRenderer {
         }
       }
 
-      // Remote Branches (origin/...)
-      for (const [remName, remObj] of Object.entries(git.remotes)) {
+      // Remote Tracking Branches (remotes.origin + branches starting with origin/ or upstream/)
+      const renderedRemotes = new Set();
+      for (const [remName, remObj] of Object.entries(git.remotes || {})) {
+        if (!remObj || !remObj.branches) continue;
         for (const [bName, commitId] of remObj.branches.entries()) {
-          if (commitId === id) {
+          const refLabel = `${remName}/${bName}`;
+          if (commitId === id && !renderedRemotes.has(refLabel)) {
+            renderedRemotes.add(refLabel);
             badges.push({
-              label: `${remName}/${bName}`,
+              label: refLabel,
               color: '#d29922',
               bg: '#2b2111',
               border: '#d29922',
               dashed: true
             });
           }
+        }
+      }
+      for (const [branchName, commitId] of git.branches.entries()) {
+        if ((branchName.startsWith('origin/') || branchName.startsWith('upstream/')) && commitId === id && !renderedRemotes.has(branchName)) {
+          renderedRemotes.add(branchName);
+          badges.push({
+            label: branchName,
+            color: '#d29922',
+            bg: '#2b2111',
+            border: '#d29922',
+            dashed: true
+          });
         }
       }
 

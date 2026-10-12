@@ -20,11 +20,14 @@ from lab.visualizer import (
 )
 from lab.colors import bold, green, red, yellow, cyan, blue, magenta, dim
 from lab.scenarios import SCENARIOS, SCENARIO_MAP, get_scenario
+from lab.curriculum import get_ordered_level_items
 
 def cmd_list(engine: GitEngine):
     state = engine.get_state()
     active_id = state.get("active_scenario")
     completed = set(state.get("completed_scenarios", []))
+
+    curriculum_meta = {item["id"]: item for item in get_ordered_level_items()}
 
     info_list = []
     for sc in SCENARIOS:
@@ -34,13 +37,19 @@ def cmd_list(engine: GitEngine):
             st = "ACTIVE"
         else:
             st = "TODO"
+        
+        meta = curriculum_meta.get(sc.id, {})
         info_list.append({
             "id": sc.id,
             "title": sc.title,
-            "difficulty": sc.difficulty,
-            "status": st
+            "difficulty": meta.get("difficulty", sc.difficulty),
+            "status": st,
+            "chapterTitle": meta.get("chapterTitle", ""),
+            "chapterSummary": meta.get("chapterSummary", ""),
+            "displayNum": meta.get("displayNum", sc.id)
         })
     print_scenarios_table(info_list)
+
 
 def cmd_start(engine: GitEngine, target: str):
     sc = get_scenario(target)

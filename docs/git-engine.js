@@ -41,7 +41,9 @@ class VirtualGit {
     };
     this.stash = []; // [ { id, message, index, workingTree, branch } ]
     this.hooks = new Map(); // 'pre-commit' -> scriptContent
+    this.scenarioMeta = {}; // metadata for scenario verification
     this.conflictState = null; // null or { file: string, ourBranch: string, theirBranch: string }
+    this.rebaseState = null; // null or { origBranch, origBranchTip, newBaseId, commitsToReplay, currentReplayIndex, conflictFile }
     this.commitCounter = 0;
   }
 
@@ -152,8 +154,14 @@ class VirtualGit {
       unstaged,
       untracked,
       conflict: this.conflictState,
-      bisect: this.bisectState.active
+      bisect: this.bisectState.active,
+      rebaseInProgress: !!this.rebaseState,
+      rebaseCurrent: this.rebaseState ? this.rebaseState.commitsToReplay[this.rebaseState.currentReplayIndex] : null
     };
+  }
+
+  get rebaseInProgress() {
+    return !!this.rebaseState;
   }
 
   add(args) {
@@ -365,6 +373,20 @@ class VirtualGit {
       if (!this.branches.has(target)) {
         return { code: 1, output: `error: branch '${target}' not found.\n` };
       }
+
+      if (args[0] === '-d') {
+        const targetId = this.branches.get(target);
+        const currentId = this.getHeadCommitId();
+        const mainId = this.branches.get('main');
+        const isMerged = (currentId && this.isAncestor(targetId, currentId)) || (mainId && this.isAncestor(targetId, mainId));
+        if (!isMerged) {
+          return {
+            code: 1,
+            output: `error: The branch '${target}' is not fully merged.\nIf you are sure you want to delete it, run 'git branch -D ${target}'.\n`
+          };
+        }
+      }
+
       this.branches.delete(target);
       return { code: 0, output: `Deleted branch ${target}.\n` };
     }
@@ -375,10 +397,29 @@ class VirtualGit {
       let out = '';
       if (!isRemotes) {
         for (const [name, id] of this.branches.entries()) {
+          if (name.startsWith('origin/') || name.startsWith('upstream/')) continue;
           const prefix = name === current ? '* ' : '  ';
           const commit = this.commits.get(id);
           const hashStr = isVerbose ? ` ${id.substring(0, 7)}` : '';
-          const trackingStr = (args.includes('-vv') && this.remotes.origin?.branches.has(name)) ? ` [origin/${name}]` : '';
+          let trackingStr = '';
+          if (args.includes('-vv')) {
+            const remName = this.config[`branch.${name}.remote`] || 'origin';
+            const mergeRef = this.config[`branch.${name}.merge`] || `refs/heads/${name}`;
+            const remBranch = mergeRef.replace('refs/heads/', '');
+            const remId = this.remotes[remName]?.branches?.get(remBranch) || this.branches.get(`${remName}/${remBranch}`);
+            if (remId) {
+              const { ahead, behind } = this.countAheadBehind(id, remId);
+              if (ahead > 0 && behind > 0) {
+                trackingStr = ` [${remName}/${remBranch}: ahead ${ahead}, behind ${behind}]`;
+              } else if (ahead > 0) {
+                trackingStr = ` [${remName}/${remBranch}: ahead ${ahead}]`;
+              } else if (behind > 0) {
+                trackingStr = ` [${remName}/${remBranch}: behind ${behind}]`;
+              } else {
+                trackingStr = ` [${remName}/${remBranch}]`;
+              }
+            }
+          }
           const msgStr = isVerbose && commit ? ` ${commit.message}` : '';
           out += `${prefix}${name}${hashStr}${trackingStr}${msgStr}\n`;
         }
@@ -409,7 +450,7 @@ class VirtualGit {
     return { code: 0, output: '' };
   }
 
-  checkoutOrSwitch(target, isCreate = false) {
+  checkoutOrSwitch(target, isCreate = false, isDetach = false) {
     if (target === '-') {
       if (!this.previousBranch) {
         return { code: 1, output: 'fatal: No previous branch found.\n' };
@@ -419,6 +460,33 @@ class VirtualGit {
 
     const currentBranch = this.getCurrentBranch();
 
+    // Check if leaving detached HEAD with orphan commits
+    let orphanWarning = '';
+    if (this.HEAD.type === 'detached') {
+      const detachedId = this.HEAD.target;
+      let isReachable = false;
+      for (const bId of this.branches.values()) {
+        if (this.isAncestor(detachedId, bId)) {
+          isReachable = true;
+          break;
+        }
+      }
+      if (!isReachable) {
+        for (const t of this.tags.values()) {
+          if (this.isAncestor(detachedId, t.commitId)) {
+            isReachable = true;
+            break;
+          }
+        }
+      }
+      if (!isReachable) {
+        const shortId = detachedId ? detachedId.substring(0, 7) : '';
+        const c = this.commits.get(detachedId);
+        const msg = c ? c.message : '';
+        orphanWarning = `Warning: you are leaving 1 commit behind, not connected to any of your branches:\n\n  ${shortId} ${msg}\n\nIf you want to keep it by creating a new branch, this may be a good time to do so with:\n\n git branch <new-branch-name> ${shortId}\n\n`;
+      }
+    }
+
     if (isCreate) {
       const headId = this.getHeadCommitId();
       this.branches.set(target, headId);
@@ -427,10 +495,10 @@ class VirtualGit {
         this.previousBranch = currentBranch;
       }
       this.logReflog('checkout', `moving from ${currentBranch || 'HEAD'} to ${target}`);
-      return { code: 0, output: `Switched to a new branch '${target}'\n` };
+      return { code: 0, output: `${orphanWarning}Switched to a new branch '${target}'\n` };
     }
 
-    if (this.branches.has(target)) {
+    if (!isDetach && this.branches.has(target)) {
       this.HEAD = { type: 'branch', target };
       if (currentBranch && currentBranch !== target) {
         this.previousBranch = currentBranch;
@@ -442,15 +510,17 @@ class VirtualGit {
         this.index = new Map(commit.tree);
       }
       this.logReflog('checkout', `moving to ${target}`);
-      return { code: 0, output: `Switched to branch '${target}'\n` };
+      return { code: 0, output: `${orphanWarning}Switched to branch '${target}'\n` };
     }
 
-    // Detached HEAD checkout by commit ID or Tag
+    // Detached HEAD checkout by commit ID, Tag, or branch (when isDetach is true)
     let targetCommitId = null;
     if (this.commits.has(target)) {
       targetCommitId = target;
     } else if (this.tags.has(target)) {
       targetCommitId = this.tags.get(target).commitId;
+    } else {
+      targetCommitId = this.resolveCommit(target);
     }
 
     if (targetCommitId) {
@@ -463,7 +533,7 @@ class VirtualGit {
       this.logReflog('checkout', `moving to ${target}`);
       return {
         code: 0,
-        output: `Note: switching to '${target}'.\nYou are in 'detached HEAD' state.\nHEAD is now at ${targetCommitId} ${commit ? commit.message : ''}\n`
+        output: `${orphanWarning}Note: switching to '${target}'.\nYou are in 'detached HEAD' state.\nHEAD is now at ${targetCommitId.substring(0, 7)} ${commit ? commit.message : ''}\n`
       };
     }
 
@@ -476,28 +546,83 @@ class VirtualGit {
       return { code: 1, output: 'fatal: You are in detached HEAD state, cannot merge.\n' };
     }
 
+    if (options.abort || targetBranch === '--abort') {
+      if (this.conflictState) {
+        const headCommit = this.getHeadCommit();
+        if (headCommit) {
+          this.workingTree = new Map(headCommit.tree);
+          this.index = new Map(headCommit.tree);
+        }
+        this.conflictState = null;
+        return { code: 0, output: '' };
+      }
+      return { code: 1, output: 'fatal: There is no merge to abort (MERGE_HEAD missing).\n' };
+    }
+
+    const isSquash = options.squash || targetBranch === '--squash';
+    const actualBranch = targetBranch === '--squash' ? (options.branch || 'HEAD') : targetBranch;
+
     const currentCommitId = this.branches.get(currentBranch);
-    const targetCommitId = this.branches.get(targetBranch);
+    const targetCommitId = this.branches.get(actualBranch) || this.resolveCommit(actualBranch);
 
     if (!targetCommitId) {
-      return { code: 1, output: `merge: ${targetBranch} - not something we can merge\n` };
+      return { code: 1, output: `merge: ${actualBranch} - not something we can merge\n` };
     }
 
     if (currentCommitId === targetCommitId) {
       return { code: 0, output: 'Already up to date.\n' };
     }
 
-    // Check if Fast-Forward possible (current is ancestor of target)
-    if (this.isAncestor(currentCommitId, targetCommitId) && !options.noFf) {
-      this.branches.set(currentBranch, targetCommitId);
-      const newCommit = this.commits.get(targetCommitId);
-      this.workingTree = new Map(newCommit.tree);
-      this.index = new Map(newCommit.tree);
-      this.logReflog('merge', `Fast-forward to ${targetBranch}`);
+    if (isSquash) {
+      const baseId = this.getMergeBase(currentCommitId, targetCommitId);
+      const baseTree = baseId ? (this.commits.get(baseId)?.tree || new Map()) : new Map();
+      const targetCommit = this.commits.get(targetCommitId);
+      const targetTree = targetCommit ? targetCommit.tree : new Map();
+      const changes = this.diffTrees(baseTree, targetTree);
+      this.workingTree = this.applyChanges(this.workingTree, changes);
+      this.index = this.applyChanges(this.index, changes);
       return {
         code: 0,
-        output: `Updating ${currentCommitId}..${targetCommitId}\nFast-forward\n 1 file changed, 2 insertions(+)\n`
+        output: 'Squash commit -- not updating HEAD\nAutomatic merge went well; stopped before committing as requested\n'
       };
+    }
+
+    // Check if Fast-Forward possible (current is ancestor of target)
+    if (this.isAncestor(currentCommitId, targetCommitId)) {
+      if (!options.noFf) {
+        this.branches.set(currentBranch, targetCommitId);
+        const newCommit = this.commits.get(targetCommitId);
+        if (newCommit) {
+          this.workingTree = new Map(newCommit.tree);
+          this.index = new Map(newCommit.tree);
+        }
+        this.logReflog('merge', `Fast-forward to ${actualBranch}`);
+        const shortCurrent = currentCommitId ? currentCommitId.substring(0, 7) : '0000000';
+        const shortTarget = targetCommitId.substring(0, 7);
+        return {
+          code: 0,
+          output: `Updating ${shortCurrent}..${shortTarget}\nFast-forward\n 1 file changed, 2 insertions(+)\n`
+        };
+      } else {
+        // --no-ff on fast-forwardable branch
+        const targetCommit = this.commits.get(targetCommitId);
+        const targetTree = targetCommit ? targetCommit.tree : new Map();
+        this.workingTree = new Map(targetTree);
+        this.index = new Map(targetTree);
+        const branchName = this.branches.has(actualBranch) ? actualBranch : actualBranch.substring(0, 7);
+        const msg = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
+        const mergeCommit = this.createCommit({
+          message: msg,
+          parents: [currentCommitId, targetCommitId],
+          tree: new Map(targetTree)
+        });
+        this.branches.set(currentBranch, mergeCommit.id);
+        this.logReflog('merge', msg);
+        return {
+          code: 0,
+          output: `Merge made by the 'ort' strategy.\n`
+        };
+      }
     }
 
     // Simulated 3-way merge conflict trigger
@@ -506,13 +631,13 @@ class VirtualGit {
       this.conflictState = {
         file: options.conflictFile || conflictingFile || 'style.css',
         ourBranch: currentBranch,
-        theirBranch: targetBranch,
+        theirBranch: actualBranch,
         theirCommitId: targetCommitId
       };
       const conflictFile = this.conflictState.file;
       const ourContent = (this.commits.get(currentCommitId)?.tree?.get(conflictFile)) || this.workingTree.get(conflictFile) || `// ${currentBranch} 的實作版本`;
-      const theirContent = (this.commits.get(targetCommitId)?.tree?.get(conflictFile)) || `// ${targetBranch} 的衝突版本`;
-      const conflictContent = `<<<<<<< HEAD\n${ourContent}\n=======\n${theirContent}\n>>>>>>> ${targetBranch}\n`;
+      const theirContent = (this.commits.get(targetCommitId)?.tree?.get(conflictFile)) || `// ${actualBranch} 的衝突版本`;
+      const conflictContent = `<<<<<<< HEAD\n${ourContent}\n=======\n${theirContent}\n>>>>>>> ${actualBranch}\n`;
       this.workingTree.set(conflictFile, conflictContent);
       this.index.set(conflictFile, conflictContent);
 
@@ -523,7 +648,8 @@ class VirtualGit {
     }
 
     // Clean 3-way merge commit
-    const msg = options.message || `Merge branch '${targetBranch}' into ${currentBranch}`;
+    const branchName = this.branches.has(actualBranch) ? actualBranch : actualBranch.substring(0, 7);
+    const msg = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
     const mergeCommit = this.createCommit({
       message: msg,
       parents: [currentCommitId, targetCommitId],
@@ -568,38 +694,215 @@ class VirtualGit {
     return null;
   }
 
-  hasContentConflict(commitA, commitB) {
-    return !!this.getConflictingFile(commitA, commitB);
+  getReachableCommits(commitId) {
+    const set = new Set();
+    if (!commitId) return set;
+    const queue = [commitId];
+    while (queue.length > 0) {
+      const cId = queue.shift();
+      if (set.has(cId)) continue;
+      set.add(cId);
+      const c = this.commits.get(cId);
+      if (c && c.parents) queue.push(...c.parents);
+    }
+    return set;
   }
 
-  resolveCommit(ref) {
-    if (!ref) return null;
-    if (this.commits.has(ref)) return ref;
-    if (this.branches.has(ref)) return this.branches.get(ref);
-    if (this.tags.has(ref)) return this.tags.get(ref).commitId;
-    if (ref === 'HEAD') return this.getHeadCommitId();
-    if (ref.startsWith('HEAD~')) {
-      const steps = parseInt(ref.replace('HEAD~', ''), 10) || 1;
-      let curr = this.getHeadCommit();
-      for (let i = 0; i < steps; i++) {
-        if (curr && curr.parents && curr.parents[0]) {
-          curr = this.commits.get(curr.parents[0]);
-        }
-      }
-      return curr ? curr.id : null;
+  countAheadBehind(localId, remoteId) {
+    if (!localId || !remoteId) return { ahead: 0, behind: 0 };
+    const localReachable = this.getReachableCommits(localId);
+    const remoteReachable = this.getReachableCommits(remoteId);
+    let ahead = 0;
+    for (const id of localReachable) {
+      if (!remoteReachable.has(id)) ahead++;
     }
-    if (ref.startsWith('HEAD@{')) {
-      const idx = parseInt(ref.replace(/HEAD@\{|\}/g, ''), 10) || 0;
-      return this.reflog[idx] ? this.reflog[idx].commitId : null;
+    let behind = 0;
+    for (const id of remoteReachable) {
+      if (!localReachable.has(id)) behind++;
     }
-    // Prefix match
-    for (const id of this.commits.keys()) {
-      if (id.startsWith(ref)) return id;
+    return { ahead, behind };
+  }
+
+  getMergeBase(commitA, commitB) {
+    if (!commitA || !commitB) return null;
+    if (commitA === commitB) return commitA;
+    const reachableA = this.getReachableCommits(commitA);
+    const queue = [commitB];
+    const visited = new Set();
+    while (queue.length > 0) {
+      const curr = queue.shift();
+      if (reachableA.has(curr)) return curr;
+      if (visited.has(curr)) continue;
+      visited.add(curr);
+      const c = this.commits.get(curr);
+      if (c && c.parents) queue.push(...c.parents);
     }
     return null;
   }
 
+  hasContentConflict(commitA, commitB) {
+    return !!this.getConflictingFile(commitA, commitB);
+  }
+
+  // 算出 commit 相對於它第一個 parent 的變更
+  diffTrees(parentTree, tree) {
+    const parent = parentTree || new Map();
+    const current = tree || new Map();
+    const changes = { upsert: new Map(), remove: [] };
+    for (const [f, v] of current) {
+      if (parent.get(f) !== v) changes.upsert.set(f, v);
+    }
+    for (const f of parent.keys()) {
+      if (!current.has(f)) changes.remove.push(f);
+    }
+    return changes;
+  }
+
+  // 把變更套到新的 base tree 上
+  applyChanges(baseTree, changes) {
+    const t = new Map(baseTree || []);
+    for (const [f, v] of changes.upsert) t.set(f, v);
+    for (const f of changes.remove) t.delete(f);
+    return t;
+  }
+
+  resolveCommit(ref) {
+    if (!ref) return null;
+    const r = ref.trim();
+    if (!r) return null;
+
+    // Upstream tracking branch: @{u} or HEAD@{u} or <branch>@{u}
+    if (r === '@{u}' || r === 'HEAD@{u}') {
+      const cur = this.getCurrentBranch();
+      const remote = (cur && this.config[`branch.${cur}.remote`]) || 'origin';
+      const mergeRef = (cur && this.config[`branch.${cur}.merge`]) || (cur ? `refs/heads/${cur}` : '');
+      const shortBranch = mergeRef.replace('refs/heads/', '');
+      return (shortBranch && this.branches.get(`${remote}/${shortBranch}`)) || (this.remotes[remote]?.branches?.get(shortBranch)) || null;
+    }
+    if (r.endsWith('@{u}')) {
+      const bName = r.replace('@{u}', '');
+      const remote = this.config[`branch.${bName}.remote`] || 'origin';
+      const mergeRef = this.config[`branch.${bName}.merge`] || `refs/heads/${bName}`;
+      const shortBranch = mergeRef.replace('refs/heads/', '');
+      return (shortBranch && this.branches.get(`${remote}/${shortBranch}`)) || (this.remotes[remote]?.branches?.get(shortBranch)) || null;
+    }
+
+    // Reflog syntax: <ref>@{n}
+    const reflogMatch = r.match(/^([^@]+)?@\{(\d+)\}$/);
+    if (reflogMatch) {
+      const targetRef = reflogMatch[1] || 'HEAD';
+      const idx = parseInt(reflogMatch[2], 10);
+      if (targetRef === 'HEAD') {
+        return this.reflog[idx] ? this.reflog[idx].hash : null;
+      }
+    }
+
+    // Parent traversal: ~n, ^n, ^
+    const tildeMatch = r.match(/^(.+?)~(\d+)$/);
+    if (tildeMatch) {
+      const baseId = this.resolveCommit(tildeMatch[1]);
+      if (!baseId) return null;
+      const steps = parseInt(tildeMatch[2], 10);
+      let curr = this.commits.get(baseId);
+      for (let i = 0; i < steps; i++) {
+        if (!curr || !curr.parents || !curr.parents[0]) return null;
+        curr = this.commits.get(curr.parents[0]);
+      }
+      return curr ? curr.id : null;
+    }
+
+    const caretMatch = r.match(/^(.+?)\^(\d+)?$/);
+    if (caretMatch) {
+      const baseId = this.resolveCommit(caretMatch[1]);
+      if (!baseId) return null;
+      const parentIdx = caretMatch[2] ? (parseInt(caretMatch[2], 10) - 1) : 0;
+      const curr = this.commits.get(baseId);
+      if (!curr || !curr.parents || curr.parents[parentIdx] === undefined) return null;
+      return curr.parents[parentIdx];
+    }
+
+    // Direct match: HEAD or @
+    if (r === 'HEAD' || r === '@') return this.getHeadCommitId();
+
+    // Direct match: commit hash
+    if (this.commits.has(r)) return r;
+
+    // Direct match: local branch
+    if (this.branches.has(r)) return this.branches.get(r);
+
+    // Direct match: remote-tracking branch origin/xxx
+    if (r.startsWith('origin/')) {
+      const bName = r.replace('origin/', '');
+      if (this.remotes.origin?.branches?.has(bName)) {
+        return this.remotes.origin.branches.get(bName);
+      }
+    }
+
+    // Direct match: tag
+    if (this.tags.has(r)) return this.tags.get(r).commitId;
+
+    // Prefix match on commit hash (min 3 chars)
+    if (r.length >= 3) {
+      for (const id of this.commits.keys()) {
+        if (id.startsWith(r)) return id;
+      }
+    }
+
+    return null;
+  }
+
   rebase(upstream, options = {}) {
+    if (upstream === '--abort' || options.abort) {
+      if (!this.rebaseState) {
+        return { code: 1, output: 'fatal: No rebase in progress?\n' };
+      }
+      this.branches.set(this.rebaseState.origBranch, this.rebaseState.origBranchTip);
+      this.HEAD = { type: 'branch', target: this.rebaseState.origBranch };
+      const origC = this.commits.get(this.rebaseState.origBranchTip);
+      if (origC) {
+        this.workingTree = new Map(origC.tree);
+        this.index = new Map(origC.tree);
+      }
+      this.conflictState = null;
+      this.rebaseState = null;
+      return { code: 0, output: 'rebase aborted\n' };
+    }
+
+    if (upstream === '--skip' || options.skip) {
+      if (!this.rebaseState) {
+        return { code: 1, output: 'fatal: No rebase in progress?\n' };
+      }
+      this.conflictState = null;
+      this.rebaseState.currentReplayIndex++;
+      return this.continueReplayingCommits();
+    }
+
+    if (upstream === '--continue' || options.continue) {
+      if (!this.rebaseState) {
+        return { code: 1, output: 'fatal: No rebase in progress?\n' };
+      }
+      if (this.conflictState) {
+        const conflictFile = this.conflictState.file;
+        const curContent = this.workingTree.get(conflictFile) || '';
+        if (curContent.includes('<<<<<<< HEAD')) {
+          return {
+            code: 1,
+            output: `error: Committing is not possible because you have unmerged files.\nhint: Fix them up in the work tree, and then use 'git add/rm <file>'\nhint: as appropriate to mark resolution and run 'git rebase --continue'.\nfatal: Exiting because of an unresolved conflict.\n`
+          };
+        }
+        const c = this.rebaseState.commitsToReplay[this.rebaseState.currentReplayIndex];
+        const replayed = this.createCommit({
+          message: c.message,
+          parents: [this.rebaseState.newBaseId],
+          tree: new Map(this.index)
+        });
+        this.rebaseState.newBaseId = replayed.id;
+        this.rebaseState.currentReplayIndex++;
+        this.conflictState = null;
+      }
+      return this.continueReplayingCommits();
+    }
+
     const currentBranch = this.getCurrentBranch();
     if (!currentBranch) {
       return { code: 1, output: 'fatal: cannot rebase detached HEAD\n' };
@@ -617,56 +920,284 @@ class VirtualGit {
 
     // Replay commits from fork point onto upstream
     const commitsToReplay = [];
+    const upstreamReachable = this.getReachableCommits(upstreamCommitId);
     let curr = currentCommitId;
-    while (curr && curr !== upstreamCommitId && !this.isAncestor(curr, upstreamCommitId)) {
+    while (curr && !upstreamReachable.has(curr)) {
       commitsToReplay.unshift(this.commits.get(curr));
       const c = this.commits.get(curr);
       curr = (c && c.parents && c.parents[0]) ? c.parents[0] : null;
     }
 
     if (commitsToReplay.length === 0) {
-      // Just fast-forward
       this.branches.set(currentBranch, upstreamCommitId);
+      const upC = this.commits.get(upstreamCommitId);
+      if (upC) {
+        this.workingTree = new Map(upC.tree);
+        this.index = new Map(upC.tree);
+      }
       return { code: 0, output: `Successfully rebased and updated refs/heads/${currentBranch}.\n` };
     }
 
-    let newBaseId = upstreamCommitId;
-    if (options.interactive || options.squash) {
-      const mergedTree = new Map();
-      const baseCommit = this.commits.get(newBaseId);
-      if (baseCommit && baseCommit.tree) {
-        for (const [f, content] of baseCommit.tree.entries()) {
-          mergedTree.set(f, content);
+    this.rebaseState = {
+      origBranch: currentBranch,
+      origBranchTip: currentCommitId,
+      newBaseId: upstreamCommitId,
+      commitsToReplay,
+      currentReplayIndex: 0
+    };
+
+    return this.continueReplayingCommits();
+  }
+
+  continueReplayingCommits() {
+    if (!this.rebaseState) {
+      return { code: 0, output: '' };
+    }
+
+    while (this.rebaseState.currentReplayIndex < this.rebaseState.commitsToReplay.length) {
+      const i = this.rebaseState.currentReplayIndex;
+      const c = this.rebaseState.commitsToReplay[i];
+      const origParentId = (c.parents && c.parents[0]) ? c.parents[0] : null;
+      const origParent = origParentId ? this.commits.get(origParentId) : null;
+      const origParentTree = origParent ? origParent.tree : new Map();
+      const changes = this.diffTrees(origParentTree, c.tree);
+
+      const baseCommit = this.commits.get(this.rebaseState.newBaseId);
+      const baseTree = baseCommit ? baseCommit.tree : new Map();
+
+      // Check conflict
+      let hasConflict = false;
+      let conflictFile = null;
+      for (const [file, content] of changes.upsert) {
+        if (baseTree.has(file) && origParentTree.has(file) && baseTree.get(file) !== origParentTree.get(file) && baseTree.get(file) !== content) {
+          hasConflict = true;
+          conflictFile = file;
+          break;
         }
       }
-      for (const c of commitsToReplay) {
-        if (!c || !c.tree) continue;
-        for (const [f, content] of c.tree.entries()) {
-          mergedTree.set(f, content);
-        }
+
+      if (hasConflict) {
+        this.conflictState = {
+          file: conflictFile,
+          ourBranch: 'HEAD',
+          theirBranch: c.message
+        };
+        const ourContent = baseTree.get(conflictFile) || '';
+        const theirContent = c.tree.get(conflictFile) || '';
+        const conflictContent = `<<<<<<< HEAD\n${ourContent}\n=======\n${theirContent}\n>>>>>>> ${c.message}\n`;
+        this.workingTree.set(conflictFile, conflictContent);
+        this.index.set(conflictFile, conflictContent);
+        this.HEAD = { type: 'detached', target: this.rebaseState.newBaseId };
+        return {
+          code: 1,
+          output: `Auto-merging ${conflictFile}\nCONFLICT (content): Merge conflict in ${conflictFile}\nerror: could not apply ${c.id.substring(0, 7)}... ${c.message}\nhint: Resolve all conflicts manually, mark them as resolved with\nhint: "git add/rm <conflicted_files>", then run "git rebase --continue".\nhint: You can instead skip this commit: run "git rebase --skip".\nhint: To abort and get back to the state before "git rebase", run "git rebase --abort".\n`
+        };
       }
-      const squashed = this.createCommit({
-        message: options.message || 'feat: complete payment form feature',
-        parents: [newBaseId],
-        tree: mergedTree
+
+      const newTree = this.applyChanges(baseTree, changes);
+      const replayed = this.createCommit({
+        message: c.message,
+        parents: [this.rebaseState.newBaseId],
+        tree: newTree
       });
-      newBaseId = squashed.id;
-    } else {
-      for (const c of commitsToReplay) {
-        if (!c) continue;
-        const replayed = this.createCommit({
+      this.rebaseState.newBaseId = replayed.id;
+      this.rebaseState.currentReplayIndex++;
+    }
+
+    const finalBranch = this.rebaseState.origBranch;
+    const finalTipId = this.rebaseState.newBaseId;
+    this.branches.set(finalBranch, finalTipId);
+    this.HEAD = { type: 'branch', target: finalBranch };
+    const finalCommit = this.commits.get(finalTipId);
+    if (finalCommit) {
+      this.workingTree = new Map(finalCommit.tree);
+      this.index = new Map(finalCommit.tree);
+    }
+    this.logReflog('rebase', `finished rebase on ${finalBranch}`);
+    this.rebaseState = null;
+    return {
+      code: 0,
+      output: `Successfully rebased and updated refs/heads/${finalBranch}.\n`
+    };
+  }
+
+  rebaseOnto(newbase, upstream, branch = null) {
+    if (branch) {
+      this.checkoutOrSwitch(branch);
+    }
+    const currentBranch = this.getCurrentBranch();
+    if (!currentBranch) {
+      return { code: 1, output: 'fatal: cannot rebase detached HEAD\n' };
+    }
+    const newBaseId = this.resolveCommit(newbase);
+    if (!newBaseId) {
+      return { code: 1, output: `fatal: invalid newbase '${newbase}'\n` };
+    }
+    const upstreamId = this.resolveCommit(upstream);
+    if (!upstreamId) {
+      return { code: 1, output: `fatal: invalid upstream '${upstream}'\n` };
+    }
+
+    const currentCommitId = this.branches.get(currentBranch);
+    const commitsToReplay = [];
+    const upstreamReachable = this.getReachableCommits(upstreamId);
+    let curr = currentCommitId;
+    while (curr && !upstreamReachable.has(curr)) {
+      commitsToReplay.unshift(this.commits.get(curr));
+      const c = this.commits.get(curr);
+      curr = (c && c.parents && c.parents[0]) ? c.parents[0] : null;
+    }
+
+    this.rebaseState = {
+      origBranch: currentBranch,
+      origBranchTip: currentCommitId,
+      newBaseId,
+      commitsToReplay,
+      currentReplayIndex: 0
+    };
+
+    return this.continueReplayingCommits();
+  }
+
+  rebaseInteractivePlan(upstream, options = {}) {
+    const currentBranch = this.getCurrentBranch();
+    if (!currentBranch) {
+      return { code: 1, output: 'fatal: cannot rebase detached HEAD\n' };
+    }
+    const upstreamCommitId = this.resolveCommit(upstream);
+    if (!upstreamCommitId) {
+      return { code: 1, output: `fatal: invalid upstream '${upstream}'\n` };
+    }
+    const currentCommitId = this.branches.get(currentBranch);
+    if (currentCommitId === upstreamCommitId) {
+      return { code: 0, output: `Current branch ${currentBranch} is up to date.\n`, commits: [], upstreamId: upstreamCommitId };
+    }
+
+    const commits = [];
+    const upstreamReachable = this.getReachableCommits(upstreamCommitId);
+    let curr = currentCommitId;
+    while (curr && !upstreamReachable.has(curr)) {
+      const c = this.commits.get(curr);
+      if (c) {
+        commits.unshift({
+          id: c.id,
+          shortHash: c.id.substring(0, 7),
           message: c.message,
-          parents: [newBaseId],
-          tree: new Map(c.tree)
+          action: 'pick'
         });
+      }
+      curr = (c && c.parents && c.parents[0]) ? c.parents[0] : null;
+    }
+
+    if (commits.length === 0) {
+      return { code: 0, output: 'noop', commits: [], upstreamId: upstreamCommitId };
+    }
+
+    // Auto-squash handling
+    const autosquash = options.autosquash || this.config['rebase.autoSquash'] === 'true';
+    if (autosquash) {
+      const regularCommits = [];
+      const fixupCommits = [];
+      for (const item of commits) {
+        if (item.message.startsWith('fixup!') || item.message.startsWith('squash!')) {
+          fixupCommits.push(item);
+        } else {
+          regularCommits.push(item);
+        }
+      }
+      for (const fixupItem of fixupCommits) {
+        const isFixup = fixupItem.message.startsWith('fixup!');
+        const targetSubject = fixupItem.message.replace(/^fixup!\s+|^squash!\s+/, '').trim();
+        fixupItem.action = isFixup ? 'fixup' : 'squash';
+        const targetIdx = regularCommits.findIndex(c => c.message === targetSubject || c.message.startsWith(targetSubject));
+        if (targetIdx !== -1) {
+          regularCommits.splice(targetIdx + 1, 0, fixupItem);
+        } else {
+          regularCommits.push(fixupItem);
+        }
+      }
+      commits.length = 0;
+      commits.push(...regularCommits);
+    }
+
+    return {
+      code: 0,
+      output: '',
+      upstreamId: upstreamCommitId,
+      branch: currentBranch,
+      commits
+    };
+  }
+
+  rebaseInteractiveApply(upstreamId, todo = []) {
+    const currentBranch = this.getCurrentBranch();
+    if (!currentBranch) {
+      return { code: 1, output: 'fatal: cannot rebase detached HEAD\n' };
+    }
+    const baseCommit = this.commits.get(upstreamId);
+    if (!baseCommit) {
+      return { code: 1, output: `fatal: invalid upstream commit '${upstreamId}'\n` };
+    }
+
+    const nonDrop = todo.filter(item => item.action !== 'drop');
+    if (nonDrop.length > 0 && (nonDrop[0].action === 'squash' || nonDrop[0].action === 'fixup')) {
+      return { code: 1, output: `error: cannot '${nonDrop[0].action}' without a previous commit\n` };
+    }
+
+    let newBaseId = upstreamId;
+    let lastCommitId = null;
+
+    for (const item of todo) {
+      const { id, action, message } = item;
+      if (action === 'drop') {
+        continue;
+      }
+      const origCommit = this.commits.get(id);
+      if (!origCommit) continue;
+
+      const origParentId = (origCommit.parents && origCommit.parents[0]) ? origCommit.parents[0] : null;
+      const origParent = origParentId ? this.commits.get(origParentId) : null;
+      const origParentTree = origParent ? origParent.tree : new Map();
+      const changes = this.diffTrees(origParentTree, origCommit.tree);
+
+      if (action === 'squash' || action === 'fixup') {
+        const prevCommit = this.commits.get(lastCommitId);
+        const combinedTree = this.applyChanges(prevCommit ? prevCommit.tree : new Map(), changes);
+        let finalMessage = prevCommit ? prevCommit.message : '';
+        if (action === 'squash') {
+          finalMessage = (message && message.trim()) ? message.trim() : `${finalMessage}\n\n${origCommit.message}`;
+        }
+        // Delete previous commit and create combined commit replacing it
+        this.commits.delete(lastCommitId);
+        const combined = this.createCommit({
+          message: finalMessage,
+          parents: prevCommit ? prevCommit.parents : [upstreamId],
+          tree: combinedTree
+        });
+        lastCommitId = combined.id;
+        newBaseId = combined.id;
+      } else {
+        // pick or reword
+        const base = this.commits.get(newBaseId);
+        const newTree = this.applyChanges(base ? base.tree : new Map(), changes);
+        const commitMsg = action === 'reword' ? (message || origCommit.message) : origCommit.message;
+        const replayed = this.createCommit({
+          message: commitMsg,
+          parents: [newBaseId],
+          tree: newTree
+        });
+        lastCommitId = replayed.id;
         newBaseId = replayed.id;
       }
     }
 
     this.branches.set(currentBranch, newBaseId);
-    this.workingTree = new Map(this.commits.get(newBaseId).tree);
-    this.index = new Map(this.commits.get(newBaseId).tree);
-    this.logReflog('rebase', `checkout ${upstream}`);
+    const finalTip = this.commits.get(newBaseId);
+    if (finalTip) {
+      this.workingTree = new Map(finalTip.tree);
+      this.index = new Map(finalTip.tree);
+    }
+    this.logReflog('rebase -i (finish)', `returning to refs/heads/${currentBranch}`);
     return {
       code: 0,
       output: `Successfully rebased and updated refs/heads/${currentBranch}.\n`
@@ -679,11 +1210,19 @@ class VirtualGit {
       return { code: 1, output: `fatal: bad revision '${commitHash}'\n` };
     }
 
+    const origParentId = (target.parents && target.parents[0]) ? target.parents[0] : null;
+    const origParent = origParentId ? this.commits.get(origParentId) : null;
+    const origParentTree = origParent ? origParent.tree : new Map();
+    const changes = this.diffTrees(origParentTree, target.tree);
+
     const headId = this.getHeadCommitId();
+    const headCommit = this.getHeadCommit();
+    const newTree = this.applyChanges(headCommit ? headCommit.tree : new Map(), changes);
+
     const newCommit = this.createCommit({
       message: target.message,
       parents: headId ? [headId] : [],
-      tree: new Map(target.tree)
+      tree: newTree
     });
 
     if (this.HEAD.type === 'branch') {
@@ -691,11 +1230,175 @@ class VirtualGit {
     } else {
       this.HEAD.target = newCommit.id;
     }
+    this.workingTree = new Map(newTree);
+    this.index = new Map(newTree);
 
     this.logReflog('cherry-pick', target.message);
     return {
       code: 0,
-      output: `[${this.getCurrentBranch() || 'detached HEAD'} ${newCommit.id}] ${target.message}\n`
+      output: `[${this.getCurrentBranch() || 'detached HEAD'} ${newCommit.id.substring(0, 7)}] ${target.message}\n`
+    };
+  }
+
+  pull(args = []) {
+    const currentBranch = this.getCurrentBranch();
+    if (!currentBranch) {
+      return { code: 1, output: 'fatal: You are not currently on a branch.\n' };
+    }
+
+    const nonFlags = args.filter(a => !a.startsWith('-'));
+    const remote = nonFlags[0] || 'origin';
+    const remoteBranch = nonFlags[1] || currentBranch;
+
+    if (!this.remotes[remote] || !this.remotes[remote].branches) {
+      return { code: 1, output: `fatal: '${remote}' does not appear to be a git repository\n` };
+    }
+
+    const remoteId = this.remotes[remote].branches.get(remoteBranch);
+    if (!remoteId) {
+      return { code: 1, output: `fatal: couldn't find remote ref ${remoteBranch}\n` };
+    }
+
+    const localId = this.branches.get(currentBranch);
+    const useRebase = args.includes('--rebase') || this.config['pull.rebase'] === 'true';
+
+    if (this.isAncestor(remoteId, localId)) {
+      return { code: 0, output: 'Already up to date.\n' };
+    } else if (this.isAncestor(localId, remoteId)) {
+      // Fast-forward
+      this.branches.set(currentBranch, remoteId);
+      const remoteCommit = this.commits.get(remoteId);
+      if (remoteCommit) {
+        this.workingTree = new Map(remoteCommit.tree);
+        this.index = new Map(remoteCommit.tree);
+      }
+      this.logReflog('pull', `Fast-forward to ${remote}/${remoteBranch}`);
+      const shortLocal = localId ? localId.substring(0, 7) : '0000000';
+      const shortRemote = remoteId.substring(0, 7);
+      return {
+        code: 0,
+        output: `Updating ${shortLocal}..${shortRemote}\nFast-forward\n`
+      };
+    } else if (useRebase) {
+      const res = this.rebase(remoteId);
+      if (res.code === 0) {
+        return {
+          code: 0,
+          output: `Successfully rebased and updated refs/heads/${currentBranch}.\n`
+        };
+      }
+      return res;
+    } else {
+      return this.merge(remoteId);
+    }
+  }
+
+  push(args = []) {
+    const currentBranch = this.getCurrentBranch();
+    const nonFlags = args.filter(a => !a.startsWith('-') && !a.startsWith(':'));
+    const remote = nonFlags[0] || 'origin';
+    let targetBranch = nonFlags[1] || currentBranch;
+
+    if (!targetBranch) {
+      return { code: 1, output: 'fatal: You are not currently on a branch.\n' };
+    }
+
+    const setUpstream = args.includes('-u') || args.includes('--set-upstream');
+    const isDelete = args.includes('--delete') || args.includes('-d') || args.some(a => a.startsWith(':'));
+
+    if (!this.remotes[remote] || !this.remotes[remote].branches) {
+      return { code: 1, output: `fatal: '${remote}' does not appear to be a git repository\n` };
+    }
+
+    if (isDelete) {
+      let delBranch = targetBranch;
+      const colonArg = args.find(a => a.startsWith(':'));
+      if (colonArg) {
+        delBranch = colonArg.substring(1);
+      } else if (args.includes('--delete')) {
+        delBranch = nonFlags[1] || nonFlags[0];
+      }
+      this.remotes[remote].branches.delete(delBranch);
+      this.branches.delete(`${remote}/${delBranch}`);
+      return {
+        code: 0,
+        output: `To https://github.com/Hsing24/learn-git.git\n - [deleted]         ${delBranch}\n`
+      };
+    }
+
+    const force = args.includes('--force') || args.includes('-f');
+    const lease = args.includes('--force-with-lease') || args.some(a => a.startsWith('--force-with-lease'));
+
+    const localId = this.branches.get(targetBranch) || (targetBranch === currentBranch ? this.getHeadCommitId() : null);
+    if (!localId) {
+      return { code: 1, output: `error: src refspec ${targetBranch} does not match any\n` };
+    }
+
+    const remoteId = this.remotes[remote].branches.get(targetBranch);
+
+    const onPushSuccess = (outputMessage) => {
+      this.remotes[remote].branches.set(targetBranch, localId);
+      this.branches.set(`${remote}/${targetBranch}`, localId);
+      if (setUpstream) {
+        this.config[`branch.${targetBranch}.remote`] = remote;
+        this.config[`branch.${targetBranch}.merge`] = `refs/heads/${targetBranch}`;
+        outputMessage += `Branch '${targetBranch}' set up to track remote branch '${targetBranch}' from '${remote}'.\n`;
+      }
+      if (this.scenarioMeta && this.scenarioMeta.isPrLifecycle) {
+        // Simulate remote reviewer merging PR and deleting remote branch
+        this.remotes.origin.branches.set('main', localId);
+        this.remotes.origin.branches.delete('feature/cart');
+        outputMessage += `\n🤖 [模擬] Reviewer 已核准，PR #42 已合併並刪除遠端分支\n`;
+      }
+      return { code: 0, output: outputMessage };
+    };
+
+    if (!remoteId) {
+      return onPushSuccess(`To https://github.com/Hsing24/learn-git.git\n * [new branch]      ${targetBranch} -> ${targetBranch}\n`);
+    }
+
+    if (remoteId === localId) {
+      return { code: 0, output: 'Everything up-to-date\n' };
+    }
+
+    if (this.isAncestor(remoteId, localId)) {
+      const shortRemote = remoteId.substring(0, 7);
+      const shortLocal = localId.substring(0, 7);
+      return onPushSuccess(`To https://github.com/Hsing24/learn-git.git\n   ${shortRemote}..${shortLocal}  ${targetBranch} -> ${targetBranch}\n`);
+    }
+
+    if (lease && !force) {
+      // Lease check: verify remote branch matches our remote-tracking ref
+      const trackingRefId = this.branches.get(`${remote}/${targetBranch}`);
+      if (trackingRefId && remoteId && trackingRefId !== remoteId) {
+        return {
+          code: 1,
+          output: `To https://github.com/Hsing24/learn-git.git
+ ! [rejected]        ${targetBranch} -> ${targetBranch} (stale info)
+error: failed to push some refs to 'https://github.com/Hsing24/learn-git.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.\n`
+        };
+      }
+    }
+
+    if (force || lease) {
+      const shortRemote = remoteId.substring(0, 7);
+      const shortLocal = localId.substring(0, 7);
+      return onPushSuccess(`To https://github.com/Hsing24/learn-git.git\n + ${shortRemote}...${shortLocal} ${targetBranch} -> ${targetBranch} (forced update)\n`);
+    }
+
+    return {
+      code: 1,
+      output: `To https://github.com/Hsing24/learn-git.git
+ ! [rejected]        ${targetBranch} -> ${targetBranch} (fetch first)
+error: failed to push some refs to 'https://github.com/Hsing24/learn-git.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.\n`
     };
   }
 
@@ -789,6 +1492,32 @@ class VirtualGit {
     return {
       code: 0,
       output: `[${this.getCurrentBranch() || 'detached HEAD'} ${commit.id}] ${revertMsg}\n`
+    };
+  }
+
+  filterRepo(args = []) {
+    let targetPath = '.env';
+    const pIdx = args.indexOf('--path');
+    if (pIdx !== -1 && args[pIdx + 1]) {
+      targetPath = args[pIdx + 1];
+    } else {
+      const nonFlag = args.find(a => !a.startsWith('-'));
+      if (nonFlag) targetPath = nonFlag;
+    }
+
+    let modifiedCount = 0;
+    for (const [id, c] of this.commits.entries()) {
+      if (c.tree && c.tree.has(targetPath)) {
+        c.tree.delete(targetPath);
+        modifiedCount++;
+      }
+    }
+    this.workingTree.delete(targetPath);
+    this.index.delete(targetPath);
+
+    return {
+      code: 0,
+      output: `Parsed ${this.commits.size} commits\nRewrote ${modifiedCount} commit trees removing '${targetPath}'\nNew history written; now repacking\nCompletely finished.\n`
     };
   }
 
@@ -1008,6 +1737,9 @@ class VirtualGit {
   }
 
   logCmd(args = []) {
+    if (this.scenarioMeta && this.scenarioMeta.observedCommands) {
+      this.scenarioMeta.observedCommands.add('log');
+    }
     let out = '';
     const pickaxeArg = args.find((a, i) => args[i - 1] === '-S');
     if (pickaxeArg || args.includes('-S')) {
@@ -1241,15 +1973,313 @@ class VirtualGit {
     if (!remote) {
       return { code: 1, output: `fatal: '${remoteName}' does not appear to be a git repository\n` };
     }
-    let out = `From ${remote.url}\n`;
+    let out = `From ${remote.url || 'origin'}\n`;
     for (const [b, cId] of remote.branches.entries()) {
       out += ` * [new branch]      ${b} -> ${remoteName}/${b}\n`;
       this.branches.set(`${remoteName}/${b}`, cId);
     }
     if (args.includes('--prune') || args.includes('-p')) {
-      out += ` x [pruned]          ${remoteName}/deprecated-branch\n`;
+      for (const bName of Array.from(this.branches.keys())) {
+        if (bName.startsWith(`${remoteName}/`)) {
+          const shortB = bName.substring(`${remoteName}/`.length);
+          if (!remote.branches.has(shortB)) {
+            this.branches.delete(bName);
+            out += ` x [pruned]          ${bName}\n`;
+          }
+        }
+      }
     }
     return { code: 0, output: out };
+  }
+
+  restore(args = []) {
+    if (typeof args === 'string') args = [args];
+    if (!args || args.length === 0) {
+      return { code: 1, output: 'fatal: you must specify path(s) to restore\n' };
+    }
+
+    let isStaged = args.includes('--staged') || args.includes('-S');
+    let isWorktree = args.includes('--worktree') || args.includes('-W');
+    if (!isStaged && !isWorktree) {
+      isWorktree = true;
+    }
+
+    let sourceRev = null;
+    const files = [];
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a.startsWith('--source=')) {
+        sourceRev = a.substring('--source='.length);
+      } else if (a === '--source' && args[i + 1]) {
+        sourceRev = args[i + 1];
+        i++;
+      } else if (a === '--staged' || a === '-S' || a === '--worktree' || a === '-W') {
+        // flag
+      } else if (!a.startsWith('-')) {
+        files.push(a);
+      }
+    }
+
+    if (files.length === 0) {
+      return { code: 1, output: 'fatal: you must specify path(s) to restore\n' };
+    }
+
+    let srcTree = null;
+    if (sourceRev) {
+      const srcId = this.resolveCommit(sourceRev);
+      if (!srcId) {
+        return { code: 1, output: `fatal: invalid reference: ${sourceRev}\n` };
+      }
+      const c = this.commits.get(srcId);
+      srcTree = c ? c.tree : new Map();
+    }
+
+    const headTree = this.getHeadCommit() ? this.getHeadCommit().tree : new Map();
+
+    for (const file of files) {
+      if (isStaged) {
+        const treeForStaged = srcTree !== null ? srcTree : headTree;
+        if (treeForStaged.has(file)) {
+          this.index.set(file, treeForStaged.get(file));
+        } else {
+          this.index.delete(file);
+        }
+      }
+      if (isWorktree) {
+        const treeForWorktree = srcTree !== null ? srcTree : this.index;
+        if (treeForWorktree.has(file)) {
+          this.workingTree.set(file, treeForWorktree.get(file));
+        } else if (headTree.has(file)) {
+          this.workingTree.set(file, headTree.get(file));
+        } else {
+          return { code: 1, output: `error: pathspec '${file}' did not match any file(s) known to git\n` };
+        }
+      }
+    }
+
+    return { code: 0, output: '' };
+  }
+
+  computeLCS(linesA, linesB, ignoreSpace = false) {
+    const cleanLine = (l) => ignoreSpace ? l.replace(/\s+/g, '') : l;
+    const m = linesA.length, n = linesB.length;
+    if (m === 0) return linesB.map(line => ({ type: 'add', text: line }));
+    if (n === 0) return linesA.map(line => ({ type: 'del', text: line }));
+
+    const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        if (cleanLine(linesA[i]) === cleanLine(linesB[j])) {
+          dp[i + 1][j + 1] = dp[i][j] + 1;
+        } else {
+          dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+        }
+      }
+    }
+
+    const result = [];
+    let i = m, j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && cleanLine(linesA[i - 1]) === cleanLine(linesB[j - 1])) {
+        result.unshift({ type: 'common', text: linesA[i - 1] });
+        i--; j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        result.unshift({ type: 'add', text: linesB[j - 1] });
+        j--;
+      } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+        result.unshift({ type: 'del', text: linesA[i - 1] });
+        i--;
+      }
+    }
+    return result;
+  }
+
+  formatDiffBetweenTrees(treeA, treeB, options = {}) {
+    const allFiles = Array.from(new Set([...treeA.keys(), ...treeB.keys()])).sort();
+    const fileFilter = options.fileFilter;
+    const filteredFiles = fileFilter ? allFiles.filter(f => f === fileFilter) : allFiles;
+
+    let totalInsertions = 0;
+    let totalDeletions = 0;
+    let diffBlocks = [];
+    let statLines = [];
+
+    for (const f of filteredFiles) {
+      const textA = treeA.get(f);
+      const textB = treeB.get(f);
+      if (textA === textB) continue;
+
+      const linesA = textA !== undefined ? (textA === '' ? [] : textA.split('\n')) : [];
+      const linesB = textB !== undefined ? (textB === '' ? [] : textB.split('\n')) : [];
+      if (linesA.length && linesA[linesA.length - 1] === '') linesA.pop();
+      if (linesB.length && linesB[linesB.length - 1] === '') linesB.pop();
+
+      const diffEntries = this.computeLCS(linesA, linesB, options.ignoreSpace);
+      let ins = 0, del = 0;
+      const hunk = [];
+      for (const e of diffEntries) {
+        if (e.type === 'common') {
+          hunk.push(` ${e.text}`);
+        } else if (e.type === 'del') {
+          del++;
+          hunk.push(`-${e.text}`);
+        } else if (e.type === 'add') {
+          ins++;
+          hunk.push(`+${e.text}`);
+        }
+      }
+      if (ins === 0 && del === 0) continue;
+
+      totalInsertions += ins;
+      totalDeletions += del;
+
+      if (options.stat) {
+        const plusMinus = '+'.repeat(Math.min(ins, 20)) + '-'.repeat(Math.min(del, 20));
+        statLines.push(` ${f.padEnd(20)} | ${(ins + del).toString().padStart(3)} ${plusMinus}`);
+      } else {
+        let block = `diff --git a/${f} b/${f}\n`;
+        if (textA === undefined) {
+          block += `new file mode 100644\n--- /dev/null\n+++ b/${f}\n`;
+        } else if (textB === undefined) {
+          block += `deleted file mode 100644\n--- a/${f}\n+++ /dev/null\n`;
+        } else {
+          block += `--- a/${f}\n+++ b/${f}\n`;
+        }
+        block += `@@ -1,${linesA.length || 1} +1,${linesB.length || 1} @@\n`;
+        block += hunk.join('\n') + '\n';
+        diffBlocks.push(block);
+      }
+    }
+
+    if (options.stat) {
+      if (statLines.length === 0) return '';
+      let summary = ` ${statLines.length} file(s) changed, ${totalInsertions} insertion(s)(+), ${totalDeletions} deletion(s)(-)\n`;
+      return statLines.join('\n') + '\n' + summary;
+    }
+
+    return diffBlocks.join('');
+  }
+
+  diffCmd(args = []) {
+    if (typeof args === 'string') args = [args];
+    const isStaged = args.includes('--staged') || args.includes('--cached');
+    const isStat = args.includes('--stat');
+    const isIgnoreSpace = args.includes('-w') || args.includes('--ignore-all-space');
+
+    if (this.scenarioMeta && this.scenarioMeta.observedCommands) {
+      if (isStaged) this.scenarioMeta.observedCommands.add('diff--staged');
+      else this.scenarioMeta.observedCommands.add('diff');
+    }
+
+    const nonFlags = args.filter(a => !a.startsWith('-'));
+
+    let treeA = null;
+    let treeB = null;
+    let fileFilter = null;
+
+    const headTree = this.getHeadCommit() ? this.getHeadCommit().tree : new Map();
+
+    const parsedRefs = [];
+    for (const arg of nonFlags) {
+      if (arg.includes('..')) {
+        const parts = arg.split('..');
+        const ref1 = this.resolveCommit(parts[0]);
+        const ref2 = this.resolveCommit(parts[1]);
+        if (ref1 && ref2) {
+          treeA = this.commits.get(ref1)?.tree || new Map();
+          treeB = this.commits.get(ref2)?.tree || new Map();
+          continue;
+        }
+      }
+      const resolved = this.resolveCommit(arg);
+      if (resolved) {
+        parsedRefs.push(resolved);
+      } else {
+        fileFilter = arg;
+      }
+    }
+
+    if (!treeA && !treeB) {
+      if (parsedRefs.length === 2) {
+        treeA = this.commits.get(parsedRefs[0])?.tree || new Map();
+        treeB = this.commits.get(parsedRefs[1])?.tree || new Map();
+      } else if (parsedRefs.length === 1) {
+        treeA = this.commits.get(parsedRefs[0])?.tree || new Map();
+        treeB = this.workingTree;
+      } else if (isStaged) {
+        treeA = headTree;
+        treeB = this.index;
+      } else {
+        treeA = this.index;
+        treeB = this.workingTree;
+      }
+    }
+
+    const out = this.formatDiffBetweenTrees(treeA, treeB, { fileFilter, stat: isStat, ignoreSpace: isIgnoreSpace });
+    return { code: 0, output: out };
+  }
+
+  showCmd(args = []) {
+    if (typeof args === 'string') args = [args];
+    if (this.scenarioMeta && this.scenarioMeta.observedCommands) {
+      this.scenarioMeta.observedCommands.add('show');
+    }
+    const target = args.find(a => !a.startsWith('-')) || 'HEAD';
+
+    if (this.tags.has(target)) {
+      const t = this.tags.get(target);
+      const c = this.commits.get(t.commitId);
+      let out = `tag ${target}\nTagger: ${t.tagger}\nDate:   ${new Date().toISOString()}\n\n    ${t.message}\n\n`;
+      if (c) {
+        out += `commit ${c.id}\nAuthor: ${c.author}\nDate:   ${new Date(c.timestamp).toISOString()}\n\n    ${c.message}\n\n`;
+        const parentId = c.parents && c.parents[0];
+        const parentTree = parentId ? (this.commits.get(parentId)?.tree || new Map()) : new Map();
+        out += this.formatDiffBetweenTrees(parentTree, c.tree);
+      }
+      return { code: 0, output: out };
+    }
+
+    const commitId = this.resolveCommit(target);
+    if (!commitId) {
+      return { code: 1, output: `fatal: ambiguous argument '${target}': unknown revision or path not in the working tree.\n` };
+    }
+
+    const c = this.commits.get(commitId);
+    if (!c) {
+      return { code: 1, output: `fatal: bad object ${commitId}\n` };
+    }
+
+    let out = `commit ${c.id}\nAuthor: ${c.author}\nDate:   ${new Date(c.timestamp).toISOString()}\n\n    ${c.message}\n\n`;
+    const parentId = c.parents && c.parents[0];
+    const parentTree = parentId ? (this.commits.get(parentId)?.tree || new Map()) : new Map();
+    out += this.formatDiffBetweenTrees(parentTree, c.tree);
+    return { code: 0, output: out };
+  }
+
+  clone(remoteUrl = 'origin', dir = 'app') {
+    const remote = 'origin';
+    const remoteRepo = this.remotes[remote] || { branches: new Map() };
+    this.branches.clear();
+    for (const [bName, cId] of remoteRepo.branches.entries()) {
+      this.branches.set(`${remote}/${bName}`, cId);
+    }
+    const defaultBranch = remoteRepo.branches.has('main') ? 'main' : (Array.from(remoteRepo.branches.keys())[0] || 'main');
+    const tipId = remoteRepo.branches.get(defaultBranch);
+    if (tipId) {
+      this.branches.set(defaultBranch, tipId);
+      this.HEAD = { type: 'branch', target: defaultBranch };
+      const commit = this.commits.get(tipId);
+      if (commit) {
+        this.workingTree = new Map(commit.tree);
+        this.index = new Map(commit.tree);
+      }
+      this.config[`branch.${defaultBranch}.remote`] = remote;
+      this.config[`branch.${defaultBranch}.merge`] = `refs/heads/${defaultBranch}`;
+    }
+    return {
+      code: 0,
+      output: `Cloning into '${dir}'...\nremote: Enumerating objects: 3, done.\nremote: Total 3 (delta 0), reused 3 (delta 0)\nReceiving objects: 100% (3/3), done.\n`
+    };
   }
 
   catFileCmd(args = []) {
