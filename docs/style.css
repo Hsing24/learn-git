@@ -2020,13 +2020,20 @@ kbd {
 /* Widescreen Layout (>= 1440px): DAG Graph pinned to top right */
 @media (min-width: 1440px) {
   .visual-panel {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 38vh) 42px minmax(0, 1fr);
+    grid-template-areas:
+      "graph"
+      "tabs"
+      "content";
   }
 
   #tab-pane-graph {
+    grid-area: graph;
     display: flex !important;
-    height: 380px;
+    height: auto;
+    min-height: 0;
     flex: none;
     border-bottom: 1px solid var(--border-color);
   }
@@ -2036,11 +2043,14 @@ kbd {
   }
 
   .visual-tabs {
+    grid-area: tabs;
     flex-shrink: 0;
   }
 
   .tab-content:not(#tab-pane-graph) {
+    grid-area: content;
     flex: 1;
+    min-height: 0;
   }
 
   .tab-content:not(#tab-pane-graph).active {
