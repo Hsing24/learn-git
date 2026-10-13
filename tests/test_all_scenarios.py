@@ -1,8 +1,10 @@
-"""Automated test suite verifying all 11 scenarios setup and verification logic."""
+"""Automated acceptance tests for all 36 CLI scenarios and curriculum consistency."""
 
+import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -34,15 +36,56 @@ from lab.scenarios.s20_mv_clean import Scenario20
 from lab.scenarios.s21_remote_fetch import Scenario21
 from lab.scenarios.s22_accidental_commit import Scenario22
 from lab.scenarios.s23_plumbing import Scenario23
-from lab.scenarios.s34_submodule import Scenario34
+from lab.scenarios.s24_inspect_changes import Scenario24
+from lab.scenarios.s25_undo_matrix import Scenario25
+from lab.scenarios.s26_merge_strategies import Scenario26
+from lab.scenarios.s27_detached_head import Scenario27
+from lab.scenarios.s28_clone_and_track import Scenario28
+from lab.scenarios.s29_rebase_conflict import Scenario29
+from lab.scenarios.s30_fixup_autosquash import Scenario30
 from lab.scenarios.s31_pr_lifecycle import Scenario31
+from lab.scenarios.s32_rebase_onto import Scenario32
 from lab.scenarios.s33_secret_purge import Scenario33
+from lab.scenarios.s34_submodule import Scenario34
+from lab.scenarios.s35_sparse_checkout import Scenario35
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.engine = GitEngine(REPO_ROOT)
+        cls.original_git_env = {
+            key: value for key, value in os.environ.items() if key.startswith("GIT_")
+        }
+        for key in cls.original_git_env:
+            os.environ.pop(key, None)
+
+        cls.test_project = tempfile.TemporaryDirectory(prefix="learn-git-tests-")
+        cls.project_root = Path(cls.test_project.name)
+        shutil.copy2(REPO_ROOT / "git-lab", cls.project_root / "git-lab")
+        shutil.copytree(REPO_ROOT / "lab", cls.project_root / "lab")
+        (cls.project_root / "docs").mkdir()
+        shutil.copy2(REPO_ROOT / "docs" / "curriculum.js", cls.project_root / "docs" / "curriculum.js")
+        global_config = cls.project_root / "empty-global-gitconfig"
+        global_config.write_text("", encoding="utf-8")
+        os.environ.update({
+            "GIT_CONFIG_GLOBAL": str(global_config),
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_AUTHOR_NAME": "Test User",
+            "GIT_AUTHOR_EMAIL": "test@learn-git.local",
+            "GIT_COMMITTER_NAME": "Test User",
+            "GIT_COMMITTER_EMAIL": "test@learn-git.local",
+            "GIT_EDITOR": "true",
+            "GIT_SEQUENCE_EDITOR": "true",
+        })
+
+        cls.engine = GitEngine(cls.project_root)
         cls.engine.init_repo_if_needed()
+
+    @classmethod
+    def tearDownClass(cls):
+        for key in [key for key in os.environ if key.startswith("GIT_")]:
+            os.environ.pop(key, None)
+        os.environ.update(cls.original_git_env)
+        cls.test_project.cleanup()
 
     def tearDown(self):
         self.engine.clean_workspace()
@@ -499,6 +542,215 @@ def print_receipt(customer_name, items, total):
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
+    def test_scenario_24_inspect_changes(self):
+        sc = Scenario24()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        _, status, _ = self.engine.run_git("status", "-s")
+        self.assertIn("M  utils.py", status)
+        self.assertIn(" M app.py", status)
+        self.assertIn("?? notes.txt", status)
+        _, unstaged, _ = self.engine.run_git("diff")
+        self.assertIn("wip", unstaged)
+        self.assertNotIn("def sub", unstaged)
+        _, staged, _ = self.engine.run_git("diff", "--staged")
+        self.assertIn("def sub", staged)
+        _, graph, _ = self.engine.run_git("log", "--oneline", "--graph")
+        self.assertIn("feat: update main logic", graph)
+        _, previous, _ = self.engine.run_git("show", "HEAD~1")
+        self.assertIn("feat: add helper", previous)
+
+        self.engine.create_file("ANSWER.txt", "unstaged\n")
+        self.assertFalse(sc.verify(self.engine)[0])
+        self.engine.create_file("ANSWER.txt", "staged\n")
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_25_undo_matrix(self):
+        sc = Scenario25()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        # A hard reset discards the half-finished commit instead of rebuilding it.
+        self.engine.run_git("reset", "--hard", "HEAD~1")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.run_git("restore", "config.py")
+        self.engine.run_git("restore", "--staged", "debug.log")
+        self.engine.run_git("reset", "--soft", "HEAD~1")
+        self.engine.run_git("commit", "-m", "feat: complete payment feature")
+        self.assertTrue((self.engine.workspace / "debug.log").exists())
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_26_merge_strategies(self):
+        sc = Scenario26()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        # Fast-forwarding feature/a loses the required merge commit.
+        self.engine.run_git("merge", "feature/a")
+        self.engine.run_git("merge", "--squash", "feature/b")
+        self.engine.run_git("commit", "-m", "feat: implement b")
+        self.engine.run_git("branch", "-d", "feature/a")
+        self.engine.run_git("branch", "-D", "feature/b")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.run_git("merge", "--no-ff", "feature/a")
+        self.engine.run_git("merge", "--squash", "feature/b")
+        self.engine.run_git("commit", "-m", "feat: implement b")
+        self.engine.run_git("branch", "-d", "feature/a")
+        self.engine.run_git("branch", "-D", "feature/b")
+        _, parents, _ = self.engine.run_git("log", "--merges", "-1", "--pretty=%P")
+        self.assertEqual(len(parents.strip().split()), 2)
+        self.assertIn("# a2", (self.engine.workspace / "mod_a.py").read_text(encoding="utf-8"))
+        self.assertIn("# b2", (self.engine.workspace / "mod_b.py").read_text(encoding="utf-8"))
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_27_detached_head_rescue(self):
+        sc = Scenario27()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        self.engine.run_git("switch", "--detach", "v1.0")
+        self.engine.create_file("app.py", "print('v1.0 stable')\n# legacy fix\n")
+        self.engine.run_git("commit", "-am", "fix: legacy bug on v1.0")
+        self.engine.run_git("switch", "main")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.run_git("switch", "--detach", "v1.0")
+        self.engine.create_file("app.py", "print('v1.0 stable')\n# legacy fix\n")
+        self.engine.run_git("commit", "-am", "fix: legacy bug on v1.0")
+        self.engine.run_git("switch", "-c", "hotfix/v1-legacy")
+        self.engine.run_git("switch", "main")
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_28_clone_and_track(self):
+        sc = Scenario28()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        self.engine.run_git("switch", "-c", "feature/profile")
+        self.engine.create_file("app.py", "print('App running')\ndef profile(): pass\n")
+        self.engine.run_git("commit", "-am", "feat: user profile")
+        self.engine.run_git("push", "origin", "feature/profile")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.run_git("switch", "-c", "feature/profile")
+        self.engine.create_file("app.py", "print('App running')\ndef profile(): pass\n")
+        self.engine.run_git("commit", "-am", "feat: user profile")
+        self.engine.run_git("push", "-u", "origin", "feature/profile")
+        _, branches, _ = self.engine.run_git("branch", "-vv")
+        self.assertIn("[origin/feature/profile]", branches)
+        remote_path = self.engine.repo_dir / ".git-lab-remote-28"
+        _, remote_app, _ = self.engine.run_git(
+            "-C", str(remote_path), "show", "feature/profile:app.py"
+        )
+        self.assertIn("def profile(): pass", remote_app)
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_29_rebase_conflict_continue(self):
+        sc = Scenario29()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        code, _, _ = self.engine.run_git("rebase", "main", check=False)
+        self.assertNotEqual(code, 0)
+        self.assertFalse(sc.verify(self.engine)[0])
+        self.engine.run_git("rebase", "--abort")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        code, _, _ = self.engine.run_git("rebase", "main", check=False)
+        self.assertNotEqual(code, 0, "The documented rebase must pause for conflict resolution")
+        self.engine.create_file(
+            "app.py",
+            "print('base - main updated')\nprint('base - feature step 1')\n",
+        )
+        self.engine.run_git("add", "app.py")
+        code, out, err = self.engine.run_git("rebase", "--continue", check=False)
+        self.assertEqual(code, 0, f"Rebase continuation failed: {err or out}")
+        app = (self.engine.workspace / "app.py").read_text(encoding="utf-8")
+        self.assertIn("main updated", app)
+        self.assertIn("feature step 1", app)
+        self.assertTrue((self.engine.workspace / "helper.py").exists())
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_30_fixup_autosquash(self):
+        sc = Scenario30()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        self.engine.create_file("validator.py", "def validate(): return True\n")
+        self.engine.run_git("add", "validator.py")
+        self.engine.run_git("commit", "-m", "fix: correct validator typo")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.create_file("validator.py", "def validate(): return True\n")
+        self.engine.run_git("add", "validator.py")
+        _, target, _ = self.engine.run_git(
+            "log", "--format=%H", "--grep=feat: add validator helper", "-1"
+        )
+        self.assertTrue(target.strip())
+        self.engine.run_git("commit", "--fixup", target.strip())
+        code, out, err = self.engine.run_git("rebase", "-i", "--autosquash", "main", check=False)
+        self.assertEqual(code, 0, f"Autosquash rebase failed: {err or out}")
+        _, history, _ = self.engine.run_git("log", "main..feature", "--pretty=%s")
+        self.assertEqual(len(history.splitlines()), 4)
+        self.assertFalse(any("fixup!" in line for line in history.splitlines()))
+        self.assertEqual(
+            (self.engine.workspace / "validator.py").read_text(encoding="utf-8"),
+            "def validate(): return True\n",
+        )
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_32_rebase_onto_stacked_pr(self):
+        sc = Scenario32()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        code, _, _ = self.engine.run_git("rebase", "main", check=False)
+        self.assertNotEqual(code, 0, "Naive rebase should replay the squash-merged API commits and conflict")
+        self.engine.run_git("rebase", "--abort")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.run_git("rebase", "--onto", "main", "feature/api", "feature/ui")
+        _, commits, _ = self.engine.run_git("log", "main..feature/ui", "--format=%s")
+        self.assertEqual(commits.splitlines(), ["feat(ui): forms", "feat(ui): buttons"])
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_35_sparse_checkout(self):
+        sc = Scenario35()
+        sc.setup(self.engine)
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        self.engine.run_git("sparse-checkout", "init", "--cone")
+        self.engine.run_git("sparse-checkout", "set", "packages/backend")
+        self.assertFalse(sc.verify(self.engine)[0])
+        self.assertTrue((self.engine.workspace / "packages/backend/server.js").exists())
+
+        sc.setup(self.engine)
+        self.engine.run_git("sparse-checkout", "init", "--cone")
+        self.engine.run_git("sparse-checkout", "set", "packages/web")
+        self.assertTrue((self.engine.workspace / "packages/web/index.js").exists())
+        self.assertFalse((self.engine.workspace / "packages/backend/server.js").exists())
+        self.assertFalse((self.engine.workspace / "packages/docs/readme.md").exists())
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
     def test_scenario_34_submodule(self):
         sc = Scenario34()
         sc.setup(self.engine)
@@ -545,7 +797,7 @@ def print_receipt(customer_name, items, total):
         self.assertEqual(code, 0, f"Safe push failed: {err or out}")
 
         result = subprocess.run(
-            [sys.executable, str(REPO_ROOT / "git-lab"), "pr", "merge", "feature/cart"],
+            [sys.executable, str(self.engine.project_root / "git-lab"), "pr", "merge", "feature/cart"],
             cwd=self.engine.workspace,
             capture_output=True,
             text=True,
