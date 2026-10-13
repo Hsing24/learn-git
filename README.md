@@ -161,4 +161,11 @@ node tests/web/run_scenarios.mjs
 ---
 
 ## 📄 License
-MIT License. 歡迎自由學習、修改與分享！
+[MIT License](./LICENSE)。歡迎自由學習、修改與分享！
+
+## 🤝 貢獻與聯絡
+
+- Bug、功能與教學建議：使用 [GitHub Issues 模板](https://github.com/Hsing24/learn-git/issues/new/choose)。
+- 開發與提交 PR：參閱 [貢獻指南](./CONTRIBUTING.md)。
+- 安全漏洞：依 [安全回報政策](./SECURITY.md) 透過 email 私下回報。
+- 合作或其他私人事項：[twrandy24@gmail.com](mailto:twrandy24@gmail.com)。
