@@ -93,7 +93,7 @@ window.CURRICULUM = {
     }
   ],
   "optional": [
-    { "id": "34", "slug": "submodule", "difficulty": "★★★★", "defaultTab": "files" },
-    { "id": "35", "slug": "sparse-checkout", "difficulty": "★★★★", "defaultTab": "files" }
+    { "id": "34", "slug": "submodule", "difficulty": "★★★★", "defaultTab": "files", "cliOnly": true },
+    { "id": "35", "slug": "sparse-checkout", "difficulty": "★★★★", "defaultTab": "files", "cliOnly": true }
   ]
 };

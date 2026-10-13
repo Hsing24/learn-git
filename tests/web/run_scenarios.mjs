@@ -49,6 +49,7 @@ runFile('git-engine.js');
 runFile('scenarios-data.js');
 runFile('scenarios-extra.js');
 runFile('curriculum.js');
+runFile('curriculum-navigation.js');
 
 const VirtualGit = sandbox.VirtualGit || sandbox.window.VirtualGit;
 const SCENARIOS = sandbox.SCENARIOS || sandbox.window.SCENARIOS;
@@ -101,6 +102,45 @@ test('Protected text for scenarios 00-23 matches the original baseline', () => {
       );
     }
   }
+});
+
+test('Web navigation skips CLI-only optionals and counts playable levels', () => {
+  const navigation = sandbox.CURRICULUM_NAVIGATION;
+  const rawById = new Map(SCENARIOS.map((scenario) => [scenario.id, scenario]));
+  const ordered = CURRICULUM.chapters.flatMap((chapter, chapterIndex) =>
+    chapter.levels.map((level) => ({
+      ...rawById.get(level.id),
+      ...level,
+      chapterIndex,
+      cliOnly: Boolean(level.cliOnly || rawById.get(level.id)?.cliOnly)
+    }))
+  ).concat(CURRICULUM.optional.map((level) => ({
+    ...rawById.get(level.id),
+    ...level,
+    chapterIndex: 99,
+    cliOnly: Boolean(level.cliOnly || rawById.get(level.id)?.cliOnly)
+  })));
+  const lastCoreIndex = ordered.findIndex((scenario) => scenario.id === '23');
+  const previousCoreIndex = ordered.findIndex((scenario) => scenario.id === '33');
+
+  assert(navigation.countWebPlayable(ordered) === 34, 'The two CLI-only optionals must not count toward Web completion');
+  assert(navigation.nextWebPlayableIndex(ordered, previousCoreIndex) === lastCoreIndex, 'The final playable core level should follow id 33');
+  assert(navigation.nextWebPlayableIndex(ordered, lastCoreIndex) === -1, 'No Web next level should follow id 23');
+  assert(navigation.nextWebPlayableIndex(ordered, lastCoreIndex, scenario => scenario.chapterIndex > ordered[lastCoreIndex].chapterIndex) === -1,
+    'The final chapter must not link to a CLI-only optional');
+  assert(ordered.find(scenario => scenario.id === '34')?.cliOnly && ordered.find(scenario => scenario.id === '35')?.cliOnly,
+    'CLI-only status must come from curriculum metadata');
+
+  const completed = new Set(ordered.filter(scenario => !scenario.cliOnly).map(scenario => scenario.id));
+  completed.delete('23');
+  assert(navigation.nextWebProgressionIndex(ordered, lastCoreIndex, completed) === -1,
+    'An unpassed final level must not be mistaken for course completion');
+  completed.add('23');
+  assert(navigation.nextWebProgressionIndex(ordered, lastCoreIndex, completed) === -1,
+    'The completed final level must not lead to a CLI-only optional');
+  completed.delete('33');
+  assert(navigation.nextWebProgressionIndex(ordered, lastCoreIndex, completed) === previousCoreIndex,
+    'An earlier incomplete Web level remains reachable after the final core level');
 });
 
 // -------------------------------------------------------------

@@ -154,7 +154,7 @@ cd workspace
 # 1. Python CLI 驗收測試（涵蓋全部 36 關，使用暫存專案與隔離 Git 設定）
 python3 tests/test_all_scenarios.py
 
-# 2. Web 虛擬引擎全關卡驗收與捷徑防護測試（95 項檢查）
+# 2. Web 虛擬引擎全關卡驗收與捷徑防護測試（96 項檢查）
 node tests/web/run_scenarios.mjs
 ```
 
