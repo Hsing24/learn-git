@@ -38,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             slug: lvl.slug,
             difficulty: lvl.difficulty || raw.difficulty,
             defaultTab: lvl.defaultTab || 'mission',
-            isOptional: false
+            isOptional: false,
+            cliOnly: Boolean(lvl.cliOnly || raw.cliOnly)
           });
         } else {
           console.error(`Curriculum level id "${lvl.id}" not found in SCENARIOS!`);
@@ -60,7 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
           slug: opt.slug,
           difficulty: opt.difficulty || raw.difficulty,
           defaultTab: opt.defaultTab || 'files',
-          isOptional: true
+          isOptional: true,
+          cliOnly: Boolean(opt.cliOnly || raw.cliOnly)
         });
       } else {
         console.error(`Curriculum optional level id "${opt.id}" not found in SCENARIOS!`);
@@ -79,6 +81,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initCurriculumOrder();
 
+  const scenarioNavigation = window.CURRICULUM_NAVIGATION || {
+    isWebPlayable: (scenario) => Boolean(scenario) && scenario.cliOnly !== true,
+    countWebPlayable: (scenarios) => scenarios.filter(scenario => scenario.cliOnly !== true).length,
+    nextWebPlayableIndex: (scenarios, afterIndex, predicate = () => true) => {
+      const startIndex = Number.isInteger(afterIndex) ? afterIndex + 1 : 0;
+      for (let index = startIndex; index < scenarios.length; index++) {
+        if (scenarios[index].cliOnly !== true && predicate(scenarios[index], index)) return index;
+      }
+      return -1;
+    },
+    nextWebProgressionIndex: (scenarios, afterIndex, completedIds) => {
+      const startIndex = Number.isInteger(afterIndex) ? afterIndex + 1 : 0;
+      for (let index = startIndex; index < scenarios.length; index++) {
+        if (scenarios[index].cliOnly !== true) return index;
+      }
+      if (!completedIds.has(scenarios[afterIndex]?.id)) return -1;
+      return scenarios.findIndex((scenario, index) =>
+        index !== afterIndex && scenario.cliOnly !== true && !completedIds.has(scenario.id)
+      );
+    }
+  };
+  const webPlayableScenarioCount = scenarioNavigation.countWebPlayable(ORDERED_SCENARIOS);
+
   let currentScenarioIndex = 0;
   const completedScenarios = new Set(
     JSON.parse(localStorage.getItem('git_lab_completed_scenarios') || '[]')
@@ -86,6 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let commandHistory = [];
   let historyIndex = -1;
   let currentDraft = '';
+
+  const countCompletedWebScenarios = () => ORDERED_SCENARIOS.filter(scenario =>
+    scenarioNavigation.isWebPlayable(scenario) && completedScenarios.has(scenario.id)
+  ).length;
+  const getNextScenarioIndex = (afterIndex) => scenarioNavigation.nextWebProgressionIndex(
+    ORDERED_SCENARIOS,
+    afterIndex,
+    completedScenarios
+  );
 
   // DOM Elements
   const terminalOutput = document.getElementById('terminal-output');
@@ -100,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileViewerName = document.getElementById('file-viewer-name');
   const terminalNextBar = document.getElementById('terminal-next-bar');
   const nextBarMsg = document.getElementById('next-bar-msg');
+  const nextScenarioButton = document.getElementById('btn-next-scenario');
   const guideContainer = document.getElementById('guide-container');
   const missionContainer = document.getElementById('mission-container');
   let isCurrentScenarioPassed = false;
@@ -248,8 +283,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load Scenario by Index
   function loadScenario(index) {
     if (index < 0 || index >= ORDERED_SCENARIOS.length) index = 0;
-    currentScenarioIndex = index;
     const scenario = ORDERED_SCENARIOS[index];
+    if (!scenarioNavigation.isWebPlayable(scenario)) {
+      printOutput(`（關卡 ${scenario.id} 為 CLI 專屬選修實戰，請使用 ./git-lab start ${scenario.id} 在本機真實環境練習）`);
+      return;
+    }
+    currentScenarioIndex = index;
     isCurrentScenarioPassed = false;
     completedTasks.clear();
 
@@ -1163,10 +1202,12 @@ document.addEventListener('DOMContentLoaded', () => {
       isCurrentScenarioPassed = true;
 
       if (isFirstTimePass || isManualVerify) {
-        const nextIndex = currentScenarioIndex + 1;
-        const hasNext = nextIndex < ORDERED_SCENARIOS.length;
+        const nextIndex = getNextScenarioIndex(currentScenarioIndex);
+        const hasNext = nextIndex !== -1;
         const nextSc = hasNext ? ORDERED_SCENARIOS[nextIndex] : null;
         const nextId = nextSc ? (nextSc.displayNum || nextSc.id) : '大師結業';
+        const completedWebCount = countCompletedWebScenarios();
+        const courseComplete = completedWebCount === webPlayableScenarioCount;
 
         // Render authentic TUI box banner directly in terminal stream (no popup modal!)
         const msgLines = (result.message || '').split('\n');
@@ -1178,16 +1219,21 @@ document.addEventListener('DOMContentLoaded', () => {
         printOutput(`\x1b[38;2;63;185;80m╰──────────────────────────────────────────────────────────────────────────╯\x1b[0m`);
         if (hasNext) {
           printOutput(`\x1b[38;2;227;179;65m👉 下一步：輸入 \x1b[1mnext\x1b[0m\x1b[38;2;227;179;65m 或按下快捷鍵 [Alt + →]，亦可點擊下方按鈕前往下一關！\x1b[0m`);
-        } else {
-          printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已通關全部 ${ORDERED_SCENARIOS.length} 大關卡！\x1b[0m`);
+        } else if (courseComplete) {
+          printOutput(`\x1b[38;2;255;215;0m🏆 狂賀！你已通關全部 ${webPlayableScenarioCount} 個 Web 關卡！\x1b[0m`);
         }
 
         // Show terminal action strip
         if (terminalNextBar) {
           terminalNextBar.style.display = 'flex';
           if (nextBarMsg) {
-            nextBarMsg.textContent = hasNext ? `✔ 關卡 ${sc.displayNum || sc.id} 通關！可前往下一關 (${nextId})` : `🏆 全部 ${ORDERED_SCENARIOS.length} 關通關完成！`;
+            nextBarMsg.textContent = hasNext
+              ? `✔ 關卡 ${sc.displayNum || sc.id} 通關！可前往下一關 (${nextId})`
+              : courseComplete
+                ? `🏆 Web 課程完成！已通關全部 ${webPlayableScenarioCount} 個可玩關卡。`
+                : `此為最後一個 Web 關卡；尚有 ${webPlayableScenarioCount - completedWebCount} 關未完成，請從關卡清單繼續。`;
           }
+          if (nextScenarioButton) nextScenarioButton.style.display = hasNext ? '' : 'none';
         }
 
         // Also add an interactive button in the terminal output stream
@@ -1202,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Check Chapter Graduation (§7.6)
         if (isFirstTimePass && sc.chapterKey && sc.chapterKey !== 'optional') {
-          const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey);
+          const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey && scenarioNavigation.isWebPlayable(s));
           const isLastInChapter = chLevels.length > 0 && chLevels[chLevels.length - 1].id === sc.id;
           if (isLastInChapter) {
             setTimeout(() => {
@@ -1463,7 +1509,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.altKey && (e.key === 'ArrowRight' || e.key === 'Right')) {
       e.preventDefault();
       window.nextScenario();
-    } else if (e.key === 'Enter' && terminalNextBar && terminalNextBar.style.display !== 'none' && document.activeElement !== terminalInput) {
+    } else if (e.key === 'Enter' && terminalNextBar && terminalNextBar.style.display !== 'none' &&
+        nextScenarioButton && nextScenarioButton.style.display !== 'none' && document.activeElement !== terminalInput) {
       e.preventDefault();
       window.nextScenario();
     }
@@ -1538,11 +1585,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.nextScenario = () => {
     closeVictoryModal();
-    if (currentScenarioIndex < ORDERED_SCENARIOS.length - 1) {
-      loadScenario(currentScenarioIndex + 1);
+    const nextIndex = getNextScenarioIndex(currentScenarioIndex);
+    if (nextIndex !== -1) {
+      loadScenario(nextIndex);
+    } else if (countCompletedWebScenarios() < webPlayableScenarioCount) {
+      printOutput(`\x1b[38;2;227;179;65m目前還有 Web 關卡尚未完成，請先完成當前關卡或從關卡清單選擇未完成的關卡。\x1b[0m`);
     } else {
       printOutput(`\n\x1b[38;2;255;215;0m╔══════════════════════════════════════════════════════════════════════════╗\x1b[0m`);
-      printOutput(`\x1b[38;2;255;215;0m║  🏆 狂賀！你已經完整通關了全部 ${ORDERED_SCENARIOS.length} 大 Git 實戰宇宙！你已成為真正的 Git 大師！ ║\x1b[0m`);
+      printOutput(`\x1b[38;2;255;215;0m║  🏆 狂賀！你已經完整通關全部 ${webPlayableScenarioCount} 個 Web Git 實戰關卡！你已成為真正的 Git 大師！ ║\x1b[0m`);
       printOutput(`\x1b[38;2;255;215;0m╚══════════════════════════════════════════════════════════════════════════╝\x1b[0m`);
       printOutput(`\x1b[38;2;63;185;80m感謝你的學習與探索！歡迎將本專案分享給更多想學好 Git 的開發者：https://github.com/Hsing24/learn-git\x1b[0m\n`);
       scrollToBottom();
@@ -1707,14 +1757,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!levelDropdown) return;
     levelDropdown.innerHTML = '';
 
-    const suggestedIdx = ORDERED_SCENARIOS.findIndex(s => !completedScenarios.has(s.id) && !s.isOptional);
+    const suggestedIdx = ORDERED_SCENARIOS.findIndex(s => scenarioNavigation.isWebPlayable(s) && !completedScenarios.has(s.id));
 
     let currentChapter = null;
     ORDERED_SCENARIOS.forEach((sc, idx) => {
       const isDone = completedScenarios.has(sc.id);
       const isCurrent = idx === currentScenarioIndex;
       const isSuggested = idx === suggestedIdx && !isDone;
-      const isCliOnly = sc.isOptional && (sc.id === '34' || sc.id === '35');
+      const isCliOnly = !scenarioNavigation.isWebPlayable(sc);
 
       // Group header
       if (sc.chapterTitle && sc.chapterTitle !== currentChapter) {
@@ -1722,12 +1772,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const groupHeader = document.createElement('div');
         groupHeader.className = 'level-group-header';
 
-        const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterTitle === currentChapter);
+        const groupLevels = ORDERED_SCENARIOS.filter(s => s.chapterTitle === currentChapter);
+        const chLevels = groupLevels.filter(s => scenarioNavigation.isWebPlayable(s));
         const chDoneCount = chLevels.filter(s => completedScenarios.has(s.id)).length;
+        const groupProgress = chLevels.length > 0 ? `${chDoneCount}/${chLevels.length}` : `${groupLevels.length} 項 CLI 實戰`;
 
         groupHeader.innerHTML = `
           <span class="group-title">📖 ${escapeHtml(sc.chapterTitle)}</span>
-          <span class="group-progress">${chDoneCount}/${chLevels.length}</span>
+          <span class="group-progress">${groupProgress}</span>
         `;
         levelDropdown.appendChild(groupHeader);
       }
@@ -1838,7 +1890,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (typeof CURRICULUM !== 'undefined' && CURRICULUM.chapters) {
       grid.innerHTML = CURRICULUM.chapters.map((ch, chIdx) => {
-        const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === ch.key);
+        const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === ch.key && scenarioNavigation.isWebPlayable(s));
         const chDoneCount = chLevels.filter(s => completedScenarios.has(s.id)).length;
         const total = chLevels.length;
         const pct = total > 0 ? Math.round((chDoneCount / total) * 100) : 0;
@@ -1869,7 +1921,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.jumpToChapterFromMap = (chKey) => {
-    const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === chKey);
+    const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === chKey && scenarioNavigation.isWebPlayable(s));
     if (chLevels.length === 0) return;
     let target = chLevels.find(s => !completedScenarios.has(s.id));
     if (!target) target = chLevels[0];
@@ -1892,7 +1944,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (titleEl) titleEl.textContent = `🎓 恭喜完成第 ${sc.chapterIndex} 章：${sc.chapterTitle}！`;
     if (descEl) descEl.innerHTML = `你已全數通關本章所有關卡！<strong>${escapeHtml(sc.chapterSummary)}</strong>。實戰心法已融會貫通！`;
 
-    const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey);
+    const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey && scenarioNavigation.isWebPlayable(s));
     const commands = [];
     chLevels.forEach(lvl => {
       const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[lvl.id]) || (typeof COMMAND_GUIDES_EXTRA !== 'undefined' && COMMAND_GUIDES_EXTRA[lvl.id]);
@@ -1914,7 +1966,11 @@ document.addEventListener('DOMContentLoaded', () => {
       `).join('');
     }
 
-    const nextChapLvlIdx = ORDERED_SCENARIOS.findIndex(s => s.chapterIndex === sc.chapterIndex + 1);
+    const nextChapLvlIdx = scenarioNavigation.nextWebPlayableIndex(
+      ORDERED_SCENARIOS,
+      currentScenarioIndex,
+      scenario => scenario.chapterIndex > sc.chapterIndex
+    );
     if (nextBtn) {
       if (nextChapLvlIdx !== -1) {
         nextBtn.style.display = 'block';

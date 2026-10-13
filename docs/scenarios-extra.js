@@ -829,6 +829,7 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '34',
+    cliOnly: true,
     title: '跨專案代碼復用：Git Submodule 子模組',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '選修主題',
@@ -860,6 +861,7 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '35',
+    cliOnly: true,
     title: '超大型 Monorepo 救星：Sparse Checkout 局部檢出',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '選修主題',
