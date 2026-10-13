@@ -802,7 +802,7 @@ document.addEventListener('DOMContentLoaded', () => {
     switch (sub) {
       case 'status':
         const isShort = subArgs.includes('-s') || subArgs.includes('--short');
-        const st = git.status();
+        const st = git.status(subArgs);
         if (isShort) {
           let sOut = '';
           if (subArgs.includes('-b') || subArgs.includes('--branch')) {
