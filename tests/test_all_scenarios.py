@@ -276,22 +276,16 @@ class TestAllScenarios(unittest.TestCase):
         self.engine.run_git("bisect", "bad")
         self.engine.run_git("bisect", "good", "v1.0")
 
-        # Automatically drive bisect until done
-        while True:
-            code, out, _ = self.engine.run_git("run", "python3", "test_calc.py", check=False)
-            if "first bad commit" in out:
-                break
-            if code == 0:
-                code_b, out_b, _ = self.engine.run_git("bisect", "good", check=False)
-            else:
-                code_b, out_b, _ = self.engine.run_git("bisect", "bad", check=False)
-            if "is the first bad commit" in out_b:
-                break
+        # Let Git run the documented test and use its exit status to classify commits.
+        code, out, err = self.engine.run_git(
+            "bisect", "run", "python3", "test_calc.py", check=False
+        )
+        self.assertEqual(code, 0, f"Bisect run failed: {err or out}")
 
-        # Get culprit hash
-        code, out, _ = self.engine.run_git("log", "--all", "--grep=optimize arithmetic", "--format=%H")
-        culprit_hash = out.strip()
-        self.engine.create_file("culprit.txt", culprit_hash)
+        # Bisect leaves HEAD at the first bad commit, independent of its output wording.
+        code, culprit_hash, err = self.engine.run_git("rev-parse", "HEAD", check=False)
+        self.assertEqual(code, 0, f"Could not resolve first bad commit: {err}")
+        self.engine.create_file("culprit.txt", culprit_hash.strip())
         self.engine.run_git("bisect", "reset")
 
         passed, msg = sc.verify(self.engine)
