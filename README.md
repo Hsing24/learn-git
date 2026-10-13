@@ -4,7 +4,7 @@
 > 
 > 🌐 **瀏覽器互動式終端機 & 可視化 Commit 樹狀圖**: [https://hsing24.github.io/learn-git/](https://hsing24.github.io/learn-git/)
 > 
-> 具備類似 LearnGitBranching 的直覺介面，但**大幅強化真實職場工程情境**（涵蓋身分配置、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Atomic Patch、Stacked PR、密鑰清除等 36 大專案現場）。免安裝任何套件，打開瀏覽器即可敲指令實戰！
+> 具備類似 LearnGitBranching 的直覺介面，但**大幅強化真實職場工程情境**：共 36 個關卡，其中 34 個核心關卡可用 Web 模擬器練習，另有 2 個 CLI 專屬選修。Web 版免安裝，打開瀏覽器即可開始。
 > 
 > 本專案同時支援：
 > 1. 🌐 **Web 線上模擬器**：瀏覽器即時 SVG DAG 樹狀圖、檔案衝突檢視器、8 大章節課程地圖與章節結業卡。
@@ -23,7 +23,7 @@ Git 最關鍵的核心技能（例如 **帳號配置與 SSH 免密連線**、**M
 git clone https://github.com/Hsing24/learn-git.git
 cd learn-git
 
-# 2. 列出所有 36 個實戰關卡（依 8 大章節分組）
+# 2. 列出 34 個核心關卡與 2 個 CLI 選修（依 8 大章節分組）
 ./git-lab list
 
 # 3. 進入第 00 關：配備身分、SSH 免密金鑰與自動建立遠端分支
@@ -36,9 +36,23 @@ cd workspace
 ./git-lab verify
 ```
 
+## 平台與版本需求
+
+| 使用方式 | 支援平台與版本 |
+| :--- | :--- |
+| Web 模擬器 | 支援 JavaScript、SVG 與 `localStorage` 的現代瀏覽器；不用安裝 Git、Python 或 Node.js。 |
+| CLI 練習 | macOS、Linux 或 WSL；Python 3.11+、Git 2.28+。Python 僅使用標準函式庫。Bash 用於部分 Git hook 關卡。 |
+| 自動化測試 | Python 3.11+、Node.js 24+、Git 2.28+；不需安裝 npm 套件。 |
+
+`git-filter-repo` 是關卡 33 的選用工具；沒有安裝時，備援的 `git filter-branch` 路徑仍可練習與測試。
+
+### Web 模擬器範圍
+
+Web 版只在瀏覽器內模擬本專案支援的 Git 指令與資料狀態，不會啟動系統終端機或 Git 程式、不會修改你的本機 repository，也不會連線到真實遠端 repository。CLI 版則呼叫系統 Git，在專案的 `workspace/` 練習目錄操作。
+
 ---
 
-## 📚 36 大實戰關卡課綱地圖 (8 大章節 + 選修實戰)
+## 📚 36 個實戰關卡課綱地圖（34 個核心關卡 + 2 個 CLI 專屬選修）
 
 ### 第 0 章：環境就緒 (Environment Setup)
 *設定身分與連線，之後的每個 commit 都會記錄這些資訊*
@@ -120,6 +134,8 @@ cd workspace
 | **34** | ★★★★ | 跨專案代碼復用：Git Submodule 子模組 | `git submodule add`, `git submodule update --init` |
 | **35** | ★★★★ | 超大型 Monorepo 救星：Sparse Checkout 局部檢出 | `git sparse-checkout init --cone`, `git sparse-checkout set` |
 
+關卡 **00–33** 共 34 個核心關卡可在 Web 與 CLI 練習；**34、35** 是 CLI 專屬選修，Web 課程地圖會略過。
+
 ---
 
 ## 🛠️ 現代 Git 指令演進與更優替代方案
@@ -146,28 +162,38 @@ cd workspace
 
 ---
 
-## 🧪 執行自動化測試
+## 🧪 自動化測試與覆蓋範圍
 
-本專案自帶完整的雙引擎自動化測試套件：
+CI 會在 Pull Request 與 `main` 更新時執行下列檢查：
 
 ```bash
-# 1. Python CLI 驗收測試（涵蓋全部 36 關，使用暫存專案與隔離 Git 設定）
+# Python CLI 驗收：36 關與 Python/JavaScript 課綱 manifest 一致性
 python3 tests/test_all_scenarios.py
 
-# 2. Web 虛擬引擎全關卡驗收與捷徑防護測試（96 項檢查）
+# Web 虛擬引擎驗收：所有可玩的關卡、導覽與捷徑防護
 node tests/web/run_scenarios.mjs
+
+# 所有 Web JavaScript 檔案語法檢查
+for file in docs/*.js; do node --check "$file"; done
 ```
 
-Python 測試會以真實 Git 驗證各關卡的初始狀態、標準解法與相關捷徑，並在一次性暫存專案中執行，不會清理專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑會在安裝該選用工具時一併測試；無論是否安裝，`filter-branch` 備援路徑都會測試。
+Python 測試以真實 Git 驗證 36 個 CLI 關卡，並比對 Python、Web 與 `docs/curriculum.js` 的關卡 ID；測試在一次性暫存專案執行，不會清理 repository 的 `workspace/`。Web 測試驗證 34 個核心可玩關卡，並確認 CLI 選修不會進入 Web 導覽。關卡 33 的 `git-filter-repo` 路徑會在安裝選用工具時測試；`filter-branch` 備援路徑一律測試。
 
 ---
 
+## 版本、變更紀錄與發布
+
+本專案沒有套件版號或已發布的版本化 release。使用 [`CHANGELOG.md`](./CHANGELOG.md) 記錄尚未發布的變更；首次及後續版本以 `vMAJOR.MINOR.PATCH` 標籤發布，並依語意化版號區分不相容變更、新功能與修正。
+
+發布時先確認 `main` 的 CI 通過，再將已發布項目從 `Unreleased` 移到對應版號與日期，合併變更紀錄後，在 `main` 的 release commit 建立 annotated tag，推送標籤並從該標籤建立 GitHub Release。GitHub Pages 目前直接從 `main/docs` 發布；合併到 `main` 會更新網站，版本標籤不會建立舊版網站。
+
 ## 📄 License
-[MIT License](./LICENSE)。歡迎自由學習、修改與分享！
+[MIT License](./LICENSE) 適用於本專案原創程式碼與文件內容，除非個別檔案另有標示。第三方字型、商標、引用素材或外部連結內容仍依其原有授權與使用條款；本專案的 MIT 授權不會重新授權這些內容。
 
 ## 🤝 貢獻與聯絡
 
 - Bug、功能與教學建議：使用 [GitHub Issues 模板](https://github.com/Hsing24/learn-git/issues/new/choose)。
 - 開發與提交 PR：參閱 [貢獻指南](./CONTRIBUTING.md)。
 - 安全漏洞：依 [安全回報政策](./SECURITY.md) 透過 email 私下回報。
+- 社群互動：遵守 [行為準則](./CODE_OF_CONDUCT.md)。
 - 合作或其他私人事項：[twrandy24@gmail.com](mailto:twrandy24@gmail.com)。
