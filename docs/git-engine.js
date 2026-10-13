@@ -1452,7 +1452,7 @@ class VirtualGit {
     if (lease && !force) {
       // Lease check: verify remote branch matches our remote-tracking ref
       const trackingRefId = this.branches.get(`${remote}/${targetBranch}`);
-      if (trackingRefId && remoteId && trackingRefId !== remoteId) {
+      if (!trackingRefId || trackingRefId !== remoteId) {
         return {
           code: 1,
           output: `To https://github.com/Hsing24/learn-git.git
