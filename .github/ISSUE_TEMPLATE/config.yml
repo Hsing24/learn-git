@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞回報
+    url: https://github.com/Hsing24/learn-git/blob/main/SECURITY.md
+    about: 安全漏洞請依安全政策透過 email 私下回報。
