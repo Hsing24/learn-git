@@ -76,7 +76,8 @@ def cmd_start(engine: GitEngine, target: str):
         sc.next_steps
     )
     print(f"  {yellow(bold('👉 請切換至練習目錄開始操作：'))} {green(bold('cd workspace'))}")
-    print(f"  {dim('(在 workspace 內可直接使用任何原生 Git 指令，亦可執行 ./git-lab verify)')}\n")
+    launcher = "./git-lab" if (engine.workspace / "git-lab").exists() else "../git-lab"
+    print(f"  {dim(f'(在 workspace 內可直接使用原生 Git 指令，驗收請執行 {launcher} verify)')}\n")
 
 def cmd_status(engine: GitEngine):
     state = engine.get_state()
@@ -150,7 +151,8 @@ def cmd_verify(engine: GitEngine):
         next_cmd = None
         if idx != -1 and idx + 1 < len(SCENARIOS):
             next_sc = SCENARIOS[idx + 1]
-            next_cmd = f"./git-lab start {next_sc.id}"
+            launcher = "./git-lab" if (engine.workspace / "git-lab").exists() else "../git-lab"
+            next_cmd = f"{launcher} start {next_sc.id}"
         print_success_card(sc.title, message, next_cmd)
     else:
         print_fail_card(sc.title, message)

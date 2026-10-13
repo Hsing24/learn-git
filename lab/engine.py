@@ -138,6 +138,10 @@ class GitEngine:
         if mock_remote.exists():
             shutil.rmtree(mock_remote, ignore_errors=True)
 
+        secret_purge_remote = self.project_root / ".git-lab-remote-33"
+        if secret_purge_remote.exists():
+            shutil.rmtree(secret_purge_remote, ignore_errors=True)
+
         # Remove extra worktrees if any outside workspace
         hotfix_wt = self.project_root / "hotfix-rescue"
         if hotfix_wt.exists():
