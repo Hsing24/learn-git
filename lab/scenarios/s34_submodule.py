@@ -12,21 +12,21 @@ class Scenario34(BaseScenario):
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
         "專案需要共用外部函式庫，但希望保持獨立版本歷史。\n"
-        "實驗室已建立好模擬子倉庫 (sub-lib.git)。\n"
+        "實驗室已建立好模擬子倉庫 .git-lab-sub-34。\n"
         "請使用 git submodule add 掛載子模組至 libs/shared 並完成提交！"
     )
     goals = [
-        "掛載子模組：git submodule add ./sub-lib.git libs/shared",
+        "掛載子模組：git -c protocol.file.allow=always submodule add ./.git-lab-sub-34 libs/shared",
         "提交子模組指針：git commit -m 'feat: add shared submodule'",
         "確認 .gitmodules 存在且已納入追蹤"
     ]
     next_steps = [
-        "加入子模組：git submodule add ./.git-lab-sub-34 libs/shared",
+        "加入子模組：git -c protocol.file.allow=always submodule add ./.git-lab-sub-34 libs/shared",
         "提交配置：git commit -m 'feat: add shared submodule'",
         "驗收成果：./git-lab verify"
     ]
     hints = [
-        "執行 git submodule add ./.git-lab-sub-34 libs/shared 加入子模組。",
+        "執行 git -c protocol.file.allow=always submodule add ./.git-lab-sub-34 libs/shared 加入子模組。",
         "執行 git commit -am 'feat: add shared submodule' 完成提交。",
         "輸入 ./git-lab verify 驗收成果！"
     ]
