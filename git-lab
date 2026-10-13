@@ -3,6 +3,7 @@
 
 import sys
 import os
+import tempfile
 from pathlib import Path
 
 # Add current directory to sys.path so 'lab' package is found
@@ -184,6 +185,53 @@ def cmd_reset(engine: GitEngine):
     )
     print(f"{green('✔ 環境已重設！你可以重新嘗試操作。')}\n")
 
+def cmd_pr_merge(engine: GitEngine, branch: str):
+    """Simulate a reviewed PR merge against the configured bare origin."""
+    code, remote_url, err = engine.run_git("remote", "get-url", "origin", check=False)
+    if code != 0 or not remote_url.strip():
+        print(f"\n{red('❌ 找不到 origin 遠端：')} {err.strip()}\n")
+        return
+
+    with tempfile.TemporaryDirectory(prefix="git-lab-pr-merge-") as temp_dir:
+        checkout = Path(temp_dir) / "review"
+        code, out, err = engine.run_git("clone", remote_url.strip(), str(checkout), check=False)
+        if code != 0:
+            print(f"\n{red('❌ 無法建立 PR 審查副本：')} {(err or out).strip()}\n")
+            return
+
+        remote_branch = f"refs/remotes/origin/{branch}"
+        code, _, _ = engine.run_git("-C", str(checkout), "show-ref", "--verify", "--quiet", remote_branch, check=False)
+        if code != 0:
+            print(f"\n{red('❌ 遠端分支不存在：')} origin/{branch}\n")
+            return
+
+        code, _, _ = engine.run_git(
+            "-C", str(checkout), "merge-base", "--is-ancestor", "origin/main", remote_branch, check=False
+        )
+        if code != 0:
+            print(f"\n{red('❌ PR 分支尚未包含最新 origin/main，請先 rebase 並安全推送。')}\n")
+            return
+
+        code, out, err = engine.run_git(
+            "-C", str(checkout), "merge", "--no-ff", remote_branch,
+            "-m", f"Merge pull request '{branch}'", check=False
+        )
+        if code != 0:
+            print(f"\n{red('❌ PR 合併發生衝突：')} {(err or out).strip()}\n")
+            return
+
+        code, out, err = engine.run_git("-C", str(checkout), "push", "origin", "main", check=False)
+        if code != 0:
+            print(f"\n{red('❌ 無法更新遠端 main：')} {(err or out).strip()}\n")
+            return
+
+        code, out, err = engine.run_git("-C", str(checkout), "push", "origin", "--delete", branch, check=False)
+        if code != 0:
+            print(f"\n{red('❌ PR 已合併，但無法刪除遠端分支：')} {(err or out).strip()}\n")
+            return
+
+    print(f"\n{green('✔ PR 已模擬合併至 origin/main，並刪除 origin/' + branch)}\n")
+
 def cmd_tree(engine: GitEngine):
     if not (engine.repo_dir / ".git").exists():
         print(f"\n{dim('目前尚未初始化 Git repo。')}\n")
@@ -217,6 +265,7 @@ def print_help():
   {yellow('./git-lab verify')}          {dim('驗證目前的 Git 狀態是否達成通關目標')}
   {yellow('./git-lab reset')}           {dim('如果不小心搞砸了，一鍵重設當前關卡')}
   {yellow('./git-lab tree')}            {dim('視覺化查看目前的分支與 Commit 樹狀結構')}
+  {yellow('./git-lab pr merge <branch>')} {dim('模擬審核通過的 PR 合併至 origin/main，並刪除遠端分支')}
 """
     print(help_text)
 
@@ -251,6 +300,8 @@ def main():
         cmd_reset(engine)
     elif cmd in ["tree", "log", "graph"]:
         cmd_tree(engine)
+    elif cmd == "pr" and len(args) >= 3 and args[1].lower() == "merge":
+        cmd_pr_merge(engine, args[2])
     elif cmd in ["--help", "-h", "help"]:
         print_help()
     else:
