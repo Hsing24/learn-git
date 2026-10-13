@@ -1,6 +1,7 @@
 """Automated test suite verifying all 11 scenarios setup and verification logic."""
 
 import sys
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -33,6 +34,7 @@ from lab.scenarios.s21_remote_fetch import Scenario21
 from lab.scenarios.s22_accidental_commit import Scenario22
 from lab.scenarios.s23_plumbing import Scenario23
 from lab.scenarios.s34_submodule import Scenario34
+from lab.scenarios.s31_pr_lifecycle import Scenario31
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
@@ -514,6 +516,46 @@ def print_receipt(customer_name, items, total):
         code, tree_entry, err = self.engine.run_git("ls-tree", "HEAD", "libs/shared", check=False)
         self.assertEqual(code, 0, f"Could not inspect committed submodule: {err}")
         self.assertTrue(tree_entry.startswith("160000 commit "), tree_entry)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_31_pr_lifecycle(self):
+        sc = Scenario31()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        # Deleting the remote feature branch cannot substitute for merging it.
+        code, out, err = self.engine.run_git("push", "origin", "--delete", "feature/cart", check=False)
+        self.assertEqual(code, 0, f"Remote branch deletion failed: {err or out}")
+        self.engine.run_git("switch", "main")
+        passed, _ = sc.verify(self.engine)
+        self.assertFalse(passed, "Deleting an unmerged PR branch must not pass")
+
+        # Rebuild the fixture and run the documented workflow, including the PR merge command.
+        sc.setup(self.engine)
+        self.engine.run_git("fetch", "origin")
+        code, out, err = self.engine.run_git("rebase", "origin/main", check=False)
+        self.assertEqual(code, 0, f"Rebase failed: {err or out}")
+        code, out, err = self.engine.run_git("push", "--force-with-lease", "origin", "feature/cart", check=False)
+        self.assertEqual(code, 0, f"Safe push failed: {err or out}")
+
+        result = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "git-lab"), "pr", "merge", "feature/cart"],
+            cwd=self.engine.workspace,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, f"PR merge command failed: {result.stderr or result.stdout}")
+        self.assertIn("PR 已模擬合併", result.stdout)
+
+        self.engine.run_git("switch", "main")
+        self.engine.run_git("pull", "--ff-only", check=False)
+        self.engine.run_git("branch", "-d", "feature/cart")
+        self.engine.run_git("fetch", "--prune")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
