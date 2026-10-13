@@ -151,12 +151,14 @@ cd workspace
 本專案自帶完整的雙引擎自動化測試套件：
 
 ```bash
-# 1. 本地 Python CLI 沙盒實戰測試
+# 1. Python CLI 驗收測試（涵蓋全部 36 關，使用暫存專案與隔離 Git 設定）
 python3 tests/test_all_scenarios.py
 
-# 2. Web 虛擬引擎全關卡驗收與捷徑防護測試 (80 tests)
+# 2. Web 虛擬引擎全關卡驗收與捷徑防護測試（80 項檢查）
 node tests/web/run_scenarios.mjs
 ```
+
+Python 測試會以真實 Git 驗證各關卡的初始狀態、標準解法與相關捷徑，並在一次性暫存專案中執行，不會清理專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑會在安裝該選用工具時一併測試；無論是否安裝，`filter-branch` 備援路徑都會測試。
 
 ---
 

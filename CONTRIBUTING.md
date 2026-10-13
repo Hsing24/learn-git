@@ -41,9 +41,7 @@ node tests/web/run_scenarios.mjs
 git diff --check
 ```
 
-Python 測試會刪除並重建 `workspace/` 和部分模擬倉庫，請在專供開發與測試的 checkout 執行，保留需要的練習成果後再跑。若個人全域 Git 設定影響結果，請在隔離的測試環境重現並記錄設定。
-
-目前新增 CLI 關卡的覆蓋與 Web runner 例外處理仍有待補強，見 [#3](https://github.com/Hsing24/learn-git/issues/3) 與 [#2](https://github.com/Hsing24/learn-git/issues/2)。測試通過後，仍需實際操作修改到的關卡並核對規格。
+Python 測試會在一次性暫存專案中執行全部 36 個 CLI 關卡，並使用空白全域 Git 設定、停用系統設定與固定的測試身分；不會刪除專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑需要選用工具，備援的 `filter-branch` 路徑則會固定測試。
 
 ## 提交 Pull Request
 

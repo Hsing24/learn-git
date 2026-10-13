@@ -1,6 +1,5 @@
 """Scenario 21: Remote management and git fetch vs git pull."""
 
-import subprocess
 from pathlib import Path
 from typing import Tuple
 from lab.base import BaseScenario
@@ -50,7 +49,7 @@ class Scenario21(BaseScenario):
             shutil.rmtree(upstream_repo, ignore_errors=True)
         upstream_repo.mkdir(parents=True, exist_ok=True)
 
-        subprocess.run(["git", "init", "--bare"], cwd=upstream_repo, check=True, stdout=subprocess.DEVNULL)
+        engine.run_git("init", "--bare", "-b", "main", cwd=upstream_repo)
 
         # 2. 初始化本地 workspace
         engine.run_git("checkout", "-B", "main", check=False)
@@ -60,19 +59,19 @@ class Scenario21(BaseScenario):
         engine.run_git("commit", "-m", "feat: initial commit for fork")
 
         # 3. 推送初始狀態至 upstream_repo
-        subprocess.run(["git", "push", str(upstream_repo), "main"], cwd=engine.workspace, check=True, stdout=subprocess.DEVNULL)
+        engine.run_git("push", str(upstream_repo), "main")
 
         # 4. 在臨時目錄中模擬原作者向 upstream 推送重大安全補丁
         temp_author = engine.project_root / "temp_author"
         if temp_author.exists():
             import shutil
             shutil.rmtree(temp_author, ignore_errors=True)
-        subprocess.run(["git", "clone", str(upstream_repo), str(temp_author)], check=True, stdout=subprocess.DEVNULL)
+        engine.run_git("clone", str(upstream_repo), str(temp_author), cwd=engine.project_root)
         patch_file = temp_author / "security.py"
         patch_file.write_text("SECRET_SALT = 'hashing_salt_9988'\ndef verify_token(): return True\n", encoding="utf-8")
-        subprocess.run(["git", "add", "security.py"], cwd=temp_author, check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(["git", "commit", "-m", "fix: critical security patch from upstream"], cwd=temp_author, check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(["git", "push", "origin", "main"], cwd=temp_author, check=True, stdout=subprocess.DEVNULL)
+        engine.run_git("add", "security.py", cwd=temp_author)
+        engine.run_git("commit", "-m", "fix: critical security patch from upstream", cwd=temp_author)
+        engine.run_git("push", "origin", "main", cwd=temp_author)
         import shutil
         shutil.rmtree(temp_author, ignore_errors=True)
 
