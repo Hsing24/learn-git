@@ -32,6 +32,7 @@ from lab.scenarios.s20_mv_clean import Scenario20
 from lab.scenarios.s21_remote_fetch import Scenario21
 from lab.scenarios.s22_accidental_commit import Scenario22
 from lab.scenarios.s23_plumbing import Scenario23
+from lab.scenarios.s34_submodule import Scenario34
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
@@ -490,6 +491,29 @@ def print_receipt(customer_name, items, total):
         parts = ls_out.strip().split()
         blob_hash = parts[2]
         (self.engine.workspace / "inspection.txt").write_text(blob_hash + "\n", encoding="utf-8")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_34_submodule(self):
+        sc = Scenario34()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        code, out, err = self.engine.run_git(
+            "-c", "protocol.file.allow=always", "submodule", "add",
+            "./.git-lab-sub-34", "libs/shared", check=False
+        )
+        self.assertEqual(code, 0, f"Submodule add failed: {err or out}")
+
+        code, out, err = self.engine.run_git("commit", "-m", "feat: add shared submodule", check=False)
+        self.assertEqual(code, 0, f"Submodule commit failed: {err or out}")
+
+        code, tree_entry, err = self.engine.run_git("ls-tree", "HEAD", "libs/shared", check=False)
+        self.assertEqual(code, 0, f"Could not inspect committed submodule: {err}")
+        self.assertTrue(tree_entry.startswith("160000 commit "), tree_entry)
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
