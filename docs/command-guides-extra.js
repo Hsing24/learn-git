@@ -42,7 +42,13 @@ const COMMAND_GUIDES_EXTRA = {
       { cmd: 'git restore <file>', desc: '放棄工作目錄修改' },
       { cmd: 'git restore --staged <file>', desc: '移出暫存區（不碰檔案內容）' },
       { cmd: 'git reset --soft HEAD~1', desc: '撤銷 commit 但保留暫存區' }
-    ]
+    ],
+    resetModeRows: [
+      { mode: '--soft', head: '移到指定提交', index: '保留原樣', workingTree: '保留原樣' },
+      { mode: '--mixed（預設）', head: '移到指定提交', index: '重設到指定提交', workingTree: '保留原樣' },
+      { mode: '--hard', head: '移到指定提交', index: '重設到指定提交', workingTree: '重設到指定提交' }
+    ],
+    resetModeWarning: '⚠️ --hard 會丟棄尚未提交的追蹤檔案變更。若移動錯 HEAD，可查看 git reflog（第 6 章）找回提交位置；reflog 無法保證還原未提交的工作區內容。'
   },
 
   '26': {

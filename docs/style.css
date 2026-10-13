@@ -1648,6 +1648,19 @@ kbd {
   background: var(--bg-tertiary);
 }
 
+.reset-matrix-table-wrap {
+  overflow-x: auto;
+}
+
+.reset-matrix-table {
+  min-width: 36rem;
+  margin-bottom: 0.75rem;
+}
+
+.reset-matrix-warning {
+  color: var(--text-bright);
+}
+
 .tag-better {
   background: rgba(46, 160, 67, 0.15);
   color: #3fb950;

@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load Scenario by Index
-  function loadScenario(index) {
+  function loadScenario(index, showIntro = true) {
     if (index < 0 || index >= ORDERED_SCENARIOS.length) index = 0;
     const scenario = ORDERED_SCENARIOS[index];
     if (!scenarioNavigation.isWebPlayable(scenario)) {
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.switchTab(scenario.defaultTab || 'mission');
 
     // Open Scenario Intro Modal Alert if not disabled
-    if (localStorage.getItem('git_lab_hide_intro_modal') !== 'true') {
+    if (showIntro && localStorage.getItem('git_lab_hide_intro_modal') !== 'true') {
       window.openMissionModal();
     }
   }
@@ -517,6 +517,36 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
+    const resetModeMatrixHtml = guide.resetModeRows ? `
+      <div class="guide-section">
+        <h3 class="guide-section-title">🧭 git reset 三種模式：HEAD、Index 與工作區</h3>
+        <p class="guide-section-desc">HEAD 都會移到指定提交；模式差異在於是否重設 Index（暫存區）與 Working Tree（工作區）。</p>
+        <div class="reset-matrix-table-wrap">
+          <table class="cheat-table reset-matrix-table">
+            <thead>
+              <tr>
+                <th scope="col">模式</th>
+                <th scope="col">HEAD</th>
+                <th scope="col">Index（暫存區）</th>
+                <th scope="col">Working Tree（工作區）</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${guide.resetModeRows.map(row => `
+                <tr>
+                  <td><code>${escapeHtml(row.mode)}</code></td>
+                  <td>${escapeHtml(row.head)}</td>
+                  <td>${escapeHtml(row.index)}</td>
+                  <td>${escapeHtml(row.workingTree)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <p class="guide-section-desc reset-matrix-warning">${escapeHtml(guide.resetModeWarning)}</p>
+      </div>
+    ` : '';
+
     // 4. Variations
     const variantsHtml = (guide.variations || []).map(v => `
       <div class="guide-variant-card ${v.isPopular ? 'popular' : ''}">
@@ -557,6 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         </div>
       </div>
+
+      ${resetModeMatrixHtml}
 
       ${configCategoriesHtml}
 
@@ -1351,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
   git reflog / git log / blame 查看歷史黑盒子日記
 
 平台輔助指令：
-  next (n)   前往下一關 (快速鍵: Ctrl+N)
+  next (n)   前往下一關 (快速鍵: Alt+→)
   guide      切換至指令深度教室
   hint       查看當前關卡提示
   goal       開啟關卡任務簡報
@@ -2071,8 +2103,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial startup
   renderCheatsheetTable();
 
-  // First visit check: auto open Course Map modal
-  if (!localStorage.getItem('git_lab_has_visited') && completedScenarios.size === 0) {
+  // First visit check: show the Course Map before any scenario intro.
+  const showCourseMapOnFirstVisit = !localStorage.getItem('git_lab_has_visited') && completedScenarios.size === 0;
+  if (showCourseMapOnFirstVisit) {
     localStorage.setItem('git_lab_has_visited', 'true');
     setTimeout(() => {
       openCourseMapModal();
@@ -2080,5 +2113,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Start with Level 00
-  loadScenario(0);
+  loadScenario(0, !showCourseMapOnFirstVisit);
 });
