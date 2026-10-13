@@ -31,6 +31,7 @@ class VirtualGit {
         branches: new Map() // branchName -> commitId
       }
     };
+    this.lastPush = null;
     this.rerereCache = new Map(); // conflictKey -> resolvedContent
     this.bisectState = {
       active: false,
@@ -1376,6 +1377,7 @@ class VirtualGit {
   }
 
   push(args = []) {
+    this.lastPush = null;
     const currentBranch = this.getCurrentBranch();
     const nonFlags = args.filter(a => !a.startsWith('-') && !a.startsWith(':'));
     const remote = nonFlags[0] || 'origin';
@@ -1417,10 +1419,20 @@ class VirtualGit {
     }
 
     const remoteId = this.remotes[remote].branches.get(targetBranch);
+    const expectedRemoteId = this.branches.get(`${remote}/${targetBranch}`) || null;
 
     const onPushSuccess = (outputMessage) => {
       this.remotes[remote].branches.set(targetBranch, localId);
       this.branches.set(`${remote}/${targetBranch}`, localId);
+      this.lastPush = {
+        remote,
+        targetBranch,
+        localId,
+        remoteIdBefore: remoteId || null,
+        expectedRemoteId,
+        force,
+        forceWithLease: lease && !force
+      };
       if (setUpstream) {
         this.config[`branch.${targetBranch}.remote`] = remote;
         this.config[`branch.${targetBranch}.merge`] = `refs/heads/${targetBranch}`;
@@ -1587,19 +1599,64 @@ hint: 'git pull' before pushing again.\n`
       if (nonFlag) targetPath = nonFlag;
     }
 
-    let modifiedCount = 0;
-    for (const [id, c] of this.commits.entries()) {
-      if (c.tree && c.tree.has(targetPath)) {
-        c.tree.delete(targetPath);
-        modifiedCount++;
+    const remoteTrackingPrefixes = Object.keys(this.remotes).map(remote => `${remote}/`);
+    const isRemoteTrackingRef = (name) => remoteTrackingPrefixes.some(prefix => name.startsWith(prefix));
+    const rewritten = new Map();
+    let rewrittenCount = 0;
+
+    const rewriteCommit = (oldId) => {
+      if (!oldId) return oldId;
+      if (rewritten.has(oldId)) return rewritten.get(oldId);
+
+      const commit = this.commits.get(oldId);
+      if (!commit) {
+        rewritten.set(oldId, oldId);
+        return oldId;
+      }
+
+      const oldParents = commit.parents || [];
+      const newParents = oldParents.map(rewriteCommit);
+      const newTree = new Map(commit.tree || []);
+      const removedPath = newTree.delete(targetPath);
+      const parentChanged = newParents.some((parent, index) => parent !== oldParents[index]);
+
+      if (!removedPath && !parentChanged) {
+        rewritten.set(oldId, oldId);
+        return oldId;
+      }
+
+      const newCommit = this.createCommit({
+        message: commit.message,
+        parents: newParents,
+        tree: newTree,
+        author: commit.author
+      });
+      rewritten.set(oldId, newCommit.id);
+      rewrittenCount++;
+      return newCommit.id;
+    };
+
+    // Rewrite refs owned by this repository. Keep remote-tracking refs as the
+    // expected lease values, and leave the remote server's refs and old objects intact.
+    for (const [name, commitId] of this.branches.entries()) {
+      if (!isRemoteTrackingRef(name)) {
+        this.branches.set(name, rewriteCommit(commitId));
       }
     }
+    for (const tag of this.tags.values()) {
+      tag.commitId = rewriteCommit(tag.commitId);
+    }
+    if (this.HEAD.type === 'detached') {
+      this.HEAD.target = rewriteCommit(this.HEAD.target);
+    }
+
     this.workingTree.delete(targetPath);
     this.index.delete(targetPath);
+    this.logReflog('filter-repo', `rewrote history removing ${targetPath}`);
 
     return {
       code: 0,
-      output: `Parsed ${this.commits.size} commits\nRewrote ${modifiedCount} commit trees removing '${targetPath}'\nNew history written; now repacking\nCompletely finished.\n`
+      output: `Parsed ${this.commits.size} commits\nRewrote ${rewrittenCount} commits removing '${targetPath}'\nNew history written; now repacking\nCompletely finished.\n`
     };
   }
 

@@ -758,32 +758,66 @@ const SCENARIOS_EXTRA = [
       git.workingTree.set('.gitignore', '.env\n');
 
       git.scenarioMeta = {
-        dirtyId: c1.id
+        baseId: c0.id,
+        dirtyId: c1.id,
+        originalMainTip: c2.id
       };
     },
     checkGoal: (git) => {
       const head = git.getHeadCommit();
       if (!head) return { passed: false, message: 'main 缺少提交。' };
+      const meta = git.scenarioMeta || {};
 
       if (git.config?.['lab.secret-rotation-confirmed'] !== 'yes') {
         return { passed: false, message: '請先在憑證服務撤銷並輪替密鑰，再執行 git config lab.secret-rotation-confirmed yes 記錄確認。' };
       }
 
-      // Ensure no commit contains .env in tree
-      for (const c of git.commits.values()) {
+      const localMain = git.branches.get('main');
+      const remoteMain = git.remotes.origin?.branches?.get('main');
+      const localHistory = Array.from(git.getReachableCommits(localMain))
+        .map(id => git.commits.get(id))
+        .filter(Boolean);
+
+      // Old objects remain available to the remote until the rewritten ref is pushed.
+      for (const c of localHistory) {
         if (c.tree && c.tree.has('.env')) {
           return { passed: false, message: '提交歷史中仍找得到 .env 機密檔案！請執行 git filter-repo --path .env --invert-paths 徹底自歷史抹除。' };
         }
+      }
+
+      const rewrittenSecretCommit = localHistory.find(c => c.message === 'feat: add config with secret');
+      const rewrittenDashboardCommit = localHistory.find(c => c.message === 'feat: add dashboard');
+      if (!rewrittenSecretCommit || rewrittenSecretCommit.id === meta.dirtyId ||
+          rewrittenSecretCommit.parents[0] !== meta.baseId ||
+          !rewrittenDashboardCommit || rewrittenDashboardCommit.id === meta.originalMainTip ||
+          rewrittenDashboardCommit.parents[0] !== rewrittenSecretCommit.id ||
+          rewrittenSecretCommit.tree.get('app.js') !== 'start();\n' ||
+          rewrittenDashboardCommit.tree.get('dash.js') !== 'render();\n') {
+        return { passed: false, message: '本機歷史尚未以新 commit hash 正確重建，或遺失了未清理的檔案內容。' };
       }
 
       if (!head.tree || !head.tree.has('.gitignore')) {
         return { passed: false, message: '尚未將 .env 加入 .gitignore 提交！請執行 git add .gitignore && git commit -m "chore: ignore .env"' };
       }
 
-      const localMain = git.branches.get('main');
-      const remoteMain = git.remotes.origin?.branches?.get('main');
-      if (localMain !== remoteMain) {
+      if (head.tree.get('dash.js') !== 'render();\n') {
+        return { passed: false, message: '清理後的 main tree 必須保留 dashboard.js 的功能。' };
+      }
+
+      const safePush = git.lastPush &&
+        git.lastPush.remote === 'origin' &&
+        git.lastPush.targetBranch === 'main' &&
+        git.lastPush.localId === localMain &&
+        git.lastPush.remoteIdBefore === meta.originalMainTip &&
+        git.lastPush.expectedRemoteId === meta.originalMainTip &&
+        git.lastPush.forceWithLease && !git.lastPush.force;
+      if (!safePush || localMain !== remoteMain) {
         return { passed: false, message: '尚未以 git push --force-with-lease 覆寫遠端歷史！' };
+      }
+
+      const remoteHistory = Array.from(git.getReachableCommits(remoteMain));
+      if (remoteHistory.some(id => git.commits.get(id)?.tree?.has('.env'))) {
+        return { passed: false, message: '遠端 main 仍可追溯到 .env，請確認安全強推已更新遠端歷史。' };
       }
 
       return {
