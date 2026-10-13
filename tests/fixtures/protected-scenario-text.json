@@ -1,0 +1,387 @@
+{
+  "baselineCommit": "b1b6cef0576c647ba6ba5ccb066f12c7c259b34d",
+  "fields": [
+    "title",
+    "story",
+    "goals",
+    "hints",
+    "difficulty",
+    "category"
+  ],
+  "scenarios": {
+    "10": {
+      "title": "時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug",
+      "story": "專案上百個 commit 中出現神秘未知 Bug，主管要菜雞找出來。請使用 git bisect 二分搜尋法在幾秒鐘內秒殺元凶。",
+      "goals": [
+        "啟動二分偵探：git bisect start",
+        "標記當前版本有問題：git bisect bad",
+        "標記初始版本是好的：git bisect good c1",
+        "跟隨 Git 自動檢出的節點反覆標記 good/bad 直到抓出犯人"
+      ],
+      "hints": [
+        "先執行 git bisect start",
+        "再執行 git bisect bad，接著執行 git bisect good <最初的CommitId>"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐⭐",
+      "category": "現代工程"
+    },
+    "11": {
+      "title": "守門神器：Git Hooks 自動化品管與金鑰攔截",
+      "story": "菜雞差點把包含 AWS 密鑰的設定檔推上網！請配置 pre-commit hook 守門腳本，在 commit 前自動攔截敏感資訊。",
+      "goals": [
+        "配置守門員路徑：git config core.hooksPath .githooks",
+        "賦予腳本執行權限：chmod +x .githooks/pre-commit",
+        "嘗試提交敏感金鑰（體驗被攔截）：git commit -m \"feat: config with secret\"",
+        "緊急繞過守門員完成提交：git commit --no-verify -m \"feat: emergency bypass\""
+      ],
+      "hints": [
+        "先執行 git config core.hooksPath .githooks 與 chmod +x .githooks/pre-commit",
+        "接著執行 git commit 觀察攔截訊息，最後加上 --no-verify 完成提交"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐",
+      "category": "現代工程"
+    },
+    "12": {
+      "title": "精準原子暫存：git add -p 局部區塊暫存",
+      "story": "菜雞在一支檔案裡改了兩件事，前輩要求分開提交。請用 git add -p 互動式逐塊暫存，達成乾淨的原子提交 (Atomic Commit)。",
+      "goals": [
+        "使用 git add -p shopping.py 進入互動暫存模式",
+        "只暫存修復折扣的區塊 (Hunk 1)",
+        "提交該原子修復：git commit -m \"fix: apply discount in total calculation\""
+      ],
+      "hints": [
+        "執行 git add -p shopping.py",
+        "在提示出現時，對第一個區塊按 y，第二個區塊按 n",
+        "最後執行 git commit"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "現代工程"
+    },
+    "13": {
+      "title": "亡羊補牢：.gitignore 追蹤失效與 git rm --cached",
+      "story": "菜雞把 .env 誤加入版本庫，事後補上 .gitignore 卻沒用！請用 git rm --cached 從索引除名並保全本地檔案。",
+      "goals": [
+        "使用 git rm --cached .env 從 Git 索引移除追蹤（保留本機檔案）",
+        "建立 .gitignore 並寫入 .env",
+        "提交變更：git commit -m \"chore: untrack .env\""
+      ],
+      "hints": [
+        "執行：git rm --cached .env",
+        "執行：git add .gitignore && git commit -m \"chore: untrack .env\""
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "協作救援"
+    },
+    "14": {
+      "title": "線上緊急 Revert：解救正式機事故的 Revert Merge (git revert -m 1)",
+      "story": "菜雞 merge 上線的新功能害線上系統掛了！請使用 git revert -m 1 針對 Merge Commit 安全產生 revert commit。",
+      "goals": [
+        "觀察當前 HEAD 是一個雙親的 Merge Commit",
+        "使用 git revert -m 1 HEAD 產生安全的 revert commit",
+        "確認主線正式機事故解除"
+      ],
+      "hints": [
+        "執行：git revert -m 1 HEAD",
+        "-m 1 代表以主線 Parent 1 為基準反轉該次合併的所有改動"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐",
+      "category": "協作救援"
+    },
+    "15": {
+      "title": "版本里程碑：Git Tag 與語意化版號發布",
+      "story": "產品發布日到了！菜雞負責為穩定版本貼上語意化版號標籤 (Semantic Versioning)，請使用 git tag 建立附註標籤。",
+      "goals": [
+        "在當前進度打上附註標籤：git tag -a v1.0.0 -m \"Release v1.0.0\"",
+        "給歷史 Commit 補簽標籤：git tag -a v0.9.0 cAuth -m \"Beta release\""
+      ],
+      "hints": [
+        "執行：git tag -a v1.0.0 -m \"Release v1.0.0\"",
+        "執行：git tag -a v0.9.0 cAuth -m \"Beta v0.9.0\""
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "基礎裝備"
+    },
+    "16": {
+      "title": "程式碼考古學：git log -S 搜尋與 git blame",
+      "story": "專案某行核心程式碼被改掉了，菜雞要抓出是誰哪次改的。請使用 git log -S 搜尋語意變更，搭配 git blame 責任溯源。",
+      "goals": [
+        "使用鶴嘴鎬搜尋：git log -S \"CRITICAL_SECRET_TOKEN\" --oneline",
+        "找出引入該變數的 Commit Hash",
+        "使用 git blame 查閱檔案每行歷史"
+      ],
+      "hints": [
+        "執行：git log -S \"CRITICAL_SECRET_TOKEN\" --oneline",
+        "查看列出的特定 Commit"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "現代工程"
+    },
+    "17": {
+      "title": "重複衝突終結者：git rerere 記錄與自動重用解法",
+      "story": "菜雞在長期分支每天 rebase 都要解同一批衝突，快發瘋了！請開啟 git rerere 自動記憶衝突解法，再也不重複解題。",
+      "goals": [
+        "開啟配置：git config rerere.enabled true",
+        "合併觸發衝突並手動解決第一次",
+        "觀察 Git 自動記錄 resolution，享受未來 0 秒免解體驗！"
+      ],
+      "hints": [
+        "先執行：git config rerere.enabled true",
+        "接著執行：git merge feature/api 解決衝突並提交"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐",
+      "category": "現代工程"
+    },
+    "18": {
+      "title": "完美補完：git commit --amend 追補漏檔與修改最後提交",
+      "story": "菜雞剛 commit 完才驚覺漏放了一張圖，且 commit message 拼錯字！請用 git commit --amend 零痕跡完美修補。",
+      "goals": [
+        "暫存遺漏檔案：git add assets/logo.png",
+        "追加檔案並修正訊息：git commit --amend -m \"feat: release v1.0.0\"",
+        "確認專案歷史維持單一乾淨節點"
+      ],
+      "hints": [
+        "先執行：git add assets/logo.png",
+        "接著執行：git commit --amend -m \"feat: release v1.0.0\""
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "提交修飾"
+    },
+    "19": {
+      "title": "救急暫存：Git Stash 工作區暫存、彈出與清理",
+      "story": "菜雞寫到一半被叫去開會修別的分支，請用 git stash -u 暫存未追蹤修改，修完切回分支用 git stash pop 還原現場。",
+      "goals": [
+        "使用 git stash -u 打包工作區修改與未追蹤檔案",
+        "切換至 main 分支並提交緊急修復：git switch main ➜ 提交 hotfix.txt",
+        "切回 feature/cart 分支並使用 git stash pop 彈出還原工作區"
+      ],
+      "hints": [
+        "執行：git stash -u",
+        "切換主線：git switch main，建立 hotfix 並 commit",
+        "切回分支：git switch feature/cart，執行：git stash pop"
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "上下文切換"
+    },
+    "20": {
+      "title": "乾淨俐落：git mv 檔案更名與 git clean -fd 清理雜物",
+      "story": "菜雞手動改檔名造成 Git 誤認是砍掉重新建檔，且本地殘留一堆雜物。請用 git mv 保持歷史，並用 git clean -fd 掃除未追蹤垃圾。",
+      "goals": [
+        "使用 git mv utils.py helpers.py 完成檔案更名並加入暫存",
+        "使用 git clean -fd 清除未追蹤的 dump.tmp 與 temp_test/",
+        "提交更名變更：git commit -m \"refactor: rename utils to helpers\""
+      ],
+      "hints": [
+        "更名指令：git mv utils.py helpers.py",
+        "清理指令：git clean -fd",
+        "提交變更：git commit -m \"refactor: rename utils to helpers\""
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "工作區維護"
+    },
+    "21": {
+      "title": "遠端全貌：git remote 管理與 git fetch vs git pull 深度解密",
+      "story": "菜雞接手開源專案 Fork，搞不懂 pull 跟 fetch 差在哪。請配置 upstream 遠端，先 fetch 觀察遠端進度再決定合併策略。",
+      "goals": [
+        "新增上游遠端：git remote add upstream https://github.com/corp/upstream.git",
+        "抓取上游進度：git fetch upstream",
+        "將 upstream/main 的安全 patch merge 至本地 main：git merge upstream/main"
+      ],
+      "hints": [
+        "註冊遠端：git remote add upstream https://github.com/corp/upstream.git",
+        "下載進度：git fetch upstream",
+        "合併主線：git merge upstream/main"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "遠端協作"
+    },
+    "22": {
+      "title": "移花接木：錯在 main 提交的救星 (Branch & Reset 平移救援)",
+      "story": "菜雞犯了最經典的錯誤：忘記開分支直接在 main 上做了 2 個提交！請在當前位置開分支貼紙，再把 main reset 退回去拯救主線。",
+      "goals": [
+        "原地開出新分支：git branch feature/oauth",
+        "切回 main 分支：git switch main",
+        "將 main 分支回退 2 步：git reset --hard HEAD~2",
+        "確認 feature/oauth 保留全部進度，而 main 重回純淨初始狀態"
+      ],
+      "hints": [
+        "原地開分支：git branch feature/oauth",
+        "切回主線：git switch main",
+        "重設 HEAD 指標：git reset --hard HEAD~2"
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "災難平移"
+    },
+    "23": {
+      "title": "底層透視：.git 水管底層物件解密 (Plumbing: cat-file & SHA-1)",
+      "story": "菜雞想搞懂 Git 到底如何存檔案。請使用水管底層指令 git cat-file -t 與 -p，解密 blob、tree 與 commit 物件的真實結構。",
+      "goals": [
+        "查看 HEAD 物件型別：git cat-file -t HEAD",
+        "傾印 HEAD 提交內容：git cat-file -p HEAD",
+        "傾印 tree 內容：git cat-file -p tree_xxx",
+        "傾印 blob 內容：git cat-file -p blob_xxx"
+      ],
+      "hints": [
+        "查型別：git cat-file -t HEAD",
+        "查內容：git cat-file -p HEAD",
+        "查 tree：git cat-file -p tree_xxxx",
+        "查 blob：git cat-file -p blob_xxxx"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "底層解密"
+    },
+    "00": {
+      "title": "起點裝備：Git 身分、SSH 憑證與 Auto-Push",
+      "story": "身為小菜雞的您到公司報到，拿到公司買新電腦給資深同事後換下來重灌後的舊電腦並安裝了 git，此時請為您的電腦環境設定 git 吧",
+      "goals": [
+        "[必備] 配置使用者身分：git config user.name \"你的名字\" (或加上 --global)",
+        "[必備] 配置使用者信箱：git config user.email \"you@example.com\" (或加上 --global)",
+        "[推薦可選] 開啟自動遠端追蹤：git config push.autoSetupRemote true"
+      ],
+      "hints": [
+        "【必備 1】設定名稱：git config user.name \"Alex Chen\"",
+        "【必備 2】設定信箱：git config user.email \"alex@company.com\"",
+        "【推薦可選】自動遠端追蹤：git config push.autoSetupRemote true"
+      ],
+      "difficulty": "新手必備 🔰",
+      "category": "基礎裝備"
+    },
+    "01": {
+      "title": "工作區、暫存區與第一個 Commit",
+      "story": "剛接手專案的小菜雞寫好了第一版 index.html 與 style.css，現在要把這些新寫好的程式碼打包暫存並拍照存檔，建立專案的第一個正式 Commit。",
+      "goals": [
+        "使用 git status 查看當前未追蹤檔案",
+        "使用 git add . 將所有檔案加入暫存區",
+        "使用 git commit -m \"feat: initial commit\" 建立第一個 Commit"
+      ],
+      "hints": [
+        "先使用 git add . 暫存所有修改",
+        "接著執行 git commit -m \"feat: initial commit\""
+      ],
+      "difficulty": "入門 ⭐",
+      "category": "基礎裝備"
+    },
+    "02": {
+      "title": "分支流動與 Fast-Forward 合併",
+      "story": "資深前輩提醒菜雞：「千萬別直接在 main 上亂改！」請從小菜雞的角度開出 feature/login 分支開發登入功能，完成後安全快進合併回 main。",
+      "goals": [
+        "開出並切換至新分支：git switch -c feature/login",
+        "在新分支上提交程式碼：git commit -m \"feat: add login page\"",
+        "切回 main 分支：git switch main",
+        "將登入功能合併進 main：git merge feature/login"
+      ],
+      "hints": [
+        "使用現代指令：git switch -c feature/login",
+        "提交一個 commit：git commit -m \"feat: add login\"",
+        "切回主線：git switch main",
+        "快進合併：git merge feature/login"
+      ],
+      "difficulty": "初階 ⭐⭐",
+      "category": "分支合併"
+    },
+    "03": {
+      "title": "迎戰衝突：手動解決 Merge Conflict",
+      "story": "小菜雞跟同事改到了同一支檔案同一行，git merge 跳出衝突大爆炸！請冷靜打開檔案手動化解衝突標記並完成合併。",
+      "goals": [
+        "嘗試合併：git merge feature/dark-mode（觸發衝突）",
+        "解決衝突：編輯 style.css，移除 <<<<<<< 與 >>>>>>> 標記",
+        "暫存並提交：git add style.css && git commit -m \"merge: resolve dark mode conflict\""
+      ],
+      "hints": [
+        "直接執行 git merge feature/dark-mode 觸發衝突",
+        "衝突發生後，切換到上方「📁 檔案」頁籤可直接點擊「解決衝突」，或執行 git commit 完成合併"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "分支合併"
+    },
+    "04": {
+      "title": "Rebase 藝術：使用 git rebase 保持線性歷史",
+      "story": "菜雞發 PR 時被主管要求：「歷史太亂了，rebase 一下保持線性！」請使用 git rebase 把分支整合成乾淨的一條線。",
+      "goals": [
+        "確認當前在 feature 分支上",
+        "執行 rebase：git rebase main",
+        "切回 main 並快進合併：git switch main && git merge feature"
+      ],
+      "hints": [
+        "在 feature 分支上執行 git rebase main",
+        "rebase 完成後，切回 main 執行 git merge feature"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "進階歷史"
+    },
+    "05": {
+      "title": "歷史整形：Interactive Rebase 整理零碎 Commit",
+      "story": "菜雞在本地狂敲一堆「fix bug」、「wip」、「test」零碎提交，被主管噴之前，請用 git rebase -i 把碎提交 squash 合併整理乾淨。",
+      "goals": [
+        "將最近的零碎提交整理為精簡的提交歷史",
+        "保持最終 HEAD 只有 1 個完整功能的 commit"
+      ],
+      "hints": [
+        "你可以使用 git reset --soft HEAD~2 重新包裝成一個完整提交",
+        "或者使用 git commit --amend 修補最新提交"
+      ],
+      "difficulty": "進階 ⭐⭐⭐",
+      "category": "進階歷史"
+    },
+    "06": {
+      "title": "模擬協作：遠端衝突與 Non-Fast-Forward Push 被拒",
+      "story": "菜雞興奮地敲 git push 卻被遠端狠狠拒絕（Non-Fast-Forward）！原來別人搶先推了進度，請用 git pull --rebase 優雅解套。",
+      "goals": [
+        "嘗試 push 觀察 rejected 錯誤",
+        "執行 pull rebase：git pull --rebase",
+        "再次 push 完成同步：git push origin main"
+      ],
+      "hints": [
+        "先執行 git pull --rebase 將本地提交接在遠端最新版之後",
+        "接著執行 git push origin main"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐",
+      "category": "協作救援"
+    },
+    "07": {
+      "title": "精準挑選：跨分支 Cherry-pick 偷渡關鍵 Commit",
+      "story": "隔壁部門看中小菜雞分支上某一個特定的 Bug 修復 commit，請用 git cherry-pick 精確偷渡該節點到發布分支。",
+      "goals": [
+        "確認當前在 main 分支",
+        "使用 git log experimental 查看安全修補 Commit 的 Hash",
+        "精準 cherry-pick 該 commit：git cherry-pick <commitHash>"
+      ],
+      "hints": [
+        "切換到 main：git switch main",
+        "執行 git cherry-pick 加上該修復提交的 Hash（例如 b2c3d4e）"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐",
+      "category": "協作救援"
+    },
+    "08": {
+      "title": "起死回生：Git Reflog 拯救失蹤的 Commit",
+      "story": "菜雞手抖敲了 git reset --hard 誤刪心血程式碼，嚇得冷汗直流！請使用神秘的 git reflog 黑盒子日記救回失蹤的 Commit。",
+      "goals": [
+        "輸入 git reflog 查閱 HEAD 指標移動歷史",
+        "找到誤刪前的那筆 Commit Hash（或 HEAD@{1}）",
+        "使用 git reset --hard <Hash> 起死回生！"
+      ],
+      "hints": [
+        "執行 git reflog 查看歷史",
+        "執行 git reset --hard <丟失的CommitHash>"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐",
+      "category": "協作救援"
+    },
+    "09": {
+      "title": "雙軌並行：Git Worktree 免 Stash 零干擾平行開發",
+      "story": "正寫到一半突然有線上 emergency hotfix 插單！菜雞不想 stash 搞亂工作區，請用 git worktree 開啟第二工作目錄並行救援。",
+      "goals": [
+        "新增獨立工作區目錄：git worktree add hotfix-dir -b hotfix-p0",
+        "在 hotfix-dir 完成修復並提交",
+        "完成後移除該 worktree：git worktree remove hotfix-dir"
+      ],
+      "hints": [
+        "執行：git worktree add hotfix-dir -b hotfix-p0",
+        "切換至 hotfix-p0 並 commit",
+        "完成後執行：git worktree remove hotfix-dir"
+      ],
+      "difficulty": "實戰 ⭐⭐⭐⭐",
+      "category": "現代工程"
+    }
+  }
+}

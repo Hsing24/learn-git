@@ -86,6 +86,23 @@ function test(name, fn) {
   }
 }
 
+test('Protected text for scenarios 00-23 matches the original baseline', () => {
+  const fixturePath = path.resolve(__dirname, '../fixtures/protected-scenario-text.json');
+  const baseline = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
+  const scenariosById = new Map(SCENARIOS.map((scenario) => [scenario.id, scenario]));
+
+  for (const [id, expected] of Object.entries(baseline.scenarios)) {
+    const actual = scenariosById.get(id);
+    assert(actual, `Scenario ${id} is missing from the current definitions`);
+    for (const field of baseline.fields) {
+      assert(
+        JSON.stringify(actual[field]) === JSON.stringify(expected[field]),
+        `Scenario ${id} protected field '${field}' changed from baseline ${baseline.baselineCommit}`
+      );
+    }
+  }
+});
+
 // -------------------------------------------------------------
 // 1. Fresh State Test: ALL scenarios must be false right after setup
 // -------------------------------------------------------------

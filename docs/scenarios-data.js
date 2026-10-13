@@ -9,14 +9,16 @@ const SCENARIOS = [
     title: '起點裝備：Git 身分、SSH 憑證與 Auto-Push',
     difficulty: '新手必備 🔰',
     category: '基礎裝備',
-    story: '今天是身為小菜雞的你，公司報到的第一天，拿到公司新購入給資深同事後換下來重灌後的舊電腦，並安裝了 Git，趕快將 Git 環境設定好吧！',
+    story: '身為小菜雞的您到公司報到，拿到公司買新電腦給資深同事後換下來重灌後的舊電腦並安裝了 git，此時請為您的電腦環境設定 git 吧',
     goals: [
-      '配置使用者身分：git config user.name "你的名字" (或加上 --global)',
-      '配置使用者信箱：git config user.email "you@example.com" (或加上 --global)'
+      '[必備] 配置使用者身分：git config user.name "你的名字" (或加上 --global)',
+      '[必備] 配置使用者信箱：git config user.email "you@example.com" (或加上 --global)',
+      '[推薦可選] 開啟自動遠端追蹤：git config push.autoSetupRemote true'
     ],
     hints: [
-      '設定名稱：git config user.name "Alex Chen"',
-      '設定信箱：git config user.email "alex@company.com"'
+      '【必備 1】設定名稱：git config user.name "Alex Chen"',
+      '【必備 2】設定信箱：git config user.email "alex@company.com"',
+      '【推薦可選】自動遠端追蹤：git config push.autoSetupRemote true'
     ],
     setup: (git) => {
       git.config['user.name'] = '';
@@ -49,7 +51,7 @@ const SCENARIOS = [
     title: '工作區、暫存區與第一個 Commit',
     difficulty: '入門 ⭐',
     category: '基礎裝備',
-    story: '你寫好了 index.html 與 style.css，現在要把這些臭臭的程式碼提交，來建立你在這專案的第一個正式 Commit。',
+    story: '剛接手專案的小菜雞寫好了第一版 index.html 與 style.css，現在要把這些新寫好的程式碼打包暫存並拍照存檔，建立專案的第一個正式 Commit。',
     goals: [
       '使用 git status 查看當前未追蹤檔案',
       '使用 git add . 將所有檔案加入暫存區',
@@ -78,7 +80,7 @@ const SCENARIOS = [
     title: '分支流動與 Fast-Forward 合併',
     difficulty: '初階 ⭐⭐',
     category: '分支合併',
-    story: '資深前輩提醒你：「千萬別直接在 main 上亂改！」請從 main 分支開出 feature/login 分支來開發登入功能，完成後安全快進合併回 main。',
+    story: '資深前輩提醒菜雞：「千萬別直接在 main 上亂改！」請從小菜雞的角度開出 feature/login 分支開發登入功能，完成後安全快進合併回 main。',
     goals: [
       '開出並切換至新分支：git switch -c feature/login',
       '在新分支上提交程式碼：git commit -m "feat: add login page"',
@@ -117,7 +119,7 @@ const SCENARIOS = [
     title: '迎戰衝突：手動解決 Merge Conflict',
     difficulty: '進階 ⭐⭐⭐',
     category: '分支合併',
-    story: '同事跟你改到了同一支檔案同一行，因為你的手速慢，他已經先推至 remote，git merge 跳出衝突！請認命的打開檔案手動化解衝突並完成合併。',
+    story: '小菜雞跟同事改到了同一支檔案同一行，git merge 跳出衝突大爆炸！請冷靜打開檔案手動化解衝突標記並完成合併。',
     goals: [
       '嘗試合併：git merge feature/dark-mode（觸發衝突）',
       '解決衝突：編輯 style.css，移除 <<<<<<< 與 >>>>>>> 標記',

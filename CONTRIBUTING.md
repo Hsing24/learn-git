@@ -27,6 +27,7 @@ python3 -m http.server 8000 --directory docs
 - 課程順序以 `docs/curriculum.js` 為單一來源；內容需保持可由 Python 解析的 JSON 字面值。
 - 保留既有關卡 ID，避免破壞使用者進度；新增關卡使用未使用的 ID。
 - 遵守課綱的舊文字保護限制。既有 `scenarios-data.js` 的 title、story、goals、hints、difficulty、category 由作者維護；04 / 05 / 06 的 setup、checkGoal 修正已獲准。其他超出規格的修改請先在 issue 說明。
+- Web 測試會將 00–23 關的六個受保護欄位與 `tests/fixtures/protected-scenario-text.json` 的歷史基準比較；經核准的文案變更需在獨立提案中更新基準。
 - 新關卡需要 CLI 關卡類別、Web 定義與教學內容，以及適當的測試。CLI 專屬選修需在 Web 標示並停用。
 - 驗收需涵蓋初始狀態不通過、標準解法通過，以及適用的破壞性捷徑不通過；檢查提交歷史、檔案內容與 refs，避免只檢查指令是否出現。
 - 介面修改遵守 [DESIGN.md](./DESIGN.md)；修改 JS 時同步更新 `docs/index.html` 的快取版本參數。
