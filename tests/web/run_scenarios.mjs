@@ -63,22 +63,26 @@ console.log(`Loaded ${SCENARIOS.length} scenarios into Node test environment.`);
 
 let totalPassed = 0;
 let totalFailed = 0;
+let totalExecuted = 0;
 
 function assert(condition, message) {
   if (!condition) {
-    totalFailed++;
-    console.error(`  ❌ FAIL: ${message}`);
     throw new Error(message);
   }
 }
 
 function test(name, fn) {
+  totalExecuted++;
   try {
     fn();
     totalPassed++;
     console.log(`  ✔ PASS: ${name}`);
   } catch (err) {
-    // Already logged in assert
+    totalFailed++;
+    const details = err && typeof err === 'object' && 'stack' in err
+      ? err.stack
+      : String(err);
+    console.error(`  ❌ FAIL: ${name}\n${details}`);
   }
 }
 
@@ -588,7 +592,7 @@ test('33: Secret purge filter-repo solution', () => {
 
 // Summary
 console.log(`\n========================================`);
-console.log(`Web Scenarios Test Results: ${totalPassed} passed, ${totalFailed} failed`);
+console.log(`Web Scenarios Test Results: ${totalPassed} passed, ${totalFailed} failed, ${totalExecuted} executed`);
 console.log(`========================================\n`);
 
 if (totalFailed > 0) {
