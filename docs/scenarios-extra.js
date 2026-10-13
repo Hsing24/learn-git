@@ -635,16 +635,18 @@ const SCENARIOS_EXTRA = [
     title: '密鑰已經推上遠端的事故處理',
     difficulty: '進階 ⭐⭐⭐⭐⭐',
     category: '進階工程',
-    story: '同事 3 個 commit 前不小心將包含 AWS 密鑰的 .env 推送到遠端倉庫！光用 git rm 毫無作用，請從歷史中徹底抹除並覆寫推送！',
+    story: '同事 3 個 commit 前不小心將包含 AWS 密鑰的 .env 推送到遠端倉庫！先到憑證服務撤銷並輪替密鑰，確認後再清理歷史；改寫 Git 不會讓密鑰失效。清理完成後要求團隊丟棄舊 clone 並重新 clone。',
     goals: [
+      '先撤銷並輪替外洩密鑰，再記錄確認：git config lab.secret-rotation-confirmed yes',
       '自歷史中徹底抹除 .env 檔案',
       '將 .env 加入 .gitignore 提交防護',
       '以安全強制推送更新遠端倉庫：git push --force-with-lease'
     ],
     hints: [
-      '可使用 git filter-repo 或指令清洗歷史中所有 .env',
+      '先至憑證服務撤銷並輪替密鑰；完成後輸入 git config lab.secret-rotation-confirmed yes 記錄確認。',
+      '再使用 git filter-repo 清洗歷史中所有 .env。歷史改寫不會撤銷憑證。',
       '將 .env 加入 .gitignore 提交',
-      '執行 git push --force-with-lease 覆寫遠端歷史'
+      '執行 git push --force-with-lease 覆寫遠端歷史，並要求團隊丟棄舊 clone、重新 clone。'
     ],
     setup: (git) => {
       const c0 = git.createCommit({ message: 'feat: init repo', tree: new Map([['app.js', 'start();\n']]) });
@@ -671,6 +673,10 @@ const SCENARIOS_EXTRA = [
       const head = git.getHeadCommit();
       if (!head) return { passed: false, message: 'main 缺少提交。' };
 
+      if (git.config?.['lab.secret-rotation-confirmed'] !== 'yes') {
+        return { passed: false, message: '請先在憑證服務撤銷並輪替密鑰，再執行 git config lab.secret-rotation-confirmed yes 記錄確認。' };
+      }
+
       // Ensure no commit contains .env in tree
       for (const c of git.commits.values()) {
         if (c.tree && c.tree.has('.env')) {
@@ -690,7 +696,7 @@ const SCENARIOS_EXTRA = [
 
       return {
         passed: true,
-        message: '🎉 漂亮！你化解了最高危險等級的機密外洩事故，徹底抹除了全歷史痕跡並覆寫推送！'
+        message: '🎉 你已先確認憑證撤銷與輪替，再清理並推送歷史。請通知團隊棄用舊 clone、重新 clone；Git 歷史改寫不會撤銷憑證。'
       };
     }
   },

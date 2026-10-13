@@ -1,7 +1,8 @@
 """Automated test suite verifying all 11 scenarios setup and verification logic."""
 
-import sys
+import shutil
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -35,6 +36,7 @@ from lab.scenarios.s22_accidental_commit import Scenario22
 from lab.scenarios.s23_plumbing import Scenario23
 from lab.scenarios.s34_submodule import Scenario34
 from lab.scenarios.s31_pr_lifecycle import Scenario31
+from lab.scenarios.s33_secret_purge import Scenario33
 
 class TestAllScenarios(unittest.TestCase):
     @classmethod
@@ -556,6 +558,106 @@ def print_receipt(customer_name, items, total):
         self.engine.run_git("pull", "--ff-only", check=False)
         self.engine.run_git("branch", "-d", "feature/cart")
         self.engine.run_git("fetch", "--prune")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    def test_scenario_33_secret_purge_filter_branch_fallback(self):
+        sc = Scenario33()
+        sc.setup(self.engine)
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed)
+
+        remote_path = self.engine.project_root / ".git-lab-remote-33"
+        code, remote_log, err = self.engine.run_git(
+            "-C", str(remote_path), "log", "--all", "--", ".env", check=False
+        )
+        self.assertEqual(code, 0, f"Could not inspect initial remote history: {err}")
+        self.assertTrue(remote_log.strip(), "Fixture remote must begin with the leaked .env history")
+
+        self.engine.run_git("config", "lab.secret-rotation-confirmed", "yes")
+        code, out, err = self.engine.run_git(
+            "filter-branch", "--force", "--index-filter",
+            "git rm --cached --ignore-unmatch .env", "--prune-empty", "--", "--all", check=False
+        )
+        self.assertEqual(code, 0, f"filter-branch fallback failed: {err or out}")
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed, "filter-branch backup refs must keep the scenario blocked")
+        self.assertIn("提交歷史中仍找得到 .env", msg)
+
+        code, refs, err = self.engine.run_git(
+            "for-each-ref", "--format=%(refname)", "refs/original/", check=False
+        )
+        self.assertEqual(code, 0, f"Could not inspect backup refs: {err}")
+        for ref in refs.splitlines():
+            self.engine.run_git("update-ref", "-d", ref)
+        self.engine.run_git("reflog", "expire", "--expire=now", "--all")
+        self.engine.run_git("gc", "--prune=now")
+
+        (self.engine.workspace / ".gitignore").write_text(".env\n", encoding="utf-8")
+        self.engine.run_git("add", ".gitignore")
+        self.engine.run_git("commit", "-m", "chore: ignore .env")
+
+        code, _, _ = self.engine.run_git("remote", "get-url", "origin", check=False)
+        if code != 0:
+            code, origin_url, err = self.engine.run_git(
+                "config", "--get", "lab.secret-purge-remote-url", check=False
+            )
+            self.assertEqual(code, 0, f"Could not restore origin URL: {err}")
+            self.engine.run_git("remote", "add", "origin", origin_url.strip())
+
+        code, expected_remote, err = self.engine.run_git(
+            "config", "--get", "lab.secret-purge-remote-main", check=False
+        )
+        self.assertEqual(code, 0, f"Missing expected remote lease: {err}")
+
+        code, out, err = self.engine.run_git(
+            "push", f"--force-with-lease=refs/heads/main:{expected_remote.strip()}",
+            "origin", "main", check=False
+        )
+        self.assertEqual(code, 0, f"Lease-protected history push failed: {err or out}")
+        code, remote_log, err = self.engine.run_git(
+            "-C", str(remote_path), "log", "--all", "--", ".env", check=False
+        )
+        self.assertEqual(code, 0, f"Could not inspect rewritten remote history: {err}")
+        self.assertFalse(remote_log.strip(), "Remote refs must no longer reach .env history")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertTrue(passed, msg)
+
+    @unittest.skipUnless(shutil.which("git-filter-repo"), "git-filter-repo is optional")
+    def test_scenario_33_secret_purge_filter_repo(self):
+        sc = Scenario33()
+        sc.setup(self.engine)
+        self.assertFalse((self.engine.workspace / "git-lab").exists())
+        self.engine.run_git("config", "lab.secret-rotation-confirmed", "yes")
+
+        code, out, err = self.engine.run_git(
+            "filter-repo", "--path", ".env", "--invert-paths", check=False
+        )
+        self.assertEqual(code, 0, f"git-filter-repo failed: {err or out}")
+
+        code, origin_url, err = self.engine.run_git(
+            "config", "--get", "lab.secret-purge-remote-url", check=False
+        )
+        self.assertEqual(code, 0, f"Missing saved remote URL: {err}")
+        code, _, _ = self.engine.run_git("remote", "get-url", "origin", check=False)
+        if code != 0:
+            self.engine.run_git("remote", "add", "origin", origin_url.strip())
+
+        (self.engine.workspace / ".gitignore").write_text(".env\n", encoding="utf-8")
+        self.engine.run_git("add", ".gitignore")
+        self.engine.run_git("commit", "-m", "chore: ignore .env")
+        code, expected_remote, err = self.engine.run_git(
+            "config", "--get", "lab.secret-purge-remote-main", check=False
+        )
+        self.assertEqual(code, 0, f"Missing saved remote lease: {err}")
+        code, out, err = self.engine.run_git(
+            "push", f"--force-with-lease=refs/heads/main:{expected_remote.strip()}",
+            "origin", "main", check=False
+        )
+        self.assertEqual(code, 0, f"Lease-protected history push failed: {err or out}")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)

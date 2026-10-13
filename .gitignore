@@ -1,6 +1,7 @@
 # Git Scenario Lab Workspace and state ignores
 /workspace/
 /.git-lab-remote/
+/.git-lab-remote-33/
 /.git-lab-state.json
 /hotfix-rescue/
 /mock_upstream.git/

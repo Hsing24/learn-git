@@ -180,16 +180,17 @@ const COMMAND_GUIDES_EXTRA = {
   },
 
   '33': {
-    targetCommand: 'git filter-repo --path .env --invert-paths && git push --force-with-lease',
-    summary: '事故級金鑰外洩徹底清除：自全量歷史樹中永久抹除機密檔案並覆寫遠端。',
+    targetCommand: 'git config lab.secret-rotation-confirmed yes && git filter-repo --path .env --invert-paths && git push --force-with-lease origin main',
+    summary: '先撤銷並輪替外洩密鑰，再清理本機與遠端歷史；推送後要求團隊重新 clone。',
     scenarioContext: {
       role: '資安事故應變工程師',
-      situation: '同事 3 個 commit 前不小心將包含 AWS Key 的 .env 推送至遠端！光用 git rm 毫無作用，必須全歷史徹底清洗。'
+      situation: '同事 3 個 commit 前不小心將包含 AWS Key 的 .env 推送至遠端！先撤銷並輪替憑證；Git 歷史改寫不會讓密鑰失效。清洗並推送後，要求團隊丟棄舊 clone、重新 clone。'
     },
     guidedSteps: [
-      { step: 1, cmd: 'git filter-repo --path .env --invert-paths', category: 'required', why: '改寫所有歷史提交樹，自每一筆 Commit 中永久抹除 .env 檔案。' },
-      { step: 2, cmd: 'echo ".env" >> .gitignore && git add .gitignore && git commit -m "chore: ignore .env"', category: 'required', why: '確保 .gitignore 永久攔截未來再次誤傳。' },
-      { step: 3, cmd: 'git push --force-with-lease origin main', category: 'required', why: '將洗淨後的新歷史覆蓋推送到遠端伺服器。' }
+      { step: 1, cmd: 'git config lab.secret-rotation-confirmed yes', category: 'required', why: '先在憑證服務撤銷並輪替密鑰。這行只記錄你的確認，不會自動撤銷憑證；清理 Git 歷史也不會讓舊密鑰失效。' },
+      { step: 2, cmd: 'git filter-repo --path .env --invert-paths', category: 'required', why: '在乾淨 clone 中改寫所有 refs，移除 .env 歷史。若 CLI 未安裝，請參考 CLI 關卡的 filter-branch fallback，並一併刪除 refs/original、清理 reflog 和無引用物件。' },
+      { step: 3, cmd: 'echo ".env" >> .gitignore && git add .gitignore && git commit -m "chore: ignore .env"', category: 'required', why: '確保 .gitignore 永久攔截未來再次誤傳。' },
+      { step: 4, cmd: 'git push --force-with-lease origin main', category: 'required', why: '將洗淨後的新歷史更新到遠端。通知團隊停止使用舊 clone、丟棄舊 refs 並重新 clone；託管平台可能還需要依其敏感資料程序清理其他 refs、PR refs 和快取。' }
     ],
     variations: [
       { cmd: 'git filter-repo --path <file> --invert-paths', desc: '高效自歷史全盤剔除特定檔案' }

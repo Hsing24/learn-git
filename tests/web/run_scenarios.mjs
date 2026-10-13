@@ -581,6 +581,10 @@ test('33: Secret purge filter-repo solution', () => {
   const sc = SCENARIOS.find(s => s.id === '33');
   const git = new VirtualGit();
   sc.setup(git);
+  const unconfirmed = sc.checkGoal(git);
+  assert(unconfirmed.passed === false, '33 must require credential rotation confirmation');
+  assert(unconfirmed.message.includes('撤銷並輪替'), `Expected rotation warning, got: ${unconfirmed.message}`);
+  git.configCmd(['lab.secret-rotation-confirmed', 'yes']);
   const filterRes = git.filterRepo(['--path', '.env', '--invert-paths']);
   assert(filterRes.code === 0, 'filterRepo should succeed');
   git.add(['.gitignore']);
