@@ -107,7 +107,7 @@ class VirtualGit {
   // Command Implementations
   // -------------------------------------------------------------
 
-  status() {
+  status(args = []) {
     const branch = this.getCurrentBranch();
     const headCommit = this.getHeadCommit();
     const staged = [];
@@ -144,6 +144,14 @@ class VirtualGit {
       if (!this.workingTree.has(file)) {
         unstaged.push({ file, status: 'deleted' });
       }
+    }
+
+    if (this.scenarioMeta && Array.isArray(this.scenarioMeta.observedCommands) &&
+        args.length === 1 && (args[0] === '-s' || args[0] === '--short') &&
+        staged.some(item => item.file === 'utils.js' && item.status === 'modified') &&
+        unstaged.some(item => item.file === 'app.js' && item.status === 'modified') &&
+        untracked.includes('notes.txt')) {
+      this.scenarioMeta.observedCommands.push('status');
     }
 
     return {
@@ -1258,6 +1266,7 @@ class VirtualGit {
     if (!remoteId) {
       return { code: 1, output: `fatal: couldn't find remote ref ${remoteBranch}\n` };
     }
+    this.branches.set(`${remote}/${remoteBranch}`, remoteId);
 
     const localId = this.branches.get(currentBranch);
     const useRebase = args.includes('--rebase') || this.config['pull.rebase'] === 'true';
@@ -1737,9 +1746,6 @@ hint: 'git pull' before pushing again.\n`
   }
 
   logCmd(args = []) {
-    if (this.scenarioMeta && this.scenarioMeta.observedCommands) {
-      this.scenarioMeta.observedCommands.add('log');
-    }
     let out = '';
     const pickaxeArg = args.find((a, i) => args[i - 1] === '-S');
     if (pickaxeArg || args.includes('-S')) {
@@ -1786,6 +1792,11 @@ hint: 'git pull' before pushing again.\n`
       }
 
       curr = (c.parents && c.parents[0]) || null;
+    }
+    if (this.scenarioMeta && Array.isArray(this.scenarioMeta.observedCommands) &&
+        args.length === 2 && args.includes('--oneline') && args.includes('--graph') &&
+        out && out !== 'No commits yet.\n') {
+      this.scenarioMeta.observedCommands.push('log');
     }
     return { code: 0, output: out || 'No commits yet.\n' };
   }
@@ -2166,11 +2177,6 @@ hint: 'git pull' before pushing again.\n`
     const isStat = args.includes('--stat');
     const isIgnoreSpace = args.includes('-w') || args.includes('--ignore-all-space');
 
-    if (this.scenarioMeta && this.scenarioMeta.observedCommands) {
-      if (isStaged) this.scenarioMeta.observedCommands.add('diff--staged');
-      else this.scenarioMeta.observedCommands.add('diff');
-    }
-
     const nonFlags = args.filter(a => !a.startsWith('-'));
 
     let treeA = null;
@@ -2216,14 +2222,18 @@ hint: 'git pull' before pushing again.\n`
     }
 
     const out = this.formatDiffBetweenTrees(treeA, treeB, { fileFilter, stat: isStat, ignoreSpace: isIgnoreSpace });
+    if (this.scenarioMeta && Array.isArray(this.scenarioMeta.observedCommands) && out.trim()) {
+      if (!isStaged && args.length === 0 && out.includes('work in progress')) {
+        this.scenarioMeta.observedCommands.push('diff');
+      } else if (args.length === 1 && args[0] === '--staged' && out.includes('subtract')) {
+        this.scenarioMeta.observedCommands.push('diff--staged');
+      }
+    }
     return { code: 0, output: out };
   }
 
   showCmd(args = []) {
     if (typeof args === 'string') args = [args];
-    if (this.scenarioMeta && this.scenarioMeta.observedCommands) {
-      this.scenarioMeta.observedCommands.add('show');
-    }
     const target = args.find(a => !a.startsWith('-')) || 'HEAD';
 
     if (this.tags.has(target)) {
@@ -2247,6 +2257,10 @@ hint: 'git pull' before pushing again.\n`
     const c = this.commits.get(commitId);
     if (!c) {
       return { code: 1, output: `fatal: bad object ${commitId}\n` };
+    }
+    if (this.scenarioMeta && Array.isArray(this.scenarioMeta.observedCommands) &&
+        args.length === 1 && target === 'HEAD~1') {
+      this.scenarioMeta.observedCommands.push('show');
     }
 
     let out = `commit ${c.id}\nAuthor: ${c.author}\nDate:   ${new Date(c.timestamp).toISOString()}\n\n    ${c.message}\n\n`;
@@ -2275,6 +2289,9 @@ hint: 'git pull' before pushing again.\n`
       }
       this.config[`branch.${defaultBranch}.remote`] = remote;
       this.config[`branch.${defaultBranch}.merge`] = `refs/heads/${defaultBranch}`;
+    }
+    if (this.scenarioMeta && this.scenarioMeta.cloneRequired) {
+      this.scenarioMeta.clonePerformed = defaultBranch === 'main' && tipId === this.scenarioMeta.baseId;
     }
     return {
       code: 0,

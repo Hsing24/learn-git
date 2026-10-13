@@ -459,12 +459,42 @@ test('24: Inspect changes solution', () => {
   const sc = SCENARIOS.find(s => s.id === '24');
   const git = new VirtualGit();
   sc.setup(git);
-  git.status();
+  git.status(['-s']);
   git.diffCmd([]);
   git.diffCmd(['--staged']);
   git.logCmd(['--oneline', '--graph']);
   git.showCmd(['HEAD~1']);
   assert(sc.checkGoal(git).passed === true, '24 solution should pass');
+});
+
+test('24: Invalid show and out-of-order inspections must fail', () => {
+  const sc = SCENARIOS.find(s => s.id === '24');
+  const invalidShow = new VirtualGit();
+  sc.setup(invalidShow);
+  const badShow = invalidShow.showCmd(['NOT_EXIST']);
+  assert(badShow.code !== 0, 'show of an unknown ref must fail');
+  invalidShow.status(['-s']);
+  invalidShow.diffCmd([]);
+  invalidShow.diffCmd(['--staged']);
+  invalidShow.logCmd(['--oneline', '--graph']);
+  assert(sc.checkGoal(invalidShow).passed === false, 'A failed show must not satisfy the final inspection step');
+
+  const badSequence = new VirtualGit();
+  sc.setup(badSequence);
+  badSequence.showCmd(['NOT_EXIST']);
+  badSequence.logCmd([]);
+  badSequence.diffCmd(['--staged']);
+  badSequence.diffCmd([]);
+  assert(sc.checkGoal(badSequence).passed === false, 'The reported invalid and out-of-order command sequence must fail');
+
+  const wrongOrder = new VirtualGit();
+  sc.setup(wrongOrder);
+  wrongOrder.showCmd(['HEAD~1']);
+  wrongOrder.logCmd(['--oneline', '--graph']);
+  wrongOrder.diffCmd(['--staged']);
+  wrongOrder.diffCmd([]);
+  wrongOrder.status(['-s']);
+  assert(sc.checkGoal(wrongOrder).passed === false, 'Correct commands in the wrong order must fail');
 });
 
 test('25: Undo matrix solution', () => {
@@ -494,6 +524,17 @@ test('26: Merge strategies solution', () => {
   assert(sc.checkGoal(git).passed === true, '26 solution should pass');
 });
 
+test('26: Merging b and deleting a must fail without a merge commit for a', () => {
+  const sc = SCENARIOS.find(s => s.id === '26');
+  const git = new VirtualGit();
+  sc.setup(git);
+  git.merge('feature/b', { noFf: true });
+  assert(git.branch(['-D', 'feature/a']).code === 0, 'The shortcut should delete feature/a');
+  assert(git.branch(['-d', 'feature/b']).code === 0, 'The shortcut should delete merged feature/b');
+  assert(!git.branches.has('feature/a') && !git.branches.has('feature/b'), 'Both local feature refs should be gone');
+  assert(sc.checkGoal(git).passed === false, 'The required feature/a merge must be present');
+});
+
 test('27: Detached HEAD solution', () => {
   const sc = SCENARIOS.find(s => s.id === '27');
   const git = new VirtualGit();
@@ -506,6 +547,14 @@ test('27: Detached HEAD solution', () => {
   git.checkoutOrSwitch('hotfix/v1-legacy', true); // switch -c hotfix/v1-legacy
   git.checkoutOrSwitch('main'); // switch main
   assert(sc.checkGoal(git).passed === true, '27 solution should pass');
+});
+
+test('27: Branching hotfix from main without a detached fix must fail', () => {
+  const sc = SCENARIOS.find(s => s.id === '27');
+  const git = new VirtualGit();
+  sc.setup(git);
+  git.branch(['hotfix/v1-legacy']);
+  assert(sc.checkGoal(git).passed === false, 'Hotfix must be a new commit directly on v1.0');
 });
 
 test('28: Clone and track solution', () => {
@@ -521,6 +570,22 @@ test('28: Clone and track solution', () => {
   assert(sc.checkGoal(git).passed === true, '28 solution should pass');
 });
 
+test('28: Creating and pushing a branch without cloning or committing must fail', () => {
+  const sc = SCENARIOS.find(s => s.id === '28');
+  const noClone = new VirtualGit();
+  sc.setup(noClone);
+  noClone.checkoutOrSwitch('feature/profile', true);
+  noClone.push(['-u', 'origin', 'feature/profile']);
+  assert(sc.checkGoal(noClone).passed === false, 'A pushed branch cannot substitute for cloning and committing');
+
+  const noCommit = new VirtualGit();
+  sc.setup(noCommit);
+  noCommit.clone('origin', 'app');
+  noCommit.checkoutOrSwitch('feature/profile', true);
+  noCommit.push(['-u', 'origin', 'feature/profile']);
+  assert(sc.checkGoal(noCommit).passed === false, 'The feature branch must contain a new commit');
+});
+
 test('29: Rebase conflict and continue solution', () => {
   const sc = SCENARIOS.find(s => s.id === '29');
   const git = new VirtualGit();
@@ -528,15 +593,25 @@ test('29: Rebase conflict and continue solution', () => {
   const rebaseRes = git.rebase('main');
   assert(rebaseRes.code === 1, 'Rebase should pause on conflict');
   assert(git.rebaseInProgress, 'Rebase should be in progress');
+  assert(git.rebaseState.currentReplayIndex === 1, 'The first feature commit should replay before the second conflicts');
   assert(git.workingTree.get('app.py').includes('<<<<<<< HEAD'), 'Conflict markers should be in app.py');
   
   // Resolve conflict
-  git.workingTree.set('app.py', 'console.log("base - resolved");\n');
+  git.workingTree.set('app.py', 'console.log("base - main updated");\nconsole.log("base - feature step 2");\n');
   git.add(['app.py']);
   const contRes = git.rebase('--continue');
   assert(contRes.code === 0, `Rebase continue should succeed: ${contRes.output}`);
   assert(!git.rebaseInProgress, 'Rebase should no longer be in progress');
-  assert(sc.checkGoal(git).passed === true, '29 solution should pass');
+  const result = sc.checkGoal(git);
+  assert(result.passed === true, `29 solution should pass: ${result.message}`);
+});
+
+test('29: Resetting feature to main and dropping its commits must fail', () => {
+  const sc = SCENARIOS.find(s => s.id === '29');
+  const git = new VirtualGit();
+  sc.setup(git);
+  git.reset('main', '--hard');
+  assert(sc.checkGoal(git).passed === false, 'All three original feature commits must be preserved');
 });
 
 test('30: Fixup and autosquash solution', () => {
@@ -566,6 +641,22 @@ test('31: PR lifecycle solution', () => {
   git.branch(['-d', 'feature/cart']);
   git.fetchCmd(['--prune']);
   assert(sc.checkGoal(git).passed === true, '31 solution should pass');
+});
+
+test('31: Deleting the PR branch without merging it must fail', () => {
+  const sc = SCENARIOS.find(s => s.id === '31');
+  const git = new VirtualGit();
+  sc.setup(git);
+  git.checkoutOrSwitch('main');
+  git.branch(['-D', 'feature/cart']);
+  git.push(['origin', '--delete', 'feature/cart']);
+  git.pull(['origin', 'main']);
+  git.fetchCmd(['--prune']);
+  assert(!git.branches.has('feature/cart'), 'Local feature branch should be gone');
+  assert(!git.branches.has('origin/feature/cart'), 'Remote tracking branch should be pruned');
+  assert(!git.remotes.origin.branches.has('feature/cart'), 'Remote feature branch should be gone');
+  assert(git.branches.get('main') === git.remotes.origin.branches.get('main'), 'Local main should match remote main');
+  assert(sc.checkGoal(git).passed === false, 'Remote main must contain the cart feature after PR merge');
 });
 
 test('32: Rebase onto solution', () => {

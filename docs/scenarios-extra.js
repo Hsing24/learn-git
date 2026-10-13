@@ -46,22 +46,26 @@ const SCENARIOS_EXTRA = [
       git.workingTree.set('notes.txt', 'TODO: complete unit tests\n');
 
       git.scenarioMeta = {
-        observedCommands: new Set()
+        observedCommands: []
       };
     },
     checkGoal: (git) => {
       const meta = git.scenarioMeta || {};
-      const obs = meta.observedCommands || new Set();
-
-      const hasDiff = obs.has('diff');
-      const hasStaged = obs.has('diff--staged');
-      const hasLog = obs.has('log');
-      const hasShow = obs.has('show');
-
-      if (!hasDiff) return { passed: false, message: '尚未執行 git diff 檢視工作區變更！請在終端機輸入：git diff' };
-      if (!hasStaged) return { passed: false, message: '尚未執行 git diff --staged 檢視已暫存變更！請輸入：git diff --staged' };
-      if (!hasLog) return { passed: false, message: '尚未檢視歷史樹狀圖！請輸入：git log --oneline --graph' };
-      if (!hasShow) return { passed: false, message: '尚未檢視上一筆提交細節！請輸入：git show HEAD~1' };
+      const requiredOrder = ['status', 'diff', 'diff--staged', 'log', 'show'];
+      let nextExpected = 0;
+      for (const command of meta.observedCommands || []) {
+        if (command === requiredOrder[nextExpected]) nextExpected++;
+      }
+      if (nextExpected < requiredOrder.length) {
+        const prompts = {
+          status: 'git status -s',
+          diff: 'git diff',
+          'diff--staged': 'git diff --staged',
+          log: 'git log --oneline --graph',
+          show: 'git show HEAD~1'
+        };
+        return { passed: false, message: `請依序完成檢視指令，下一步是：${prompts[requiredOrder[nextExpected]]}` };
+      }
 
       return {
         passed: true,
@@ -181,10 +185,13 @@ const SCENARIOS_EXTRA = [
       git.scenarioMeta = {
         baseId: c1.id,
         aTip: ca2.id,
-        bTip: cb2.id
+        bTip: cb2.id,
+        aContent: '1\n2\n',
+        bContent: 'x\ny\n'
       };
     },
     checkGoal: (git) => {
+      const meta = git.scenarioMeta || {};
       if (git.branches.has('feature/a')) {
         return { passed: false, message: 'feature/a 分支尚未刪除！請執行 git branch -d feature/a。' };
       }
@@ -194,23 +201,24 @@ const SCENARIOS_EXTRA = [
 
       const head = git.getHeadCommit();
       if (!head) return { passed: false, message: 'main 分支缺少 commit。' };
-
-      // Walk commits on main
-      const chain = [];
-      let cur = head;
-      while (cur) {
-        chain.push(cur);
-        cur = (cur.parents && cur.parents[0]) ? git.commits.get(cur.parents[0]) : null;
+      if (git.getCurrentBranch() !== 'main') {
+        return { passed: false, message: '請切回 main 完成合併策略驗收。' };
       }
 
-      const hasNoFfMerge = chain.some(c => c.parents && c.parents.length >= 2);
-      if (!hasNoFfMerge) {
+      const aMerge = Array.from(git.commits.values()).find(c =>
+        c.parents && c.parents.length === 2 &&
+        c.parents[0] === meta.baseId && c.parents[1] === meta.aTip
+      );
+      if (!aMerge || aMerge.tree.get('a.txt') !== meta.aContent) {
         return { passed: false, message: 'main 歷史中缺少 --no-ff 的 Merge Commit！請確認使用了 git merge --no-ff feature/a。' };
       }
 
-      const hasBContent = head.tree && head.tree.has('b.txt');
-      if (!hasBContent) {
-        return { passed: false, message: 'main 尚未包含 feature/b 的內容！請執行 git merge --squash feature/b 並 commit。' };
+      if (head.parents.length !== 1 || head.parents[0] !== aMerge.id) {
+        return { passed: false, message: 'HEAD 應是接在 feature/a merge commit 後的單親 squash commit。' };
+      }
+
+      if (head.tree.get('a.txt') !== meta.aContent || head.tree.get('b.txt') !== meta.bContent) {
+        return { passed: false, message: 'main 必須保留 feature/a 與 feature/b 的完整檔案內容。' };
       }
 
       return {
@@ -249,7 +257,8 @@ const SCENARIOS_EXTRA = [
       git.checkoutOrSwitch('main');
 
       git.scenarioMeta = {
-        v1Commit: c1.id
+        v1Commit: c1.id,
+        repairFile: 'app.js'
       };
     },
     checkGoal: (git) => {
@@ -268,8 +277,13 @@ const SCENARIOS_EXTRA = [
         return { passed: false, message: '在 hotfix/v1-legacy 上尚未建立修復的 commit！' };
       }
 
-      if (!git.isAncestor(meta.v1Commit, hotfixId)) {
-        return { passed: false, message: 'hotfix/v1-legacy 的祖先不是 v1.0 標籤節點！' };
+      const v1Commit = git.commits.get(meta.v1Commit);
+      if (!v1Commit || hCommit.parents.length !== 1 || hCommit.parents[0] !== meta.v1Commit) {
+        return { passed: false, message: 'hotfix/v1-legacy 必須是直接從 v1.0 建立的一個修復 commit。' };
+      }
+
+      if (hCommit.tree.get(meta.repairFile) === v1Commit.tree.get(meta.repairFile)) {
+        return { passed: false, message: '修復 commit 尚未修改舊版 app.js。' };
       }
 
       return {
@@ -303,14 +317,30 @@ const SCENARIOS_EXTRA = [
         url: 'https://github.com/company/app.git',
         branches: new Map([['main', c1.id]])
       };
-      git.branches.set('main', c1.id);
-      git.checkoutOrSwitch('main');
+      git.branches.clear();
+      git.HEAD = { type: 'branch', target: 'main' };
+      git.index = new Map();
+      git.workingTree = new Map();
+      for (const key of Object.keys(git.config)) {
+        if (key.startsWith('branch.')) delete git.config[key];
+      }
 
       git.scenarioMeta = {
-        baseId: c1.id
+        baseId: c1.id,
+        cloneRequired: true,
+        clonePerformed: false,
+        profileContent: 'export const profile = {};\n'
       };
     },
     checkGoal: (git) => {
+      const meta = git.scenarioMeta || {};
+      if (!meta.clonePerformed || git.branches.get('main') !== meta.baseId ||
+          git.branches.get('origin/main') !== meta.baseId ||
+          git.config['branch.main.remote'] !== 'origin' ||
+          git.config['branch.main.merge'] !== 'refs/heads/main') {
+        return { passed: false, message: '請先執行 git clone origin，建立正確的 main 與 upstream 追蹤設定。' };
+      }
+
       const curBranch = git.branches.get('feature/profile');
       if (!curBranch) {
         return { passed: false, message: '尚未建立 feature/profile 分支！請執行 git switch -c feature/profile。' };
@@ -325,8 +355,17 @@ const SCENARIOS_EXTRA = [
         return { passed: false, message: '本地分支與遠端分支版本不一致，請執行 git push -u origin feature/profile。' };
       }
 
-      const isTracking = git.config['branch.feature/profile.remote'] === 'origin';
-      if (!isTracking) {
+      const featureCommit = git.commits.get(curBranch);
+      if (curBranch === meta.baseId || !featureCommit ||
+          !git.isAncestor(meta.baseId, curBranch) ||
+          featureCommit.tree.get('profile.js') !== meta.profileContent) {
+        return { passed: false, message: 'feature/profile 必須包含從 clone 基底建立的新功能 commit。' };
+      }
+
+      const isTracking = git.config['branch.feature/profile.remote'] === 'origin' &&
+        git.config['branch.feature/profile.merge'] === 'refs/heads/feature/profile' &&
+        git.branches.get('origin/feature/profile') === curBranch;
+      if (git.getCurrentBranch() !== 'feature/profile' || !isTracking) {
         return { passed: false, message: '尚未設定 upstream 追蹤分支！請使用 git push -u origin feature/profile。' };
       }
 
@@ -362,16 +401,23 @@ const SCENARIOS_EXTRA = [
       const c2 = git.createCommit({ message: 'feat: main feature', parents: [c1.id], tree: new Map([['app.py', 'console.log("base - main updated");\n']]) });
       git.branches.set('main', c2.id);
 
-      // feature branch has 2 commits, commit 2 conflicts
+      // Three feature commits; the second conflicts with main during rebase.
       const cf1 = git.createCommit({ message: 'feat: feature step 1', parents: [c1.id], tree: new Map([['app.py', 'console.log("base");\n'], ['helper.js', 'export const ok = true;\n']]) });
       const cf2 = git.createCommit({ message: 'feat: feature step 2', parents: [cf1.id], tree: new Map([['app.py', 'console.log("base - feature step 2");\n'], ['helper.js', 'export const ok = true;\n']]) });
-      git.branches.set('feature', cf2.id);
+      const testContent = 'export const featureTest = true;\n';
+      const cf3Tree = new Map(cf2.tree);
+      cf3Tree.set('test.js', testContent);
+      const cf3 = git.createCommit({ message: 'feat: feature step 3', parents: [cf2.id], tree: cf3Tree });
+      git.branches.set('feature', cf3.id);
 
       git.checkoutOrSwitch('feature');
 
       git.scenarioMeta = {
         mainId: c2.id,
-        origFeatureTip: cf2.id
+        origFeatureTip: cf3.id,
+        featureMessages: ['feat: feature step 1', 'feat: feature step 2', 'feat: feature step 3'],
+        helperContent: 'export const ok = true;\n',
+        testContent
       };
     },
     checkGoal: (git) => {
@@ -391,10 +437,35 @@ const SCENARIOS_EXTRA = [
         return { passed: false, message: 'feature 分支尚未接在 main 最新提交之後！' };
       }
 
-      return {
-        passed: true,
-        message: '🎉 成功馴服 Rebase 中途衝突！掌握了 rebase --continue 的狀態機推進精髓！'
-      };
+      const replayed = [];
+      let cur = git.commits.get(fId);
+      while (cur && cur.id !== meta.mainId) {
+        replayed.unshift(cur);
+        cur = (cur.parents && cur.parents[0]) ? git.commits.get(cur.parents[0]) : null;
+      }
+      if (!cur || replayed.length !== 3) {
+        return { passed: false, message: 'feature 必須保留接在 main 後的三筆原始功能提交。' };
+      }
+      if (replayed.some((commit, index) => commit.message !== meta.featureMessages[index])) {
+        return { passed: false, message: 'Rebase 後必須保留三筆 feature commit 的原始訊息與順序。' };
+      }
+      if (replayed[0].tree.get('helper.js') !== meta.helperContent) {
+        return { passed: false, message: '第一筆 feature commit 的 helper.js 內容遺失。' };
+      }
+      const resolvedApp = replayed[1].tree.get('app.py') || '';
+      if (!resolvedApp.includes('main updated') || !resolvedApp.includes('feature step 2')) {
+        return { passed: false, message: '第二筆 feature commit 必須同時保留 main 與 feature 的 app.py 修改。' };
+      }
+      if (replayed[2].tree.get('test.js') !== meta.testContent) {
+        return { passed: false, message: '第三筆 feature commit 的 test.js 內容遺失。' };
+      }
+      for (const content of git.workingTree.values()) {
+        if (/^(<<<<<<<|=======|>>>>>>>)/m.test(content)) {
+          return { passed: false, message: '工作目錄仍包含未解決的衝突標記。' };
+        }
+      }
+
+      return { passed: true, message: '🎉 成功馴服 Rebase 中途衝突！掌握了 rebase --continue 的狀態機推進精髓！' };
     }
   },
 
@@ -515,6 +586,8 @@ const SCENARIOS_EXTRA = [
       git.scenarioMeta = {
         origCartId: fc1.id,
         remoteMainTip: rm2.id,
+        cartMessage: 'feat: shopping cart logic',
+        cartContent: 'cart();\n',
         isPrLifecycle: true
       };
     },
@@ -531,9 +604,21 @@ const SCENARIOS_EXTRA = [
         return { passed: false, message: 'feature/cart 尚未變基！請執行 git fetch origin && git rebase origin/main。' };
       }
 
-      // 2. Check if remote main contains feature commit
-      if (!remoteMain || (!git.isAncestor(meta.remoteMainTip, remoteMain) && !git.isAncestor(meta.origCartId, remoteMain))) {
-        return { passed: false, message: '尚未將變基後的 feature/cart 以 git push --force-with-lease 推送至遠端！' };
+      // 2. Remote main must include the rebased cart commit and its content.
+      const remoteMainCommit = remoteMain ? git.commits.get(remoteMain) : null;
+      if (!remoteMainCommit || !remoteMainCommit.tree ||
+          remoteMainCommit.tree.get('cart.js') !== meta.cartContent ||
+          !git.isAncestor(meta.remoteMainTip, remoteMain)) {
+        return { passed: false, message: '遠端 main 尚未真正合併 shopping cart 功能；請完成 PR 合併。' };
+      }
+      const reachable = git.getReachableCommits(remoteMain);
+      const cartCommit = Array.from(reachable)
+        .map(id => git.commits.get(id))
+        .find(c => c && c.message === meta.cartMessage &&
+          c.parents[0] === meta.remoteMainTip &&
+          c.tree.get('cart.js') === meta.cartContent);
+      if (!cartCommit || !git.isAncestor(cartCommit.id, remoteMain)) {
+        return { passed: false, message: '遠端 main 必須保留以最新 origin/main 為基底的 cart commit。' };
       }
 
       // 3. Check if switched back to main and pulled
@@ -544,6 +629,9 @@ const SCENARIOS_EXTRA = [
       if (localMain !== remoteMain) {
         return { passed: false, message: '本地 main 尚未同步至最新版本！請執行 git pull。' };
       }
+      if (git.branches.get('origin/main') !== remoteMain) {
+        return { passed: false, message: 'origin/main 追蹤參照尚未同步，請再次執行 git pull。' };
+      }
 
       // 4. Check if local branch cleaned up
       if (hasLocalCart) {
@@ -553,6 +641,9 @@ const SCENARIOS_EXTRA = [
       // 5. Check if remote tracking ref pruned
       if (hasRemoteTrackingCart) {
         return { passed: false, message: '請清除已失效的遠端追蹤參照：git fetch --prune。' };
+      }
+      if (git.remotes.origin.branches.has('feature/cart')) {
+        return { passed: false, message: 'PR 合併後遠端 feature/cart 應已刪除。' };
       }
 
       return {
