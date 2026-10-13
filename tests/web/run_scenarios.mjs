@@ -176,6 +176,62 @@ test('06: Force push shortcut must be caught and rejected by checkGoal', () => {
   assert(res.message.includes('同事的 commit 被你的 force push 蓋掉了'), `Expected wipeout message, got: ${res.message}`);
 });
 
+test('06: force-with-lease rejects an existing remote when tracking ref is missing', () => {
+  const git = new VirtualGit();
+  const sc = SCENARIOS.find(s => s.id === '06');
+  sc.setup(git);
+  const colleagueTip = git.scenarioMeta.colleagueId;
+  git.branches.delete('origin/main');
+
+  const pushRes = git.push(['--force-with-lease']);
+  assert(pushRes.code === 1, 'A missing tracking ref must not authorize overwriting an existing remote branch');
+  assert(pushRes.output.includes('(stale info)'), `Expected stale lease rejection, got: ${pushRes.output}`);
+  assert(git.remotes.origin.branches.get('main') === colleagueTip, 'The colleague remote commit must remain intact');
+});
+
+test('06: force-with-lease rejects an outdated tracking ref', () => {
+  const git = new VirtualGit();
+  const sc = SCENARIOS.find(s => s.id === '06');
+  sc.setup(git);
+  const colleagueTip = git.scenarioMeta.colleagueId;
+  git.branches.set('origin/main', git.scenarioMeta.baseId);
+
+  const pushRes = git.push(['--force-with-lease']);
+  assert(pushRes.code === 1, 'An outdated tracking ref must not authorize a force push');
+  assert(git.remotes.origin.branches.get('main') === colleagueTip, 'The colleague remote commit must remain intact');
+});
+
+test('06: force-with-lease allows a matching remote-tracking ref', () => {
+  const git = new VirtualGit();
+  const sc = SCENARIOS.find(s => s.id === '06');
+  sc.setup(git);
+  const colleagueTip = git.scenarioMeta.colleagueId;
+  git.branches.set('origin/main', colleagueTip);
+
+  const pushRes = git.push(['--force-with-lease']);
+  assert(pushRes.code === 0, `A matching lease should allow the rewrite: ${pushRes.output}`);
+  assert(git.remotes.origin.branches.get('main') === git.branches.get('main'), 'The intended local tip should be pushed');
+});
+
+test('06: force-with-lease still allows new branches and fast-forward pushes', () => {
+  const sc = SCENARIOS.find(s => s.id === '06');
+  const newBranch = new VirtualGit();
+  sc.setup(newBranch);
+  const localTip = newBranch.branches.get('main');
+  newBranch.branches.set('feature/lease', localTip);
+  const newBranchPush = newBranch.push(['--force-with-lease', 'origin', 'feature/lease']);
+  assert(newBranchPush.code === 0, `Creating a remote branch should not require a lease: ${newBranchPush.output}`);
+  assert(newBranch.remotes.origin.branches.get('feature/lease') === localTip, 'The new remote branch should point at the local tip');
+
+  const fastForward = new VirtualGit();
+  sc.setup(fastForward);
+  fastForward.remotes.origin.branches.set('main', fastForward.scenarioMeta.baseId);
+  fastForward.branches.delete('origin/main');
+  const fastForwardPush = fastForward.push(['--force-with-lease']);
+  assert(fastForwardPush.code === 0, `A fast-forward should remain allowed without a tracking ref: ${fastForwardPush.output}`);
+  assert(fastForward.remotes.origin.branches.get('main') === fastForward.branches.get('main'), 'Fast-forward should update remote main');
+});
+
 test('06: Plain pull (merge commit) must be rejected with merge commit warning', () => {
   const git = new VirtualGit();
   sc06.setup(git);
