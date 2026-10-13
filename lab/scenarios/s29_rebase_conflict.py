@@ -21,7 +21,7 @@ class Scenario29(BaseScenario):
     ]
     next_steps = [
         "啟動變基：git rebase main",
-        "解決衝突：編輯 app.py",
+        "第二筆提交發生衝突；解決時保留 main 的更新與 feature step 2：編輯 app.py",
         "標記暫存：git add app.py",
         "繼續變基：git rebase --continue",
         "驗收成果：./git-lab verify"
@@ -43,11 +43,12 @@ class Scenario29(BaseScenario):
         # main modifies app.py
         engine.commit_file("app.py", "print('base - main updated')\n", "feat: main feature")
 
-        # feature branch with 2 commits, commit 1 conflicts
+        # The first feature commit applies cleanly; the second conflicts with main.
         engine.run_git("checkout", "HEAD~1")
         engine.run_git("checkout", "-b", "feature")
-        engine.commit_file("app.py", "print('base - feature step 1')\n", "feat: feature step 1")
-        engine.commit_file("helper.py", "def helper(): return True\n", "feat: feature step 2")
+        engine.commit_file("helper.py", "def helper(): return True\n", "feat: feature step 1")
+        engine.commit_file("app.py", "print('base - feature step 2')\n", "feat: feature step 2")
+        engine.commit_file("feature.py", "FEATURE_ENABLED = True\n", "feat: feature step 3")
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
         # Check rebase in progress
@@ -59,15 +60,33 @@ class Scenario29(BaseScenario):
         if cur_b.strip() != "feature":
             return False, f"目前所在分支為 '{cur_b.strip()}'，請切換回 feature 分支完成驗證。"
 
-        # Check main is ancestor of feature
-        code, _, _ = engine.run_git("merge-base", "--is-ancestor", "main", "feature", check=False)
-        if code != 0:
-            return False, "feature 分支尚未變基到 main 之上！請執行 git rebase main。"
+        code, count, _ = engine.run_git("rev-list", "--count", "main..feature", check=False)
+        if code != 0 or count.strip() != "3":
+            return False, "feature 必須保留三筆提交；reset 或略過衝突提交都不算完成 rebase。"
 
-        # Check conflict markers
-        if engine.file_exists("app.py"):
-            content = (engine.workspace / "app.py").read_text(encoding="utf-8")
-            if "<<<<<<" in content or ">>>>>>" in content or "======" in content:
-                return False, "app.py 仍包含衝突標記，請手動清理乾淨！"
+        code, history, _ = engine.run_git("log", "--reverse", "--format=%s", "main..feature", check=False)
+        if code != 0 or history.splitlines() != [
+            "feat: feature step 1", "feat: feature step 2", "feat: feature step 3"
+        ]:
+            return False, "feature 的三筆提交順序不正確，請完整解決衝突並繼續 rebase。"
+
+        code, base, _ = engine.run_git("rev-parse", "feature~3", check=False)
+        code2, main, _ = engine.run_git("rev-parse", "main", check=False)
+        if code != 0 or code2 != 0 or base.strip() != main.strip():
+            return False, "feature 的三筆提交必須直接接在 main 之後。"
+
+        expected_app = "print('base - main updated')\nprint('base - feature step 2')\n"
+        code, rebased_app, _ = engine.run_git("show", "feature~1:app.py", check=False)
+        if code != 0 or rebased_app != expected_app:
+            return False, "第二筆提交尚未保留 main 與 feature 的變更，請正確解決 app.py 衝突。"
+
+        code, helper, _ = engine.run_git("show", "feature:helper.py", check=False)
+        code2, feature_file, _ = engine.run_git("show", "feature:feature.py", check=False)
+        if code != 0 or code2 != 0 or helper != "def helper(): return True\n" or feature_file != "FEATURE_ENABLED = True\n":
+            return False, "rebase 後必須保留第一與第三筆 feature 提交的檔案。"
+
+        code, status, _ = engine.run_git("status", "--porcelain", "--untracked-files=no", check=False)
+        if code != 0 or status.strip():
+            return False, "衝突解決結果尚未完整提交；請執行 git add 與 git rebase --continue。"
 
         return True, "太厲害了！你成功馴服了 Rebase 中途衝突，掌握了 continue / status 狀態機的推進精髓！"

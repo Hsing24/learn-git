@@ -58,11 +58,39 @@ class Scenario34(BaseScenario):
         shutil.rmtree(temp_work, ignore_errors=True)
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
-        if not engine.file_exists(".gitmodules"):
-            return False, "尚未產生 .gitmodules 配置檔！請執行 git submodule add 加入子模組。"
+        code, gitlink, _ = engine.run_git("ls-tree", "HEAD", "libs/shared", check=False)
+        fields = gitlink.strip().split()
+        if code != 0 or len(fields) != 4 or fields[:2] != ["160000", "commit"] or fields[3] != "libs/shared":
+            return False, "HEAD 尚未提交 libs/shared 的 gitlink！請先加入子模組並 commit。"
 
-        code, out, _ = engine.run_git("submodule", "status", check=False)
-        if not out.strip():
-            return False, "子模組尚未成功掛載或未正確註冊！"
+        code, committed_modules, _ = engine.run_git("show", "HEAD:.gitmodules", check=False)
+        if code != 0:
+            return False, "HEAD 尚未提交 .gitmodules！請加入子模組設定後 commit。"
+
+        code, configured_path, _ = engine.run_git(
+            "config", "--blob", "HEAD:.gitmodules", "--get", "submodule.libs/shared.path", check=False
+        )
+        code2, configured_url, _ = engine.run_git(
+            "config", "--blob", "HEAD:.gitmodules", "--get", "submodule.libs/shared.url", check=False
+        )
+        if code != 0 or code2 != 0 or configured_path.strip() != "libs/shared":
+            return False, "提交的 .gitmodules 必須註冊 libs/shared。"
+
+        configured_source = Path(configured_url.strip())
+        if not configured_source.is_absolute():
+            configured_source = engine.workspace / configured_source
+        expected_source = engine.repo_dir / ".git-lab-sub-34"
+        if configured_source.resolve() != expected_source.resolve():
+            return False, "libs/shared 必須連到本關建立的模擬子倉庫。"
+
+        expected_commit_code, expected_commit, _ = engine.run_git(
+            "-C", str(expected_source), "rev-parse", "refs/heads/main", check=False
+        )
+        if expected_commit_code != 0 or fields[2] != expected_commit.strip():
+            return False, "HEAD 的 gitlink 必須固定在模擬子倉庫的 main 提交。"
+
+        code, out, _ = engine.run_git("submodule", "status", "--", "libs/shared", check=False)
+        if code != 0 or not out.startswith(" "):
+            return False, "子模組工作目錄尚未檢出 HEAD 記錄的提交，請確認子模組狀態。"
 
         return True, "太棒了！你學會了以 Git Submodule 跨專案共用代碼與固定版本！"

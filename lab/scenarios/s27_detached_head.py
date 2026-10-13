@@ -21,7 +21,7 @@ class Scenario27(BaseScenario):
     ]
     next_steps = [
         "切換至標籤：git switch --detach v1.0",
-        "進行修改並提交：echo '# fix' >> app.py && git commit -am 'fix: legacy bug on v1.0'",
+        "進行修改並提交：echo '# legacy fix' >> app.py && git commit -am 'fix: legacy bug on v1.0'",
         "建立分支：git switch -c hotfix/v1-legacy",
         "切回主線：git switch main",
         "驗收成果：./git-lab verify"
@@ -52,8 +52,8 @@ class Scenario27(BaseScenario):
             return False, f"目前所在分支為 '{cur_branch.strip()}'，請切回 main 分支：git switch main。"
 
         # Branch hotfix/v1-legacy must exist
-        code, branches_out, _ = engine.run_git("branch", check=False)
-        if "hotfix/v1-legacy" not in branches_out:
+        code, _, _ = engine.run_git("show-ref", "--verify", "--quiet", "refs/heads/hotfix/v1-legacy", check=False)
+        if code != 0:
             return False, "尚未建立 hotfix/v1-legacy 分支以拯救孤立的 commit！"
 
         # Check hotfix/v1-legacy parent is v1.0 tag
@@ -65,11 +65,13 @@ class Scenario27(BaseScenario):
         v1_hash = v1_hash.strip()
         hotfix_hash = hotfix_hash.strip()
 
-        if v1_hash == hotfix_hash:
-            return False, "hotfix/v1-legacy 分支上尚未提交任何修復 commit！"
+        code, parents, _ = engine.run_git("rev-list", "--parents", "-n", "1", hotfix_hash, check=False)
+        fields = parents.split()
+        if code != 0 or len(fields) != 2 or fields[1] != v1_hash:
+            return False, "hotfix/v1-legacy 必須指向直接建立在 v1.0 上的修復 commit，不能只從 main 開分支。"
 
-        code, is_anc, _ = engine.run_git("merge-base", "--is-ancestor", v1_hash, hotfix_hash, check=False)
-        if code != 0:
-            return False, "hotfix/v1-legacy 的基底並非 v1.0 節點！"
+        code, app, _ = engine.run_git("show", "hotfix/v1-legacy:app.py", check=False)
+        if code != 0 or app != "print('v1.0 stable')\n# legacy fix\n":
+            return False, "hotfix/v1-legacy 的 commit 必須包含 v1.0 上的 legacy bug 修復。"
 
         return True, "太棒了！你完整理解了 Detached HEAD 的本質與分支救援技法！"

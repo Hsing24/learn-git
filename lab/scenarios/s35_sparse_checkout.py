@@ -45,7 +45,20 @@ class Scenario35(BaseScenario):
             return False, "尚未啟用 sparse-checkout！請執行 git sparse-checkout init --cone。"
 
         patterns = [p.strip() for p in out.splitlines() if p.strip()]
-        if not any("packages/web" in p for p in patterns):
-            return False, "sparse-checkout 尚未設定 packages/web！請執行 git sparse-checkout set packages/web。"
+        if patterns != ["packages/web"]:
+            return False, "sparse-checkout 必須只設定 packages/web，請移除其他檢出目錄。"
+
+        code, sparse_enabled, _ = engine.run_git("config", "--bool", "core.sparseCheckout", check=False)
+        if code != 0 or sparse_enabled.strip() != "true":
+            return False, "尚未啟用 sparse-checkout！請執行 git sparse-checkout init --cone。"
+
+        code, cone_enabled, _ = engine.run_git("config", "--bool", "core.sparseCheckoutCone", check=False)
+        if code != 0 or cone_enabled.strip() != "true":
+            return False, "請以 cone 模式啟用 sparse-checkout：git sparse-checkout init --cone。"
+
+        if not engine.file_exists("packages/web/index.js"):
+            return False, "packages/web 尚未檢出，請執行 git sparse-checkout set packages/web。"
+        if engine.file_exists("packages/backend/server.js") or engine.file_exists("packages/docs/readme.md"):
+            return False, "工作區仍包含 packages/web 以外的模組，請只設定 packages/web。"
 
         return True, "太棒了！你學會了以 Sparse Checkout 高效縮減工作區，Monorepo 開發必備神器！"
