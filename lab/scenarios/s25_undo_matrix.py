@@ -19,7 +19,7 @@ class Scenario25(BaseScenario):
         "使用 git restore config.py 放棄工作區未暫存的修改",
         "使用 git restore --staged debug.log 取消暫存（檔案保留在硬碟）",
         "使用 git reset --soft HEAD~1 撤銷半成品 commit",
-        "重新提交：git commit -m \"feat: complete feature correctly\""
+        "重新提交：git commit -m \"feat: complete payment feature\""
     ]
     next_steps = [
         "還原工作區：git restore config.py",
@@ -41,6 +41,7 @@ class Scenario25(BaseScenario):
 
         # Base commit
         engine.commit_file("config.py", "API_HOST = 'https://api.prod'\n", "feat: payment base")
+        engine.run_git("config", "lab.scenario25.base", engine.get_head_hash() or "")
 
         # wip commit
         engine.commit_file("payment.py", "def process(): pass\n", "wip: half done")
@@ -53,24 +54,44 @@ class Scenario25(BaseScenario):
         engine.run_git("add", "debug.log")
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
-        # config.py should match HEAD
-        code, diff_out, _ = engine.run_git("diff", "config.py", check=False)
-        if diff_out.strip():
+        if engine.get_current_branch() != "main":
+            return False, "請在 main 分支上完成重新提交。"
+
+        expected_config = "API_HOST = 'https://api.prod'\n"
+        if engine.read_file("config.py") != expected_config:
             return False, "config.py 仍有未復原的工作區修改！請執行 git restore config.py。"
 
-        # debug.log should not be staged
-        code, staged_out, _ = engine.run_git("diff", "--staged", "--name-only", check=False)
-        if "debug.log" in staged_out:
-            return False, "debug.log 仍在暫存區中！請執行 git restore --staged debug.log。"
-
-        # debug.log should still exist on disk
         if not engine.file_exists("debug.log"):
             return False, "debug.log 檔案消失了！請確認使用 restore --staged（移出暫存而非刪除實體檔案）。"
+        code, _, _ = engine.run_git("ls-files", "--error-unmatch", "debug.log", check=False)
+        if code == 0:
+            return False, "debug.log 仍被 Git 追蹤！請執行 git restore --staged debug.log，讓它保留在硬碟但不進入提交。"
 
-        # Check commit history: no wip
-        code, log_out, _ = engine.run_git("log", "-1", "--pretty=%s", check=False)
-        if "wip" in log_out.lower():
-            return False, "最新的 commit 依然是 wip！請執行 git reset --soft HEAD~1 重新 commit。"
+        code, staged_out, _ = engine.run_git("diff", "--cached", "--name-only", check=False)
+        if staged_out.strip():
+            return False, "仍有不該提交的暫存變更！請確認 debug.log 已取消暫存後再重建提交。"
+
+        code, expected_parent, _ = engine.run_git("config", "--get", "lab.scenario25.base", check=False)
+        code2, actual_parent, _ = engine.run_git("rev-parse", "HEAD^", check=False)
+        code3, parent_config, _ = engine.run_git("show", "HEAD^:config.py", check=False)
+        if (
+            code != 0 or code2 != 0 or code3 != 0
+            or actual_parent.strip() != expected_parent.strip()
+            or parent_config != expected_config
+        ):
+            return False, "最新提交的 parent 並非原本的 payment base！請用 reset --soft 保留半成品內容後重建提交。"
+
+        code, head_config, _ = engine.run_git("show", "HEAD:config.py", check=False)
+        if code != 0 or head_config != expected_config:
+            return False, "最新提交仍包含錯誤的 config.py！請先 restore，再重新提交正確功能。"
+
+        code, payment, _ = engine.run_git("show", "HEAD:payment.py", check=False)
+        if code != 0 or payment != "def process(): pass\n":
+            return False, "最新提交沒有保留 payment.py 的半成品功能，請以 reset --soft 重建提交。"
+
+        code, tracked_debug, _ = engine.run_git("cat-file", "-e", "HEAD:debug.log", check=False)
+        if code == 0:
+            return False, "debug.log 被提交進 HEAD！請取消暫存後再提交功能修正。"
 
         count = engine.get_commit_count()
         if count != 2:

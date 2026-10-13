@@ -48,18 +48,48 @@ class Scenario30(BaseScenario):
         engine.commit_file("tests.py", "assert True\n", "feat: add auth tests")
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
+        if engine.get_current_branch() != "feature":
+            return False, "請在完成 autosquash 的 feature 分支上驗收。"
+
         code, log_out, _ = engine.run_git("log", "main..feature", "--pretty=%s", check=False)
         messages = [m.strip() for m in log_out.splitlines() if m.strip()]
 
         if any("fixup!" in m for m in messages):
             return False, "歷史中仍包含 fixup! 提交，尚未執行 git rebase -i --autosquash main！"
 
-        if len(messages) != 4:
-            return False, f"feature 分支應維持為 4 個 Commit，目前有 {len(messages)} 個。"
+        expected_messages = [
+            "feat: add auth tests",
+            "feat: add auth routes",
+            "feat: add validator helper",
+            "feat: add user schema",
+        ]
+        if messages != expected_messages:
+            if len(messages) != 4:
+                return False, f"feature 分支應維持為 4 個 Commit，目前有 {len(messages)} 個。"
+            return False, "feature 的四筆提交必須維持原有功能順序，並把修正 autosquash 進 validator 提交。"
 
-        if engine.file_exists("validator.py"):
-            content = (engine.workspace / "validator.py").read_text(encoding="utf-8")
-            if "validte" in content:
-                return False, "validator.py 依然包含 typo 'validte'，請確認修改已正確合併。"
+        code, parent, _ = engine.run_git("rev-parse", "feature~4", check=False)
+        code2, main, _ = engine.run_git("rev-parse", "main", check=False)
+        if code != 0 or code2 != 0 or parent.strip() != main.strip():
+            return False, "feature 的四筆提交必須直接建立在 main 之上。"
+
+        code, validator, _ = engine.run_git("show", "feature:validator.py", check=False)
+        if code != 0 or validator != "def validate(): return True\n":
+            return False, "feature 的已提交 validator.py 仍有錯誤；僅修改工作檔不算完成。"
+
+        code, status, _ = engine.run_git("status", "--porcelain", "--untracked-files=no", check=False)
+        if code != 0 or status.strip():
+            return False, "autosquash 後工作目錄仍有未提交變更，請將修正納入歷史。"
+
+        code, validator_commit, _ = engine.run_git(
+            "log", "main..feature", "--format=%H", "--grep=^feat: add validator helper$", check=False
+        )
+        if code != 0 or not validator_commit.strip():
+            return False, "找不到已修正的 validator 功能提交。"
+        code, committed_validator, _ = engine.run_git(
+            "show", f"{validator_commit.strip()}:validator.py", check=False
+        )
+        if code != 0 or committed_validator != "def validate(): return True\n":
+            return False, "validator 修正必須 autosquash 進原本的 validator 提交。"
 
         return True, "太優雅了！你學會了以 --fixup 與 --autosquash 修飾歷史，提交紀錄無可挑剔！"

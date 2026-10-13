@@ -572,6 +572,12 @@ def print_receipt(customer_name, items, total):
         sc.setup(self.engine)
         self.assertFalse(sc.verify(self.engine)[0])
 
+        # Amending the wip commit with the broken config and secret must not pass.
+        self.engine.run_git("add", "config.py", "debug.log")
+        self.engine.run_git("commit", "--amend", "-m", "feat: done")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
         # A hard reset discards the half-finished commit instead of rebuilding it.
         self.engine.run_git("reset", "--hard", "HEAD~1")
         self.assertFalse(sc.verify(self.engine)[0])
@@ -598,6 +604,14 @@ def print_receipt(customer_name, items, total):
         self.engine.run_git("branch", "-D", "feature/b")
         self.assertFalse(sc.verify(self.engine)[0])
 
+        # Keeping both feature histories as merge commits is not the required squash.
+        sc.setup(self.engine)
+        self.engine.run_git("merge", "--no-ff", "feature/a")
+        self.engine.run_git("merge", "--no-ff", "feature/b")
+        self.engine.run_git("branch", "-d", "feature/a")
+        self.engine.run_git("branch", "-d", "feature/b")
+        self.assertFalse(sc.verify(self.engine)[0])
+
         sc.setup(self.engine)
         self.engine.run_git("merge", "--no-ff", "feature/a")
         self.engine.run_git("merge", "--squash", "feature/b")
@@ -616,6 +630,10 @@ def print_receipt(customer_name, items, total):
         sc.setup(self.engine)
         self.assertFalse(sc.verify(self.engine)[0])
 
+        self.engine.run_git("branch", "hotfix/v1-legacy", "main")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
         self.engine.run_git("switch", "--detach", "v1.0")
         self.engine.create_file("app.py", "print('v1.0 stable')\n# legacy fix\n")
         self.engine.run_git("commit", "-am", "fix: legacy bug on v1.0")
@@ -636,20 +654,40 @@ def print_receipt(customer_name, items, total):
         sc.setup(self.engine)
         self.assertFalse(sc.verify(self.engine)[0])
 
+        remote_path = self.engine.repo_dir / ".git-lab-remote-28"
         self.engine.run_git("switch", "-c", "feature/profile")
-        self.engine.create_file("app.py", "print('App running')\ndef profile(): pass\n")
-        self.engine.run_git("commit", "-am", "feat: user profile")
-        self.engine.run_git("push", "origin", "feature/profile")
+        self.engine.run_git("push", "-u", "origin", "feature/profile")
         self.assertFalse(sc.verify(self.engine)[0])
 
         sc.setup(self.engine)
-        self.engine.run_git("switch", "-c", "feature/profile")
-        self.engine.create_file("app.py", "print('App running')\ndef profile(): pass\n")
-        self.engine.run_git("commit", "-am", "feat: user profile")
-        self.engine.run_git("push", "-u", "origin", "feature/profile")
-        _, branches, _ = self.engine.run_git("branch", "-vv")
-        self.assertIn("[origin/feature/profile]", branches)
         remote_path = self.engine.repo_dir / ".git-lab-remote-28"
+        app_dir = self.engine.workspace / "app"
+        self.engine.run_git("clone", str(remote_path), str(app_dir))
+        self.engine.run_git("-C", str(app_dir), "switch", "-c", "feature/profile")
+        # Pushing an unchanged branch creates a remote ref but no feature commit.
+        self.engine.run_git("-C", str(app_dir), "push", "-u", "origin", "feature/profile")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        remote_path = self.engine.repo_dir / ".git-lab-remote-28"
+        app_dir = self.engine.workspace / "app"
+        self.engine.run_git("clone", str(remote_path), str(app_dir))
+        self.engine.run_git("-C", str(app_dir), "switch", "-c", "feature/profile")
+        self.engine.create_file("app/app.py", "print('App running')\ndef profile(): pass\n")
+        self.engine.run_git("-C", str(app_dir), "commit", "-am", "feat: user profile")
+        self.engine.run_git("-C", str(app_dir), "push", "origin", "feature/profile")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        remote_path = self.engine.repo_dir / ".git-lab-remote-28"
+        app_dir = self.engine.workspace / "app"
+        self.engine.run_git("clone", str(remote_path), str(app_dir))
+        self.engine.run_git("-C", str(app_dir), "switch", "-c", "feature/profile")
+        self.engine.create_file("app/app.py", "print('App running')\ndef profile(): pass\n")
+        self.engine.run_git("-C", str(app_dir), "commit", "-am", "feat: user profile")
+        self.engine.run_git("-C", str(app_dir), "push", "-u", "origin", "feature/profile")
+        _, branches, _ = self.engine.run_git("-C", str(app_dir), "branch", "-vv")
+        self.assertIn("[origin/feature/profile]", branches)
         _, remote_app, _ = self.engine.run_git(
             "-C", str(remote_path), "show", "feature/profile:app.py"
         )
@@ -662,8 +700,14 @@ def print_receipt(customer_name, items, total):
         sc.setup(self.engine)
         self.assertFalse(sc.verify(self.engine)[0])
 
+        self.engine.run_git("reset", "--hard", "main")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
         code, _, _ = self.engine.run_git("rebase", "main", check=False)
         self.assertNotEqual(code, 0)
+        _, current_patch, _ = self.engine.run_git("rebase", "--show-current-patch", check=False)
+        self.assertIn("feat: feature step 2", current_patch)
         self.assertFalse(sc.verify(self.engine)[0])
         self.engine.run_git("rebase", "--abort")
         self.assertFalse(sc.verify(self.engine)[0])
@@ -673,15 +717,18 @@ def print_receipt(customer_name, items, total):
         self.assertNotEqual(code, 0, "The documented rebase must pause for conflict resolution")
         self.engine.create_file(
             "app.py",
-            "print('base - main updated')\nprint('base - feature step 1')\n",
+            "print('base - main updated')\nprint('base - feature step 2')\n",
         )
         self.engine.run_git("add", "app.py")
         code, out, err = self.engine.run_git("rebase", "--continue", check=False)
         self.assertEqual(code, 0, f"Rebase continuation failed: {err or out}")
         app = (self.engine.workspace / "app.py").read_text(encoding="utf-8")
         self.assertIn("main updated", app)
-        self.assertIn("feature step 1", app)
+        self.assertIn("feature step 2", app)
         self.assertTrue((self.engine.workspace / "helper.py").exists())
+        self.assertTrue((self.engine.workspace / "feature.py").exists())
+        _, feature_commits, _ = self.engine.run_git("rev-list", "--count", "main..feature")
+        self.assertEqual(feature_commits.strip(), "3")
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
@@ -690,6 +737,11 @@ def print_receipt(customer_name, items, total):
         sc.setup(self.engine)
         self.assertFalse(sc.verify(self.engine)[0])
 
+        # Correcting only the working tree must not stand in for autosquash.
+        self.engine.create_file("validator.py", "def validate(): return True\n")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
         self.engine.create_file("validator.py", "def validate(): return True\n")
         self.engine.run_git("add", "validator.py")
         self.engine.run_git("commit", "-m", "fix: correct validator typo")
@@ -751,6 +803,16 @@ def print_receipt(customer_name, items, total):
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
+        sc.setup(self.engine)
+        self.engine.run_git("sparse-checkout", "init", "--cone")
+        self.engine.run_git("sparse-checkout", "set", "packages/web", "packages/backend")
+        self.assertFalse(sc.verify(self.engine)[0])
+
+        sc.setup(self.engine)
+        self.engine.run_git("sparse-checkout", "init", "--no-cone")
+        self.engine.run_git("sparse-checkout", "set", "packages/web")
+        self.assertFalse(sc.verify(self.engine)[0])
+
     def test_scenario_34_submodule(self):
         sc = Scenario34()
         sc.setup(self.engine)
@@ -763,6 +825,9 @@ def print_receipt(customer_name, items, total):
             "./.git-lab-sub-34", "libs/shared", check=False
         )
         self.assertEqual(code, 0, f"Submodule add failed: {err or out}")
+
+        passed, msg = sc.verify(self.engine)
+        self.assertFalse(passed, msg)
 
         code, out, err = self.engine.run_git("commit", "-m", "feat: add shared submodule", check=False)
         self.assertEqual(code, 0, f"Submodule commit failed: {err or out}")
