@@ -824,14 +824,54 @@ test('33: Secret purge filter-repo solution', () => {
   const unconfirmed = sc.checkGoal(git);
   assert(unconfirmed.passed === false, '33 must require credential rotation confirmation');
   assert(unconfirmed.message.includes('撤銷並輪替'), `Expected rotation warning, got: ${unconfirmed.message}`);
+
+  const originalMain = git.branches.get('main');
+  const originalDirty = git.scenarioMeta.dirtyId;
+  git.branches.set('release', originalDirty);
+  git.tag(['v1', originalDirty]);
   git.configCmd(['lab.secret-rotation-confirmed', 'yes']);
   const filterRes = git.filterRepo(['--path', '.env', '--invert-paths']);
   assert(filterRes.code === 0, 'filterRepo should succeed');
+
+  const rewrittenMain = git.branches.get('main');
+  const rewrittenSecret = git.commits.get(git.branches.get('release'));
+  const rewrittenDashboard = git.commits.get(rewrittenMain);
+  assert(rewrittenMain !== originalMain, 'Filtering must move local main to a new commit hash');
+  assert(git.branches.get('origin/main') === originalMain, 'The remote-tracking lease ref must remain at the expected old tip');
+  assert(git.remotes.origin.branches.get('main') === originalMain, 'The remote server ref must remain unchanged until push');
+  assert(git.commits.get(originalMain).tree.has('.env'), 'The old remote commit object must remain immutable');
+  assert(git.branches.get('release') !== originalDirty, 'Other local branches must move to rewritten commits');
+  assert(git.tags.get('v1').commitId === git.branches.get('release'), 'Tags must move with rewritten local history');
+  assert(rewrittenSecret.parents[0] === git.scenarioMeta.baseId, 'The secret commit parent must map to the rewritten base');
+  assert(!rewrittenSecret.tree.has('.env') && !rewrittenDashboard.tree.has('.env'), 'Rewritten trees must omit .env');
+  assert(rewrittenSecret.tree.get('app.js') === 'start();\n', 'Filtering must preserve non-target files');
+  assert(rewrittenDashboard.tree.get('dash.js') === 'render();\n', 'Filtering must preserve dashboard content');
+  assert(git.workingTree.has('.gitignore') && !git.workingTree.has('.env'), 'The filtered checkout must retain .gitignore and remove .env');
+
+  assert(sc.checkGoal(git).passed === false, 'Filtering alone must not pass before .gitignore is committed and pushed');
   git.add(['.gitignore']);
   git.commit(['-m', 'chore: ignore .env']);
+  const regularPush = git.push(['origin', 'main']);
+  assert(regularPush.code === 1, 'A normal push must reject the rewritten non-fast-forward history');
+  assert(git.remotes.origin.branches.get('main') === originalMain, 'A rejected normal push must preserve remote history');
+  assert(sc.checkGoal(git).passed === false, 'The scenario must still fail before a safe rewrite push');
+
   const pushRes = git.push(['--force-with-lease', 'origin', 'main']);
-  assert(pushRes.code === 0, 'push --force-with-lease should succeed');
+  assert(pushRes.code === 0, `push --force-with-lease should succeed: ${pushRes.output}`);
+  assert(git.remotes.origin.branches.get('main') === git.branches.get('main'), 'The remote should move only after the safe push');
+  assert(!Array.from(git.getReachableCommits(git.remotes.origin.branches.get('main')))
+    .some(id => git.commits.get(id)?.tree?.has('.env')), 'The pushed remote history must no longer contain .env');
   assert(sc.checkGoal(git).passed === true, '33 solution should pass');
+
+  const unsafe = new VirtualGit();
+  sc.setup(unsafe);
+  unsafe.configCmd(['lab.secret-rotation-confirmed', 'yes']);
+  unsafe.filterRepo(['--path', '.env', '--invert-paths']);
+  unsafe.add(['.gitignore']);
+  unsafe.commit(['-m', 'chore: ignore .env']);
+  const forcePush = unsafe.push(['--force', 'origin', 'main']);
+  assert(forcePush.code === 0, 'The unsafe force-push example should update the remote');
+  assert(sc.checkGoal(unsafe).passed === false, 'Scenario 33 must reject a rewrite pushed without a lease');
 });
 
 // Summary
