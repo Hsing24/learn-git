@@ -423,6 +423,7 @@ const SCENARIOS_EXTRA = [
     checkGoal: (git) => {
       const meta = git.scenarioMeta || {};
       const fId = git.branches.get('feature');
+      const mainId = git.branches.get('main') || meta.mainId;
       if (!fId) return { passed: false, message: 'feature 分支不存在。' };
 
       if (git.rebaseInProgress) {
@@ -433,13 +434,13 @@ const SCENARIOS_EXTRA = [
         return { passed: false, message: '尚未執行 git rebase main！' };
       }
 
-      if (!git.isAncestor(meta.mainId, fId)) {
+      if (!git.isAncestor(mainId, fId)) {
         return { passed: false, message: 'feature 分支尚未接在 main 最新提交之後！' };
       }
 
       const replayed = [];
       let cur = git.commits.get(fId);
-      while (cur && cur.id !== meta.mainId) {
+      while (cur && cur.id !== mainId) {
         replayed.unshift(cur);
         cur = (cur.parents && cur.parents[0]) ? git.commits.get(cur.parents[0]) : null;
       }

@@ -42,8 +42,8 @@ class VirtualGit {
     this.stash = []; // [ { id, message, index, workingTree, branch } ]
     this.hooks = new Map(); // 'pre-commit' -> scriptContent
     this.scenarioMeta = {}; // metadata for scenario verification
-    this.conflictState = null; // null or { file: string, ourBranch: string, theirBranch: string }
-    this.rebaseState = null; // null or { origBranch, origBranchTip, newBaseId, commitsToReplay, currentReplayIndex, conflictFile }
+    this.conflictState = null; // null or { file: string, files?: string[], ourBranch: string, theirBranch: string }
+    this.rebaseState = null; // Replay state, including conflict paths awaiting staging.
     this.commitCounter = 0;
   }
 
@@ -162,6 +162,7 @@ class VirtualGit {
       unstaged,
       untracked,
       conflict: this.conflictState,
+      unmergedFiles: this.rebaseState ? Array.from(this.rebaseState.unresolvedFiles || []) : [],
       bisect: this.bisectState.active,
       rebaseInProgress: !!this.rebaseState,
       rebaseCurrent: this.rebaseState ? this.rebaseState.commitsToReplay[this.rebaseState.currentReplayIndex] : null
@@ -192,8 +193,21 @@ class VirtualGit {
     }
 
     if (args.includes('.') || args.includes('-A') || args.includes('--all')) {
+      const stagedPaths = new Set();
       for (const [file, content] of this.workingTree.entries()) {
         this.index.set(file, content);
+        stagedPaths.add(file);
+      }
+      for (const file of this.rebaseState?.unresolvedFiles || []) {
+        if (!this.workingTree.has(file)) {
+          this.index.delete(file);
+          stagedPaths.add(file);
+        }
+      }
+      for (const file of stagedPaths) {
+        if (this.rebaseState?.conflictFiles?.has(file)) {
+          this.rebaseState.unresolvedFiles.delete(file);
+        }
       }
       return { code: 0, output: '' };
     }
@@ -204,10 +218,16 @@ class VirtualGit {
       if (this.workingTree.has(file)) {
         this.index.set(file, this.workingTree.get(file));
         addedCount++;
-      } else if (this.index.has(file)) {
+        if (this.rebaseState?.conflictFiles?.has(file)) {
+          this.rebaseState.unresolvedFiles.delete(file);
+        }
+      } else if (this.index.has(file) || this.rebaseState?.unresolvedFiles?.has(file)) {
         // File deleted in working tree
         this.index.delete(file);
         addedCount++;
+        if (this.rebaseState?.conflictFiles?.has(file)) {
+          this.rebaseState.unresolvedFiles.delete(file);
+        }
       }
     }
 
@@ -218,6 +238,13 @@ class VirtualGit {
   }
 
   commit(args = []) {
+    if (this.rebaseState) {
+      return {
+        code: 1,
+        output: "error: a rebase is in progress; stage resolved paths and run 'git rebase --continue'\n"
+      };
+    }
+
     let message = '';
     let isAmend = false;
     let fixupHash = null;
@@ -880,7 +907,14 @@ class VirtualGit {
       if (!this.rebaseState) {
         return { code: 1, output: 'fatal: No rebase in progress?\n' };
       }
+      const baseCommit = this.commits.get(this.rebaseState.newBaseId);
+      if (baseCommit) {
+        this.workingTree = new Map(baseCommit.tree);
+        this.index = new Map(baseCommit.tree);
+      }
       this.conflictState = null;
+      this.rebaseState.conflictFiles.clear();
+      this.rebaseState.unresolvedFiles.clear();
       this.rebaseState.currentReplayIndex++;
       return this.continueReplayingCommits();
     }
@@ -890,13 +924,22 @@ class VirtualGit {
         return { code: 1, output: 'fatal: No rebase in progress?\n' };
       }
       if (this.conflictState) {
-        const conflictFile = this.conflictState.file;
-        const curContent = this.workingTree.get(conflictFile) || '';
-        if (curContent.includes('<<<<<<< HEAD')) {
+        const unresolved = Array.from(this.rebaseState.unresolvedFiles || []);
+        if (unresolved.length > 0) {
           return {
             code: 1,
-            output: `error: Committing is not possible because you have unmerged files.\nhint: Fix them up in the work tree, and then use 'git add/rm <file>'\nhint: as appropriate to mark resolution and run 'git rebase --continue'.\nfatal: Exiting because of an unresolved conflict.\n`
+            output: `error: cannot continue because these paths are not staged as resolved: ${unresolved.join(', ')}\nhint: Resolve each path and use 'git add/rm <file>' before 'git rebase --continue'.\n`
           };
+        }
+        for (const conflictFile of this.rebaseState.conflictFiles || []) {
+          const indexHas = this.index.has(conflictFile);
+          const worktreeHas = this.workingTree.has(conflictFile);
+          if (indexHas !== worktreeHas || (indexHas && this.index.get(conflictFile) !== this.workingTree.get(conflictFile))) {
+            return {
+              code: 1,
+              output: `error: ${conflictFile} has unstaged changes after conflict resolution\nhint: Stage the final content with 'git add ${conflictFile}' before 'git rebase --continue'.\n`
+            };
+          }
         }
         const c = this.rebaseState.commitsToReplay[this.rebaseState.currentReplayIndex];
         const replayed = this.createCommit({
@@ -906,6 +949,9 @@ class VirtualGit {
         });
         this.rebaseState.newBaseId = replayed.id;
         this.rebaseState.currentReplayIndex++;
+        this.HEAD = { type: 'detached', target: replayed.id };
+        this.rebaseState.conflictFiles.clear();
+        this.rebaseState.unresolvedFiles.clear();
         this.conflictState = null;
       }
       return this.continueReplayingCommits();
@@ -951,7 +997,9 @@ class VirtualGit {
       origBranchTip: currentCommitId,
       newBaseId: upstreamCommitId,
       commitsToReplay,
-      currentReplayIndex: 0
+      currentReplayIndex: 0,
+      conflictFiles: new Set(),
+      unresolvedFiles: new Set()
     };
 
     return this.continueReplayingCommits();
@@ -973,32 +1021,55 @@ class VirtualGit {
       const baseCommit = this.commits.get(this.rebaseState.newBaseId);
       const baseTree = baseCommit ? baseCommit.tree : new Map();
 
-      // Check conflict
-      let hasConflict = false;
-      let conflictFile = null;
+      // Detect all paths changed on both sides since the replay commit's parent.
+      const conflictFiles = [];
       for (const [file, content] of changes.upsert) {
-        if (baseTree.has(file) && origParentTree.has(file) && baseTree.get(file) !== origParentTree.get(file) && baseTree.get(file) !== content) {
-          hasConflict = true;
-          conflictFile = file;
-          break;
+        const baseHasFile = baseTree.has(file);
+        const parentHasFile = origParentTree.has(file);
+        const upstreamChanged = baseHasFile !== parentHasFile || (parentHasFile && baseTree.get(file) !== origParentTree.get(file));
+        if (upstreamChanged && (!baseHasFile || baseTree.get(file) !== content)) {
+          conflictFiles.push(file);
         }
       }
+      for (const file of changes.remove) {
+        const baseHasFile = baseTree.has(file);
+        const parentHasFile = origParentTree.has(file);
+        const upstreamChanged = baseHasFile !== parentHasFile || (parentHasFile && baseTree.get(file) !== origParentTree.get(file));
+        if (upstreamChanged && baseHasFile) conflictFiles.push(file);
+      }
 
-      if (hasConflict) {
+      if (conflictFiles.length > 0) {
+        const newTree = this.applyChanges(baseTree, changes);
+        for (const file of conflictFiles) {
+          if (baseTree.has(file)) newTree.set(file, baseTree.get(file));
+          else newTree.delete(file);
+        }
+        this.index = new Map(newTree);
+        this.workingTree = new Map(newTree);
+
+        const conflictVersions = new Map();
+        for (const file of conflictFiles) {
+          const ourContent = baseTree.has(file) ? baseTree.get(file) : '';
+          const theirContent = c.tree.has(file) ? c.tree.get(file) : '';
+          conflictVersions.set(file, { ours: ourContent, theirs: theirContent });
+          const conflictContent = `<<<<<<< HEAD\n${ourContent}\n=======\n${theirContent}\n>>>>>>> ${c.message}\n`;
+          this.workingTree.set(file, conflictContent);
+        }
+
+        this.rebaseState.conflictFiles = new Set(conflictFiles);
+        this.rebaseState.unresolvedFiles = new Set(conflictFiles);
         this.conflictState = {
-          file: conflictFile,
+          file: conflictFiles[0],
+          files: conflictFiles.slice(),
+          conflictVersions,
           ourBranch: 'HEAD',
           theirBranch: c.message
         };
-        const ourContent = baseTree.get(conflictFile) || '';
-        const theirContent = c.tree.get(conflictFile) || '';
-        const conflictContent = `<<<<<<< HEAD\n${ourContent}\n=======\n${theirContent}\n>>>>>>> ${c.message}\n`;
-        this.workingTree.set(conflictFile, conflictContent);
-        this.index.set(conflictFile, conflictContent);
         this.HEAD = { type: 'detached', target: this.rebaseState.newBaseId };
+        const conflictList = conflictFiles.join(', ');
         return {
           code: 1,
-          output: `Auto-merging ${conflictFile}\nCONFLICT (content): Merge conflict in ${conflictFile}\nerror: could not apply ${c.id.substring(0, 7)}... ${c.message}\nhint: Resolve all conflicts manually, mark them as resolved with\nhint: "git add/rm <conflicted_files>", then run "git rebase --continue".\nhint: You can instead skip this commit: run "git rebase --skip".\nhint: To abort and get back to the state before "git rebase", run "git rebase --abort".\n`
+          output: `Auto-merging ${conflictList}\nCONFLICT (content): Merge conflict in ${conflictList}\nerror: could not apply ${c.id.substring(0, 7)}... ${c.message}\nhint: Resolve all conflicts manually, mark them as resolved with\nhint: "git add/rm <conflicted_files>", then run "git rebase --continue".\nhint: You can instead skip this commit: run "git rebase --skip".\nhint: To abort and get back to the state before "git rebase", run "git rebase --abort".\n`
         };
       }
 
@@ -1061,7 +1132,9 @@ class VirtualGit {
       origBranchTip: currentCommitId,
       newBaseId,
       commitsToReplay,
-      currentReplayIndex: 0
+      currentReplayIndex: 0,
+      conflictFiles: new Set(),
+      unresolvedFiles: new Set()
     };
 
     return this.continueReplayingCommits();
@@ -1715,13 +1788,17 @@ hint: 'git pull' before pushing again.\n`
     if (!file) {
       return { code: 1, output: 'fatal: No pathspec specified\n' };
     }
-    if (!this.index.has(file)) {
+    const unresolvedRebasePath = this.rebaseState?.unresolvedFiles?.has(file);
+    if (!this.index.has(file) && !unresolvedRebasePath) {
       return { code: 1, output: `fatal: pathspec '${file}' did not match any files\n` };
     }
 
     this.index.delete(file);
     if (!cached) {
       this.workingTree.delete(file);
+    }
+    if (this.rebaseState?.conflictFiles?.has(file)) {
+      this.rebaseState.unresolvedFiles.delete(file);
     }
     return { code: 0, output: `rm '${file}'\n` };
   }

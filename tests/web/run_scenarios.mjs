@@ -590,11 +590,21 @@ test('29: Rebase conflict and continue solution', () => {
   const sc = SCENARIOS.find(s => s.id === '29');
   const git = new VirtualGit();
   sc.setup(git);
+
+  // Advance main after setup so the replay must keep unrelated upstream work.
+  git.checkoutOrSwitch('main');
+  git.workingTree.set('upstream-only.txt', 'keep this upstream file\n');
+  git.add(['upstream-only.txt']);
+  git.commit(['-m', 'feat: upstream-only file']);
+  git.checkoutOrSwitch('feature');
+
   const rebaseRes = git.rebase('main');
   assert(rebaseRes.code === 1, 'Rebase should pause on conflict');
   assert(git.rebaseInProgress, 'Rebase should be in progress');
   assert(git.rebaseState.currentReplayIndex === 1, 'The first feature commit should replay before the second conflicts');
   assert(git.workingTree.get('app.py').includes('<<<<<<< HEAD'), 'Conflict markers should be in app.py');
+  assert(git.workingTree.has('upstream-only.txt'), 'The new base tree must be present during conflict resolution');
+  assert(git.index.has('helper.js'), 'The first replayed commit must be present in the index during conflict resolution');
   
   // Resolve conflict
   git.workingTree.set('app.py', 'console.log("base - main updated");\nconsole.log("base - feature step 2");\n');
@@ -602,8 +612,91 @@ test('29: Rebase conflict and continue solution', () => {
   const contRes = git.rebase('--continue');
   assert(contRes.code === 0, `Rebase continue should succeed: ${contRes.output}`);
   assert(!git.rebaseInProgress, 'Rebase should no longer be in progress');
+  const headTree = git.commits.get(git.branches.get('feature')).tree;
+  assert(headTree.get('upstream-only.txt') === 'keep this upstream file\n', 'The new base file must survive replay');
+  assert(headTree.get('helper.js') === git.scenarioMeta.helperContent, 'The first replayed commit must survive');
+  assert(headTree.get('test.js') === git.scenarioMeta.testContent, 'The final replayed commit must survive');
   const result = sc.checkGoal(git);
   assert(result.passed === true, `29 solution should pass: ${result.message}`);
+});
+
+test('29: Rebase continue rejects an unstaged conflict resolution', () => {
+  const sc = SCENARIOS.find(s => s.id === '29');
+  const git = new VirtualGit();
+  sc.setup(git);
+  git.rebase('main');
+
+  git.workingTree.set('app.py', 'console.log("resolved without staging");\n');
+  const contRes = git.rebase('--continue');
+  assert(contRes.code === 1, 'Unstaged conflict content must not be committed');
+  assert(git.rebaseInProgress, 'Rebase should remain paused until the conflict path is staged');
+  assert(git.rebaseState.unresolvedFiles.has('app.py'), 'The unresolved path should remain tracked');
+  assert(git.commits.get(git.rebaseState.newBaseId).tree.get('app.py') === 'console.log("base - main updated");\n', 'No commit should be created from stale index content');
+});
+
+test('29: Every path in a multi-file conflict must be staged', () => {
+  const sc = SCENARIOS.find(s => s.id === '29');
+  const git = new VirtualGit();
+  sc.setup(git);
+
+  const featureTip = git.commits.get(git.branches.get('feature'));
+  const step2 = git.commits.get(featureTip.parents[0]);
+  const step1 = git.commits.get(step2.parents[0]);
+  const base = git.commits.get(step1.parents[0]);
+  const main = git.commits.get(git.branches.get('main'));
+  base.tree.set('settings.js', 'setting = "base";\n');
+  step1.tree.set('settings.js', 'setting = "base";\n');
+  main.tree.set('settings.js', 'setting = "main";\n');
+  step2.tree.set('settings.js', 'setting = "feature";\n');
+  featureTip.tree.set('settings.js', 'setting = "feature";\n');
+
+  const rebaseRes = git.rebase('main');
+  assert(rebaseRes.code === 1, 'Rebase should pause on the second feature commit');
+  assert(git.rebaseState.unresolvedFiles.size === 2, 'Both conflicting paths should be tracked');
+
+  git.workingTree.set('app.py', 'console.log("base - main updated");\nconsole.log("base - feature step 2");\n');
+  git.workingTree.set('settings.js', 'setting = "main and feature";\n');
+  git.add(['app.py']);
+  const partial = git.rebase('--continue');
+  assert(partial.code === 1, 'Continue must wait until every conflicted path is staged');
+  assert(git.rebaseState.unresolvedFiles.has('settings.js'), 'Unstaged settings.js should remain unresolved');
+
+  git.add(['settings.js']);
+  const completed = git.rebase('--continue');
+  assert(completed.code === 0, `Continue should succeed after staging both paths: ${completed.output}`);
+  assert(sc.checkGoal(git).passed, 'Resolved multi-file replay should satisfy Scenario 29');
+  const headTree = git.commits.get(git.branches.get('feature')).tree;
+  assert(headTree.get('settings.js') === 'setting = "main and feature";\n', 'The staged multi-file resolution must be committed');
+});
+
+test('29: Rebase abort restores the original feature state', () => {
+  const sc = SCENARIOS.find(s => s.id === '29');
+  const git = new VirtualGit();
+  sc.setup(git);
+  const originalTip = git.branches.get('feature');
+  git.rebase('main');
+
+  const abortRes = git.rebase('--abort');
+  assert(abortRes.code === 0, `Abort should succeed: ${abortRes.output}`);
+  assert(!git.rebaseInProgress && git.conflictState === null, 'Abort should clear rebase and conflict state');
+  assert(git.branches.get('feature') === originalTip, 'Abort should restore the original branch tip');
+  assert(git.workingTree.get('app.py') === 'console.log("base - feature step 2");\n', 'Abort should restore the original feature file');
+  assert(git.workingTree.has('test.js') && git.workingTree.has('helper.js'), 'Abort should restore all original feature files');
+});
+
+test('29: Rebase skip drops only the conflicted commit', () => {
+  const sc = SCENARIOS.find(s => s.id === '29');
+  const git = new VirtualGit();
+  sc.setup(git);
+  git.rebase('main');
+
+  const skipRes = git.rebase('--skip');
+  assert(skipRes.code === 0, `Skip should continue the remaining replay: ${skipRes.output}`);
+  assert(!git.rebaseInProgress, 'Skip should finish when no later commit conflicts');
+  const headTree = git.commits.get(git.branches.get('feature')).tree;
+  assert(headTree.get('app.py') === 'console.log("base - main updated");\n', 'Skip should discard the conflicting app change');
+  assert(headTree.has('helper.js') && headTree.has('test.js'), 'Skip should preserve the earlier and later feature commits');
+  assert(!sc.checkGoal(git).passed, 'Skipping a required feature commit must not pass the scenario');
 });
 
 test('29: Resetting feature to main and dropping its commits must fail', () => {

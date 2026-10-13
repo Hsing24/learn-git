@@ -634,7 +634,9 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const file of allFiles) {
       const item = document.createElement('div');
       item.className = 'file-tree-item';
-      const isConflict = git.conflictState && git.conflictState.file === file;
+      const conflictFiles = git.conflictState?.files || (git.conflictState?.file ? [git.conflictState.file] : []);
+      const isConflict = conflictFiles.includes(file) &&
+        (!git.rebaseState?.conflictFiles?.has(file) || git.rebaseState.unresolvedFiles.has(file));
       item.innerHTML = `
         <span class="file-icon">${isConflict ? '⚡' : '📄'}</span>
         <span class="file-name">${file}</span>
@@ -658,7 +660,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const conflictActions = document.getElementById('conflict-actions');
     if (conflictActions) {
-      const isConflict = git.conflictState && git.conflictState.file === filename;
+      const conflictFiles = git.conflictState?.files || (git.conflictState?.file ? [git.conflictState.file] : []);
+      const isConflict = conflictFiles.includes(filename) &&
+        (!git.rebaseState?.conflictFiles?.has(filename) || git.rebaseState.unresolvedFiles.has(filename));
       conflictActions.style.display = isConflict ? 'flex' : 'none';
     }
   }
@@ -1790,10 +1794,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.resolveConflictInUI = () => {
     if (!git.conflictState) return;
     const file = git.conflictState.file;
-    const cleanContent = `// [手動解決衝突] 合併了兩端的最佳實作\nexport const theme = 'unified-dark-mode';\n`;
+    const versions = git.conflictState.conflictVersions?.get(file);
+    const cleanContent = versions
+      ? [versions.ours, versions.theirs]
+          .filter(content => content !== '')
+          .map(content => content.endsWith('\n') ? content : `${content}\n`)
+          .join('')
+      : `// [手動解決衝突] 合併了兩端的最佳實作\nexport const theme = 'unified-dark-mode';\n`;
     git.workingTree.set(file, cleanContent);
-    git.index.set(file, cleanContent);
-    printOutput(`\x1b[38;2;46;160;67m✔ 已在編輯器中解決 ${file} 衝突並加入暫存區！請執行 git commit 完成合併。\x1b[0m`);
+    git.add([file]);
+    const nextStep = git.rebaseInProgress ? 'git rebase --continue' : 'git commit';
+    printOutput(`\x1b[38;2;46;160;67m✔ 已解決 ${file} 衝突並加入暫存區！請執行 ${nextStep}。\x1b[0m`);
     renderFileList();
     selectFile(file);
     terminalInput.focus();
