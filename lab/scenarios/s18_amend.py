@@ -7,14 +7,11 @@ from lab.engine import GitEngine
 
 class Scenario18(BaseScenario):
     id = "18"
-    title = "完美補完：git commit --amend 追補漏檔與修改最後提交"
+    title = '補上漏檔：Amend 最新提交'
     difficulty = "初階 ⭐⭐"
     story = (
-        "高見龍老師《為你自己學 Git》經典狀況題：剛敲下 git commit，才驚覺有檔案漏掉了！\n"
-        "你剛為專案提交了版本，但手快漏掉了關鍵的品牌圖檔 `assets/logo.png`，\n"
-        "而且 Commit 訊息還不小心手滑打成了 `feat: relase v1.0.0`（release 拼錯字）。\n"
-        "如果這時候再開一個 commit 寫『fix typo』或『add missing logo』，不僅歷史零碎，Code Review 時也顯得不夠專業。\n"
-        "這時候就是 `git commit --amend` 大顯身手的最佳時刻——直接將暫存區的檔案融合進最後一次 Commit，並修正訊息！"
+        "才剛驕傲地按下 commit，一轉頭驚覺：程式碼裡有一個超低級的變數名稱拼錯，而且漏放了一張圖！\n"
+        "要是被強哥看到肯定會被笑三個月。趁還沒 push 到遠端，快用 git commit --amend 偷天換日、零痕跡修補最新提交！"
     )
     goals = [
         "將遺漏的檔案 assets/logo.png 加入暫存區 (git add assets/logo.png)",
@@ -76,4 +73,8 @@ class Scenario18(BaseScenario):
         if "release" not in msg.lower() or "relase" in msg.lower():
             return False, f"Commit 訊息尚未修正拼字！當前訊息為: '{msg}'，應修正為正確的 'release'。"
 
+        _, app, _ = engine.run_git("show", "HEAD:app.py", check=False)
+        _, logo, _ = engine.run_git("show", "HEAD:assets/logo.png", check=False)
+        if app != "print('Welcome to Production App v1.0.0')\n" or logo != "[PNG_BINARY_DATA: BRAND_LOGO_ICON]":
+            return False, "amend 必須保留程式與遺漏 logo 的原有內容。"
         return True, "🎉 完美收官！你成功使用 git commit --amend 追補了遺漏檔案並修正了拼寫錯誤，保持了神級乾淨的單一提交歷史！"

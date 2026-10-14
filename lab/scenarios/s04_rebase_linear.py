@@ -6,13 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario04(BaseScenario):
     id = "04"
-    title = "變基藝術：使用 git rebase 保持線性歷史"
+    title = '主線更新：Rebase 與線性歷史'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "你在 feature-cart 分支上認真開發購物車模組。\n"
-        "但在你開發期間，同事已經向 main 分支合併了 payment.py 與 config.py 兩個重要更新！\n"
-        "如果這時直接使用 merge，歷史記錄會產生交叉分叉與多餘的 Merge Commit。\n"
-        "團隊推崇「乾淨俐落的線性歷史 (Linear History)」，規範要求你在合併前，必須先將分支 rebase 到 main 的最新版本之後！"
+        "你在 feature-cart 分支上認真開發購物車模組。但在你開發期間，小明前輩已經向 main 分支合併了兩個重要更新！\n"
+        "強哥在 Slack 敲你：「你這分支歷史別給我搞出多餘的菱形 Merge Commit！\n"
+        "給我 rebase 到最新 main，歷史保持乾淨的一條線！」"
     )
     goals = [
         "使用 ./git-lab tree 觀察目前 main 與 feature-cart 的分叉樹狀圖",
@@ -74,4 +73,13 @@ class Scenario04(BaseScenario):
         if not engine.file_exists("cart.py") or not engine.file_exists("payment.py") or not engine.file_exists("config.py"):
             return False, "變基後的檔案不完整，請確認 cart.py, payment.py, config.py 皆正確存在。"
 
+        _, count, _ = engine.run_git("rev-list", "--count", "main..feature-cart", check=False)
+        _, merges, _ = engine.run_git("rev-list", "--merges", "main..feature-cart", check=False)
+        _, base, _ = engine.run_git("rev-parse", "feature-cart~2", check=False)
+        if count.strip() != "2" or merges.strip() or base.strip() != main_hash.strip():
+            return False, "feature-cart 必須保留兩筆線性提交並直接接在 main 後，merge 不算此任務的 rebase。"
+        for filename, expected in {"cart.py": "class Cart:\n    def __init__(self):\n        self.items = []\n", "payment.py": "def pay(): return True\n", "config.py": "DEBUG = False\n"}.items():
+            code, actual, _ = engine.run_git("show", f"HEAD:{filename}", check=False)
+            if code != 0 or actual != expected:
+                return False, f"rebase 後 {filename} 的已提交內容不正確。"
         return True, "恭喜！你成功運用 git rebase 達成了高質感的線性歷史，這是許多資深工程團隊極度重視的技能！"

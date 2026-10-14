@@ -7,8 +7,8 @@ const COMMAND_GUIDES_EXTRA = {
     targetCommand: 'git status -s && git diff && git diff --staged && git log --oneline --graph && git show HEAD~1',
     summary: '看懂工作區、暫存區與版本歷史的全貌，掌握 status -s 雙欄代碼與 HEAD 相對參照。',
     scenarioContext: {
-      role: '接手同事半成品專案的工程師',
-      situation: '你剛接手了一個功能模組，工作區有些修改、暫存區有些改動，還有未追蹤檔案。在急著寫新代碼之前，必須精準看清「改了什麼、暫存了什麼、歷史長怎樣」。'
+      role: '接手前輩半成品的菜鳥工程師',
+      situation: '小明前輩下班前把未完成的半成品丟給你。在急著寫新程式碼之前，菜鳥必須用偵探四部曲精準看清「前輩改了什麼、暫存了什麼、歷史進度在哪裡」。'
     },
     guidedSteps: [
       { step: 1, cmd: 'git status -s', category: 'required', why: '以簡短模式檢視狀態，第一欄為暫存區狀態，第二欄為工作目錄狀態。' },
@@ -26,50 +26,120 @@ const COMMAND_GUIDES_EXTRA = {
   },
 
   '25': {
-    targetCommand: 'git restore <file> && git restore --staged <file> && git reset --soft HEAD~1',
-    summary: '現代 Git 的三大多維度後悔藥：分別精準復原工作區、暫存區與提交記錄。',
-    scenarioContext: {
-      role: '下午不小心連續犯了三個失誤的工程師',
-      situation: '你不小心改壞了 config.js（尚未暫存）、手滑將 debug.log 加進暫存區，還太早 commit 了半成品 wip。你需要安全有序地各個擊破還原。'
-    },
-    guidedSteps: [
-      { step: 1, cmd: 'git restore config.js', category: 'required', why: '放棄工作區檔案的未暫存修改，精確還原至最新提交狀態。' },
-      { step: 2, cmd: 'git restore --staged debug.log', category: 'required', why: '將檔案從暫存區移出（Unstage），本地硬碟上的實體檔案內容完好保留。' },
-      { step: 3, cmd: 'git reset --soft HEAD~1', category: 'required', why: '撤銷最新的半成品 commit，將改動保留在暫存區以供重新組織。' },
-      { step: 4, cmd: 'git commit -m "feat: complete feature correctly"', category: 'required', why: '重新建立單一且乾淨的正確 commit。' }
+    "targetCommand": "git restore → git reset --mixed → git reset --hard → git reset --soft",
+    "summary": "Restore 預設從索引還原工作區；reset 的三種模式控制 HEAD、索引與工作區。用獨立分支實際比較。",
+    "guidedSteps": [
+        {
+            "step": 1,
+            "cmd": "git restore config.js",
+            "category": "required",
+            "why": "從目前索引恢復設定檔。"
+        },
+        {
+            "step": 2,
+            "cmd": "git restore --staged debug.log",
+            "category": "required",
+            "why": "從 HEAD 更新索引，移除未追蹤 debug 的暫存；本機內容仍在。"
+        },
+        {
+            "step": 3,
+            "cmd": "git switch mixed-demo",
+            "category": "required",
+            "why": "在練習分支觀察原 WIP。"
+        },
+        {
+            "step": 4,
+            "cmd": "git reset --mixed HEAD~1",
+            "category": "required",
+            "why": "移動 HEAD 並重設索引，變更留在工作區。"
+        },
+        {
+            "step": 5,
+            "cmd": "git restore payment.js",
+            "category": "required",
+            "why": "索引現在是 base，還原工作區後可切分支。"
+        },
+        {
+            "step": 6,
+            "cmd": "git switch hard-demo",
+            "category": "required",
+            "why": "進入另一個獨立練習分支。"
+        },
+        {
+            "step": 7,
+            "cmd": "git reset --hard HEAD~1",
+            "category": "required",
+            "why": "HEAD、索引與追蹤檔案工作區都回復 base。"
+        },
+        {
+            "step": 8,
+            "cmd": "git switch main",
+            "category": "required",
+            "why": "回到主要練習。"
+        },
+        {
+            "step": 9,
+            "cmd": "git reset --soft HEAD~1",
+            "category": "required",
+            "why": "只移動 HEAD，WIP 內容保留在索引。"
+        },
+        {
+            "step": 10,
+            "cmd": "git commit -m \"feat: complete payment setup\"",
+            "category": "required",
+            "why": "重新保存原功能變更，不包含 debug.log。"
+        }
     ],
-    variations: [
-      { cmd: 'git restore <file>', desc: '放棄工作目錄修改' },
-      { cmd: 'git restore --staged <file>', desc: '移出暫存區（不碰檔案內容）' },
-      { cmd: 'git reset --soft HEAD~1', desc: '撤銷 commit 但保留暫存區' }
+    "variations": [
+        {
+            "cmd": "git restore --source=HEAD <file>",
+            "desc": "明確從 HEAD 還原工作區。"
+        }
     ],
-    resetModeRows: [
-      { mode: '--soft', head: '移到指定提交', index: '保留原樣', workingTree: '保留原樣' },
-      { mode: '--mixed（預設）', head: '移到指定提交', index: '重設到指定提交', workingTree: '保留原樣' },
-      { mode: '--hard', head: '移到指定提交', index: '重設到指定提交', workingTree: '重設到指定提交' }
-    ],
-    resetModeWarning: '⚠️ --hard 會丟棄尚未提交的追蹤檔案變更。若移動錯 HEAD，可查看 git reflog（第 6 章）找回提交位置；reflog 無法保證還原未提交的工作區內容。'
-  },
+    "pitfalls": [
+        "--hard 會丟棄追蹤檔案未提交變更，先確認需要保存的內容。"
+    ]
+},
 
   '26': {
-    targetCommand: 'git merge --no-ff feature/a && git merge --squash feature/b && git branch -D feature/b',
-    summary: '實戰掌控 GitHub 三大合併按鈕的底層邏輯：Fast-forward、--no-ff 與 --squash。',
-    scenarioContext: {
-      role: '主線維護者 / 架構師',
-      situation: '主管要求你在本機親手操作不同合併策略，體會分支保留、菱形節點與歷史壓縮的差異，並學會刪除未合併警告的分支。'
-    },
-    guidedSteps: [
-      { step: 1, cmd: 'git merge --no-ff feature/a', category: 'required', why: '強制產生 Merge Commit，保留完整的特徵分支歷史脈絡。' },
-      { step: 2, cmd: 'git merge --squash feature/b', category: 'required', why: '將 feature/b 的多個零碎改動壓扁成單一工作區變更。' },
-      { step: 3, cmd: 'git commit -m "feat: implement feature b"', category: 'required', why: '為 squash 之後的變更提交一個全新精準的 commit。' },
-      { step: 4, cmd: 'git branch -d feature/a', category: 'required', why: '正常刪除已完全合併的 feature/a 分支。' },
-      { step: 5, cmd: 'git branch -D feature/b', category: 'required', why: '強制刪除 feature/b（因為 squash 不會保留祖先關係，-d 會被 Git 拒絕）。' }
-    ],
-    variations: [
-      { cmd: 'git merge --no-ff <branch>', desc: '保留分支歷史的 Merge Commit' },
-      { cmd: 'git merge --squash <branch>', desc: '壓扁多個提交為單一改動' },
-      { cmd: 'git branch -D <branch>', desc: '強制刪除未被認定合併的分支' }
-    ]
+      "targetCommand": "git merge --no-ff feature/a → git merge --squash feature/b → git commit -m \"feat: integrate b\" → git branch -d feature/a → git branch -D feature/b",
+      "summary": "比較 --no-ff 合併提交與 squash 後的單親提交。GitHub PR 的合併選項為 merge、squash、rebase merge。",
+      "guidedSteps": [
+          {
+              "step": 1,
+              "cmd": "git merge --no-ff feature/a",
+              "category": "required",
+              "why": "即使可快進，仍建立雙親合併提交。"
+          },
+          {
+              "step": 2,
+              "cmd": "git merge --squash feature/b",
+              "category": "required",
+              "why": "把整體變更放到索引，尚未建立提交，也不建立第二個 parent。"
+          },
+          {
+              "step": 3,
+              "cmd": "git commit -m \"feat: integrate b\"",
+              "category": "required",
+              "why": "保存 squash 快照。"
+          },
+          {
+              "step": 4,
+              "cmd": "git branch -d feature/a",
+              "category": "required",
+              "why": "刪除已可確認合併的分支。"
+          },
+          {
+              "step": 5,
+              "cmd": "git branch -D feature/b",
+              "category": "required",
+              "why": "squash 不保留祖先關係，確認內容後才強制刪除。"
+          }
+      ],
+      "variations": [],
+      "pitfalls": [
+          "GitHub 沒有獨立 Fast-forward 按鈕；命令列的快進是另一種拓撲行為。"
+      ]
   },
 
   '27': {
@@ -112,23 +182,75 @@ const COMMAND_GUIDES_EXTRA = {
   },
 
   '29': {
-    targetCommand: 'git rebase main -> conflict -> git add <file> -> git rebase --continue',
-    summary: '馴服 Rebase 中途衝突：掌握 rebase in progress 狀態機、ours/theirs 反轉與 abort/continue。',
-    scenarioContext: {
-      role: '向主線變基時遇到衝突的工程師',
-      situation: '你執行 git rebase main 整理分支，結果第 2 個 commit 發生衝突，終端機停在半途中。你需要冷靜解衝突並推進狀態。'
-    },
-    guidedSteps: [
-      { step: 1, cmd: 'git rebase main', category: 'required', why: '啟動變基，遇衝突時會停在發生問題的 commit 上。' },
-      { step: 2, cmd: 'git status', category: 'required', why: '觀察 rebase in progress 提示，找到衝突檔案。' },
-      { step: 3, cmd: 'git add <file>', category: 'required', why: '解決衝突後將檔案標記為 resolved（切勿在此時執行 git commit！）。' },
-      { step: 4, cmd: 'git rebase --continue', category: 'required', why: '告訴 Git 衝突已解決，繼續套用後續的 commits。' }
-    ],
-    variations: [
-      { cmd: 'git rebase --continue', desc: '解完衝突後繼續變基流程' },
-      { cmd: 'git rebase --abort', desc: '放棄變基，瞬間回到起始原點' },
-      { cmd: 'git rebase --skip', desc: '跳過當前 commit 不套用' }
-    ]
+      "targetCommand": "git switch abort-demo → git rebase main → git rebase --abort → git switch skip-demo → git rebase main → git rebase --skip → git switch feature → git rebase main → git add app.py → git rebase --continue",
+      "summary": "同一組提交在三個分支練習中斷處理；skip 會丟棄當前提交的變更。",
+      "guidedSteps": [
+          {
+              "step": 1,
+              "cmd": "git switch abort-demo",
+              "category": "required",
+              "why": "獨立試做，不改動最終 feature。"
+          },
+          {
+              "step": 2,
+              "cmd": "git rebase main",
+              "category": "required",
+              "why": "遇到 step 2 衝突。"
+          },
+          {
+              "step": 3,
+              "cmd": "git rebase --abort",
+              "category": "required",
+              "why": "回復原分支 tip 與開始前狀態。"
+          },
+          {
+              "step": 4,
+              "cmd": "git switch skip-demo",
+              "category": "required",
+              "why": "僅在此分支刻意捨棄 step 2。"
+          },
+          {
+              "step": 5,
+              "cmd": "git rebase main",
+              "category": "required",
+              "why": "再觸發同一衝突。"
+          },
+          {
+              "step": 6,
+              "cmd": "git rebase --skip",
+              "category": "required",
+              "why": "丟棄衝突提交，繼續 step 3；helper 與 test 仍應保留。"
+          },
+          {
+              "step": 7,
+              "cmd": "git switch feature",
+              "category": "required",
+              "why": "完成保留所有功能的正式練習。"
+          },
+          {
+              "step": 8,
+              "cmd": "git rebase main",
+              "category": "required",
+              "why": "衝突時在檔案頁整合 main 與 feature 的內容。"
+          },
+          {
+              "step": 9,
+              "cmd": "git add app.py",
+              "category": "required",
+              "why": "標記手動解法。"
+          },
+          {
+              "step": 10,
+              "cmd": "git rebase --continue",
+              "category": "required",
+              "why": "繼續重播其餘提交。"
+          }
+      ],
+      "variations": [],
+      "pitfalls": [
+          "Rebase 衝突中的 ours 通常是新基底側，theirs 是正在重播的提交，與日常 merge 的直覺可能不同。",
+          "Skip 並非快速解衝突；當前提交的差異會被捨棄。"
+      ]
   },
 
   '30': {
@@ -136,7 +258,7 @@ const COMMAND_GUIDES_EXTRA = {
     summary: '優雅修補歷史提交：利用 --fixup 標記與 --autosquash 自動移位嫁接。',
     scenarioContext: {
       role: 'PR 收到 Code Review 回饋的工程師',
-      situation: 'Reviewer 指出你 3 個 commit 前的檔案有個 typo。你不希望產生醜陋的 "fix typo" commit，而是希望將修改自動融進原 commit。'
+      situation: 'Reviewer 強哥在你的 PR 抓出 3 個 commit 前有個 typo。強哥嚴禁醜陋的 "fix typo" commit 污染歷史，請用 --fixup 進行微創手術自動融進原提交！'
     },
     guidedSteps: [
       { step: 1, cmd: 'git add validator.js', category: 'required', why: '暫存 typo 修復的改動。' },
@@ -150,24 +272,68 @@ const COMMAND_GUIDES_EXTRA = {
   },
 
   '31': {
-    targetCommand: 'git fetch origin && git rebase origin/main && git push --force-with-lease && git fetch --prune',
-    summary: '企業級 PR 完整生命週期：變基最新主線、安全租約強推與清理過期分支。',
-    scenarioContext: {
-      role: '團隊功能開發工程師',
-      situation: '你的 PR 在等 Review 時主線已更新。主管要求先 rebase 最新 main 再推，且必須使用最安全的 --force-with-lease，PR 合併後要清理分支。'
-    },
-    guidedSteps: [
-      { step: 1, cmd: 'git fetch origin', category: 'required', why: '抓取遠端最新分支指針與 commits。' },
-      { step: 2, cmd: 'git rebase origin/main', category: 'required', why: '將自己的特徵分支嫁接在遠端最新 main 上。' },
-      { step: 3, cmd: 'git push --force-with-lease', category: 'required', why: '安全強制推送：若遠端已被他人更新則自動拒絕，絕不盲目覆蓋同事進度。' },
-      { step: 4, cmd: 'git switch main && git pull', category: 'required', why: 'PR 合併後切回主線並拉取最新結果。' },
-      { step: 5, cmd: 'git branch -d feature/cart', category: 'required', why: '刪除本機已合併的特徵分支。' },
-      { step: 6, cmd: 'git fetch --prune', category: 'required', why: '清除本機殘留的已刪除遠端分支追蹤參照。' }
-    ],
-    variations: [
-      { cmd: 'git push --force-with-lease', desc: '帶有版本保護的現代強推最佳實踐' },
-      { cmd: 'git fetch --prune', desc: '同步清理本地過期的遠端分支紀錄' }
-    ]
+      "targetCommand": "git fetch origin → git rebase origin/main → git push --force-with-lease origin feature/cart → git lab pr merge → git switch main → git pull --ff-only → git branch -d feature/cart → git fetch --prune",
+      "summary": "更新既有 PR，再模擬遠端合併並同步清理。預設 lease 以本機 remote-tracking ref 為預期值。",
+      "guidedSteps": [
+          {
+              "step": 1,
+              "cmd": "git fetch origin",
+              "category": "required",
+              "why": "更新遠端追蹤參照。"
+          },
+          {
+              "step": 2,
+              "cmd": "git rebase origin/main",
+              "category": "required",
+              "why": "重播功能提交至最新主線。"
+          },
+          {
+              "step": 3,
+              "cmd": "git push --force-with-lease origin feature/cart",
+              "category": "required",
+              "why": "以租約更新改寫的功能歷史。"
+          },
+          {
+              "step": 4,
+              "cmd": "git lab pr merge",
+              "category": "required",
+              "why": "模擬託管服務合併 PR、刪除遠端功能分支；這是本練習指令，不是 Git 原生命令。"
+          },
+          {
+              "step": 5,
+              "cmd": "git switch main",
+              "category": "required",
+              "why": "回到本機主線。"
+          },
+          {
+              "step": 6,
+              "cmd": "git pull --ff-only",
+              "category": "required",
+              "why": "同步遠端合併結果。"
+          },
+          {
+              "step": 7,
+              "cmd": "git branch -d feature/cart",
+              "category": "required",
+              "why": "刪除已合併本機分支。"
+          },
+          {
+              "step": 8,
+              "cmd": "git fetch --prune",
+              "category": "required",
+              "why": "移除遠端已不存在的 tracking ref。"
+          }
+      ],
+      "variations": [
+          {
+              "cmd": "git push --force-with-lease=refs/heads/feature/cart:<expected-hash> origin feature/cart",
+              "desc": "明確指定預期遠端值，避免背景 fetch 更新預設租約基準。"
+          }
+      ],
+      "pitfalls": [
+          "Lease 不是絕對防護；背景 fetch 可能改變預期值。仍須審查範圍並與團隊協調。",
+          "git lab pr merge 只在瀏覽器模擬器使用；CLI 以本機 bare remote 模擬，真實 PR 合併在託管平台進行。"
+      ]
   },
 
   '32': {
@@ -190,7 +356,7 @@ const COMMAND_GUIDES_EXTRA = {
     summary: '先撤銷並輪替外洩密鑰，再清理本機與遠端歷史；推送後要求團隊重新 clone。',
     scenarioContext: {
       role: '資安事故應變工程師',
-      situation: '同事 3 個 commit 前不小心將包含 AWS Key 的 .env 推送至遠端！先撤銷並輪替憑證；Git 歷史改寫不會讓密鑰失效。清洗並推送後，要求團隊丟棄舊 clone、重新 clone。'
+      situation: '小明前輩 3 個 commit 前不小心將包含 AWS Key 的 .env 推送至遠端！資安前輩阿威全組通報：先撤銷並輪替憑證，再用重型工具抹除歷史，通知團隊重新 clone！'
     },
     guidedSteps: [
       { step: 1, cmd: 'git config lab.secret-rotation-confirmed yes', category: 'required', why: '先在憑證服務撤銷並輪替密鑰。這行只記錄你的確認，不會自動撤銷憑證；清理 Git 歷史也不會讓舊密鑰失效。' },
@@ -204,38 +370,92 @@ const COMMAND_GUIDES_EXTRA = {
   },
 
   '34': {
-    targetCommand: 'git submodule add <repo-url> libs/shared && git submodule update --init --recursive',
-    summary: '跨專案代碼復用：Git Submodule 子模組的引用、固定版本與遞迴同步。',
-    scenarioContext: {
-      role: '微服務或套件模組架構師',
-      situation: '專案需要引用外部共用函式庫，但希望保持獨立版本歷史與指定 Commit 鎖定。'
-    },
-    guidedSteps: [
-      { step: 1, cmd: 'git submodule add ./sub-repo libs/shared', category: 'required', why: '在專案中掛載外部子模組並建立 .gitmodules 配置檔。' },
-      { step: 2, cmd: 'git commit -am "feat: add shared submodule"', category: 'required', why: '提交子模組參照指針。' }
-    ],
-    variations: [
-      { cmd: 'git clone --recurse-submodules <url>', desc: 'Clone 專案時一併遞迴初始化子模組' },
-      { cmd: 'git submodule update --init', desc: '同步本地已註冊之子模組至目標版本' }
-    ]
+      "targetCommand": "git submodule add ./sub-repo libs/shared → git add .gitmodules libs/shared → git commit -m \"feat: add shared submodule\" → git submodule update --init --recursive",
+      "summary": "Submodule 是另一個倉庫，父專案保存 gitlink 指定提交；消費端 clone 後還要初始化與更新。",
+      "guidedSteps": [
+          {
+              "step": 1,
+              "cmd": "git submodule add ./sub-repo libs/shared",
+              "category": "required",
+              "why": "建立 .gitmodules 與 gitlink。"
+          },
+          {
+              "step": 2,
+              "cmd": "git add .gitmodules libs/shared",
+              "category": "required",
+              "why": "暫存設定與固定提交。"
+          },
+          {
+              "step": 3,
+              "cmd": "git commit -m \"feat: add shared submodule\"",
+              "category": "required",
+              "why": "保存父專案引用。"
+          },
+          {
+              "step": 4,
+              "cmd": "git submodule update --init --recursive",
+              "category": "required",
+              "why": "消費端初始化並檢出父專案記錄的提交。"
+          }
+      ],
+      "variations": [
+          {
+              "cmd": "git clone --recurse-submodules <url>",
+              "desc": "Clone 時一併初始化子模組。"
+          },
+          {
+              "cmd": "git submodule update --remote libs/shared",
+              "desc": "刻意取得子模組遠端新版本；檢查後父專案仍須提交新 gitlink。"
+          }
+      ],
+      "pitfalls": [
+          "子模組通常檢出 detached HEAD；要開發需在子模組建立或切換分支。",
+          "子模組的提交必須先推至其可存取的遠端，再推父專案的新 gitlink。"
+      ]
   },
 
   '35': {
-    targetCommand: 'git clone --filter=blob:none --sparse <url> && git sparse-checkout set packages/web',
-    summary: '超大型 Monorepo 救星：Sparse Checkout 局部檢出大幅縮減工作目錄體積。',
-    scenarioContext: {
-      role: 'Monorepo 前端開發者',
-      situation: '公司代碼庫高達 50GB，但你只需要開發 packages/web，透過 sparse-checkout 避免下載與檢出無關的龐大目錄。'
-    },
-    guidedSteps: [
-      { step: 1, cmd: 'git sparse-checkout init --cone', category: 'required', why: '啟用錐形 (Cone) 模式的局部檢出功能。' },
-      { step: 2, cmd: 'git sparse-checkout set packages/web', category: 'required', why: '僅在本地工作區檢出 packages/web 目錄，其餘資料夾全部隱藏。' }
-    ],
-    variations: [
-      { cmd: 'git sparse-checkout set <path>', desc: '指定只顯示特定子目錄' },
-      { cmd: 'git sparse-checkout disable', desc: '關閉局部檢出，恢復完整目錄' }
-    ]
-  }
+      "targetCommand": "git sparse-checkout init --cone → git sparse-checkout set packages/web → git sparse-checkout list",
+      "summary": "Sparse Checkout 控制工作區展開範圍，不會自行縮減已下載的歷史或所有物件。",
+      "guidedSteps": [
+          {
+              "step": 1,
+              "cmd": "git sparse-checkout init --cone",
+              "category": "required",
+              "why": "啟用以目錄為主的 cone 模式。"
+          },
+          {
+              "step": 2,
+              "cmd": "git sparse-checkout set packages/web",
+              "category": "required",
+              "why": "工作區保留選定目錄，cone 模式也保留所需祖先目錄檔案。"
+          },
+          {
+              "step": 3,
+              "cmd": "git sparse-checkout list",
+              "category": "required",
+              "why": "檢查目前展開範圍。"
+          }
+      ],
+      "variations": [
+          {
+              "cmd": "git sparse-checkout disable",
+              "desc": "恢復完整工作區。"
+          },
+          {
+              "cmd": "git clone --filter=blob:none --sparse <url>",
+              "desc": "結合 partial clone 延後 blob 下載與 sparse 工作區；需要遠端支援 filter。"
+          },
+          {
+              "cmd": "git clone --depth=1 <url>",
+              "desc": "Shallow clone 截短歷史，與 sparse 的工作區範圍不同。"
+          }
+      ],
+      "pitfalls": [
+          "Sparse Checkout 不是「只下載這個子目錄」。Partial、shallow、sparse 可以組合但控制不同層面。"
+      ]
+  },
+
 };
 
 if (typeof COMMAND_GUIDES !== 'undefined') {

@@ -6,13 +6,14 @@ from lab.engine import GitEngine
 
 class Scenario29(BaseScenario):
     id = "29"
-    title = "Rebase 中途衝突：continue / abort / skip"
+    title = '變基中斷：Continue、Abort 與 Skip'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "照主管說的 rebase main，結果在第 2 個 commit 發生衝突，終端機停在半途中。\n"
-        "請冷靜解讀衝突、編輯檔案、使用 git add 標記已解決，並執行 git rebase --continue 完成變基！"
+        "聽從強哥的建議執行 git rebase main，結果在第 2 個 commit 突然卡死爆發衝突，終端機停在半途中進退兩難！\n"
+        "請冷靜手動排除衝突，執行 git rebase --continue 順利把路走完，學會身為成熟工程師必備的變基續行力！"
     )
     goals = [
+        "先觸發衝突並 rebase --abort 回原序列；再於 skip-practice 略過明確可丟棄提交",
         "執行 git rebase main 觸發衝突並停在中間提交",
         "使用 git status 查看處於 rebase in progress 狀態",
         "手動編輯 app.py 消除 <<<<<<< 與 >>>>>>> 衝突標記",
@@ -20,7 +21,9 @@ class Scenario29(BaseScenario):
         "繼續完成變基流程：git rebase --continue"
     ]
     next_steps = [
-        "啟動變基：git rebase main",
+        "先 git rebase main 觸發衝突，再 git rebase --abort",
+        "git switch skip-practice；git rebase main 衝突時 --show-current-patch，確認 disposable commit 後 git rebase --skip",
+        "git switch feature；啟動正式變基：git rebase main",
         "第二筆提交發生衝突；解決時保留 main 的更新與 feature step 2：編輯 app.py",
         "標記暫存：git add app.py",
         "繼續變基：git rebase --continue",
@@ -49,6 +52,10 @@ class Scenario29(BaseScenario):
         engine.commit_file("helper.py", "def helper(): return True\n", "feat: feature step 1")
         engine.commit_file("app.py", "print('base - feature step 2')\n", "feat: feature step 2")
         engine.commit_file("feature.py", "FEATURE_ENABLED = True\n", "feat: feature step 3")
+        engine.run_git("branch", "feature-original")
+        engine.run_git("switch", "-c", "skip-practice", "main~1")
+        engine.commit_file("app.py", "print('disposable demo')\n", "disposable: skip this demo only")
+        engine.run_git("switch", "feature")
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
         # Check rebase in progress
@@ -89,4 +96,9 @@ class Scenario29(BaseScenario):
         if code != 0 or status.strip():
             return False, "衝突解決結果尚未完整提交；請執行 git add 與 git rebase --continue。"
 
+        _, skip, _ = engine.run_git("rev-parse", "skip-practice", check=False)
+        _, main, _ = engine.run_git("rev-parse", "main", check=False)
+        _, reflog, _ = engine.run_git("reflog", "--all", "--format=%gs", check=False)
+        if skip != main or "rebase (abort)" not in reflog:
+            return False, "請完成 abort 練習與 skip-practice 的可丟棄提交 skip；正式 feature 必須保留三筆提交。"
         return True, "太厲害了！你成功馴服了 Rebase 中途衝突，掌握了 continue / status 狀態機的推進精髓！"

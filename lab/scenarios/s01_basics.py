@@ -6,11 +6,11 @@ from lab.engine import GitEngine
 
 class Scenario01(BaseScenario):
     id = "01"
-    title = "工作區、暫存區與第一個 Commit"
+    title = '首次存檔：工作區、暫存區與提交'
     difficulty = "入門 ⭐"
     story = (
-        "你剛接手「便當快點」專案，系統已經為你準備好初始檔案：menu.txt 與主程式 app.py。\n"
-        "身為工程師，你的第一個任務是將這些原始碼納入 Git 版本控制，建立專案的第一個里程碑 (Commit)！"
+        "資深架構師強哥丟給你一份「便當快點」專案的原始碼，你花了一上午手抖著寫好初始檔案：menu.txt 與主程式 app.py。\n"
+        "身為剛入職的新人，你的第一個考驗是將這些心血納入 Git 版本控制，建立專案的第一個正式 Commit 里程碑！"
     )
     goals = [
         "使用 git status 查看工作區的 Untracked（未追蹤）檔案",

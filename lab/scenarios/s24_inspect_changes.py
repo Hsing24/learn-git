@@ -6,12 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario24(BaseScenario):
     id = "24"
-    title = "看懂變更：status / diff / log / show"
+    title = '接手專案：Status、Diff、Log 與 Show'
     difficulty = "入門 ⭐"
     story = (
-        "接手同事的半成品，工作區有改過的檔案、也有已暫存的檔案。\n"
-        "commit 前，先搞清楚「改了什麼、哪些已經暫存、歷史長怎樣」。\n"
-        "請在終端機練習各項檢視指令，並在 ANSWER.txt 寫入 utils.py 是 staged 還是 unstaged！"
+        "小明前輩下班前拍拍你的肩：「欸菜鳥，這支半成品你先看一下，明天接著寫。」\n"
+        "工作區有些被改動、暫存區有些被 stage，還有未追蹤的便簽。\n"
+        "在急著寫扣前，先用偵探四部曲看懂前輩到底改了什麼、歷史進度在哪裡！"
     )
     goals = [
         "使用 git status -s 檢視精簡狀態與雙欄標記",

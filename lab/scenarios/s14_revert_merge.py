@@ -26,15 +26,12 @@ def process_payment(amount):
 
 class Scenario14(BaseScenario):
     id = "14"
-    title = "線上緊急回滾：解救生產事故的 Revert Merge (git revert -m 1)"
+    title = '撤銷合併：Revert 的主線選擇'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "週五下午，一個新功能 PR 被合併到了 `main` 分支並發布上線。\n"
-        "十分鐘後監控警報狂響，新功能造成嚴重的生產事故 (P0 Outage)！主管要求立刻回滾主線。\n"
-        "當你輸入 `git revert <merge_commit>` 時，Git 卻報錯：\n"
-        "`fatal: commit ... is a merge but no -m option was given.`\n"
-        "這是因為 Merge 節點擁有兩個父節點（Parent 1 代表 target 分支如 main，Parent 2 代表 feature 分支）。\n"
-        "Git 不知道你想以誰作為基準線，因此必須使用 `-m 1` 指定保留主線父節點，生成乾淨的回滾提交！"
+        "災難降臨！小明前輩剛剛興高采烈合併進 main 的功能，一上線就讓生產環境掛點！\n"
+        "主管大喊：「快倒退！但絕對不能 force push 改寫主線歷史！」\n"
+        "身為在場唯一的冷靜工程師，請用 git revert -m 1 安全產生反向提交，挽救全公司的伺服器！"
     )
     goals = [
         "使用 git log 觀察當前 HEAD 是一個包含雙親的 Merge Commit",

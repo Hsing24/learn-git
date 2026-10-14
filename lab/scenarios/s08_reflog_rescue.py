@@ -6,16 +6,15 @@ from lab.engine import GitEngine
 
 class Scenario08(BaseScenario):
     id = "08"
-    title = "起死回生：Git Reflog 拯救失蹤的 Commit"
+    title = '誤刪提交：Reflog 救援'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "工程師生涯最驚魂的時刻！\n"
-        "剛才在終端機不小心手滑執行了毀滅性指令：git reset --hard HEAD~2！\n"
-        "你辛苦寫好的資料庫遷移 (migration.py) 與報表 (report.py) 瞬間從工作區蒸發，\n"
-        "連 git log 都完全看不到那兩個 commit 了！\n"
-        "冷靜！只要曾經 commit 過，Git 就默默幫你保留在黑盒子裡。請運用終極救援指令 git reflog 救回心血！"
+        "本來只想退回暫存，你手抖敲成了 git reset --hard HEAD~1，剛寫了一整個下午的核心功能直接蒸發！\n"
+        "你背後直冒冷汗、心跳飆破 180，心中開始打離職信草稿……別慌！Git 有時光黑盒子日記 git reflog，\n"
+        "趁前輩發現前偷偷把丟失的提交召喚回人間！"
     )
     goals = [
+        "reflog 是本地引用變動記錄，會過期；無法救回從未提交或已清除的物件",
         "執行 git log，體會重要 Commit 與檔案完全失蹤的危機狀態",
         "執行 git reflog，檢視本機所有 HEAD 移動日誌，找出誤刪前的 Commit 位置",
         "使用 git reset --hard HEAD@{1}（或該 Commit 的 7 碼 hash）回到手滑前那一刻",
@@ -45,6 +44,8 @@ class Scenario08(BaseScenario):
         engine.commit_file("migration.py", "def migrate(): pass\n", "feat: add database migration scripts")
         engine.commit_file("report.py", "def generate_report(): return 'OK'\n", "feat: add financial reports")
 
+        engine.run_git("config", "lab.scenario08.saved", engine.get_head_hash())
+
         # Simulate disaster!
         engine.run_git("reset", "--hard", "HEAD~2")
 
@@ -61,4 +62,7 @@ class Scenario08(BaseScenario):
         if count < 3:
             return False, f"目前分支上只有 {count} 個 Commit，尚未回到包含完整 3 個 Commit 的狀態。"
 
-        return True, "奇蹟生還！你掌握了 Git 世界最強大的後悔藥 git reflog，從此再也不用懼怕手滑造成的災難！"
+        _, saved, _ = engine.run_git("config", "--get", "lab.scenario08.saved", check=False)
+        if engine.get_head_hash() != saved.strip():
+            return False, "請用 reflog 救回原本提交，不是另造同名訊息。"
+        return True, "奇蹟生還！你掌握了 Git 世界最強大的後悔藥 git reflog，reflog 僅限本地且有保留期限；已清除或從未提交的內容無法保證救回。"

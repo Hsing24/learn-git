@@ -8,11 +8,12 @@ from lab.engine import GitEngine
 
 class Scenario28(BaseScenario):
     id = "28"
-    title = "Clone、首次推送與追蹤分支"
+    title = '加入協作：Clone 與追蹤分支'
     difficulty = "初階 ⭐⭐"
     story = (
-        "第一天要從公司遠端倉庫 clone 專案、開分支、推上去，並看懂 ahead/behind 是什麼意思。\n"
-        "實驗室已建立好模擬遠端中央倉庫。請先 clone 到 app 目錄，再開出 feature/profile 分支，提交修改並推送！"
+        "第一天進辦公室，強哥把公司的遠端 Repo 網址貼給你。\n"
+        "身為新人，請從 clone 專案開始，建立你的功能分支，設定 upstream 首次推送到遠端，\n"
+        "並學會用 git branch -vv 掌握本地與遠端的領先/落後動態！"
     )
     goals = [
         "將模擬遠端 clone 到 app 目錄：git clone ./.git-lab-remote-28 app",

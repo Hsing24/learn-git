@@ -7,23 +7,15 @@ from lab.engine import GitEngine
 
 class Scenario23(BaseScenario):
     id = "23"
-    title = "底層透視：.git 水管底層物件解密 (Plumbing: cat-file & SHA-1)"
+    title = '探索物件：Commit、Tree 與 Blob'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "高見龍老師《為你自己學 Git》全書最震撼的解密章節：『在 .git 目錄裡到底有什麼東西？』\n"
-        "日常我們操作的 `add`, `commit`, `branch` 被稱為高階『瓷器指令 (Porcelain)』；\n"
-        "而 Git 底層其實是一座精密的『內容尋址鍵值資料庫 (Content-Addressable Key-Value Store)』！\n"
-        "Git 核心由四種物件 (Objects) 構成：\n"
-        "1. `blob`：只存檔案內容，不存檔名\n"
-        "2. `tree`：目錄結構，記錄檔名與其對應的 blob/tree SHA-1 指標\n"
-        "3. `commit`：版本快照，指向一個 tree、雙親節點 (parent) 以及作者與提交訊息\n"
-        "4. `tag`：標籤物件\n"
-        "在本關中，你將化身 Git 內部核心黑客，透過水管底層指令 `git cat-file -t` (查型別) 與 `git cat-file -p` (傾印內容)，\n"
-        "一層層順藤摸瓜，從 HEAD 穿越 tree 直達 blob 檔案本體！"
+        "強哥對你說：「如果你只會 add 和 commit，那你只是個打字機；懂了 .git 物件資料庫，你才真正懂 Git。」\n"
+        "請化身底層駭客，用水管指令 git cat-file 剖析 blob、tree 與 commit 物件的真實結構，讓前輩對你刮目相看！"
     )
     goals = [
         "使用 git cat-file -t HEAD 驗證 HEAD 的物件型別為 commit",
-        "使用 git cat-file -p HEAD 檢視提交物件結構，並找出 tree 的 SHA-1 Hash",
+        "使用 git cat-file -p HEAD 檢視提交物件結構，並找出 tree 的物件 ID（預設 SHA-1；可選 SHA-256 儲存庫）",
         "使用 git cat-file -p <tree_hash> 檢視該目錄樹中的 app.py 指向的 blob hash",
         "使用 git cat-file -p <blob_hash> 直接印出 app.py 的原始檔案內容",
         "將探索結果寫入 inspection.txt 完成底層通關認證"

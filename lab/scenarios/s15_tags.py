@@ -7,19 +7,18 @@ from lab.engine import GitEngine
 
 class Scenario15(BaseScenario):
     id = "15"
-    title = "版本里程碑：Git Tag 與語意化版號發布 (Semantic Versioning)"
+    title = '版本標記：附註標籤'
     difficulty = "初階 ⭐⭐"
     story = (
-        "在軟體專案中，當程式碼開發到特定里程碑（如正式上線發布 Release）時，我們需要給特定 Commit 打上『版本標籤 (Git Tag)』，例如 `v1.0.0`。\n"
-        "Git 標籤分為兩種：\n"
-        "1. **輕量標籤 (Lightweight Tag)**：僅僅是一個指向 Commit 的不可變指標（類似不能移動的分支）。\n"
-        "2. **附註標籤 (Annotated Tag, `git tag -a`)**：Git 物件庫中的獨立物件，包含打標籤者、日期、簽署資訊與詳細的 Release Notes，是業界正式發布的標準做法！\n"
-        "此外，學會給歷史 Commit 補簽標籤、查詢標籤詳情、以及安全刪除打錯的標籤，是每個開發者的基本素養。"
+        "歷經千辛萬苦，團隊的產品終於迎來大改版。技術主管拍拍你的肩膀：「菜鳥，今天的正式發布由你來下標籤。」\n"
+        "請依照語意化版號規範 (Semantic Versioning)，使用 git tag 建立附註標籤，為專案刻下重要的里程碑！"
     )
     goals = [
+        "Annotated tag 有註解與 tagger，但不是密碼學簽章；tag -s 與驗證另於選修 48",
+        "推送 tag 不自動建立 Release；平台發布須另設 workflow 或手動建立",
         "在當前 HEAD 打上名為 v1.0.0 的附註標籤：git tag -a v1.0.0 -m 'Release v1.0.0'",
         "查詢歷史提交，找到『feat: user authentication system』對應的 Commit Hash",
-        "給該歷史 Commit 補簽名為 v0.9.0 的附註標籤：git tag -a v0.9.0 <hash> -m 'Beta v0.9.0'",
+        "給該歷史 Commit 補上名稱為 v0.9.0 的附註標籤：git tag -a v0.9.0 <hash> -m 'Beta v0.9.0'",
         "使用 git tag -n 查看所有標籤與其附帶的說明文字",
         "理解遠端推送 (git push origin --tags) 與遠端刪除標籤的規範"
     ]
@@ -65,8 +64,9 @@ class Scenario15(BaseScenario):
         guide_path.write_text(
             "# 🎯 Level 15：Git Tag 語意化版本管理指南\n\n"
             "## 輕量標籤 vs 附註標籤：\n"
-            "- 輕量標籤 (`git tag v1.0`)：只是個指標，沒有發布訊息與簽名。\n"
-            "- 附註標籤 (`git tag -a v1.0.0 -m '...'`)：完整 Git 物件，推薦正式發布使用！\n\n"
+            "- 輕量標籤 (`git tag v1.0`)：只是個指標，沒有 tagger 與附註訊息。\n"
+            "- 附註標籤 (`git tag -a v1.0.0 -m '...'`)：包含 tagger 與註解的 tag 物件；不是密碼學簽章！\n\n"
+            "Annotated tag 不自動簽署；密碼學簽章須 tag -s 與驗證。推送 tag 也不自動建立 Release，需要平台 workflow 或手動發布。\n"
             "## 操作任務：\n"
             "1. 替當前最新進度打上 `v1.0.0`：\n"
             "   ```bash\n"
@@ -76,7 +76,7 @@ class Scenario15(BaseScenario):
             "   ```bash\n"
             "   git log --oneline\n"
             "   ```\n"
-            "3. 給該歷史 Commit 補簽 `v0.9.0`：\n"
+            "3. 給該歷史 Commit 補上 `v0.9.0`：\n"
             "   ```bash\n"
             "   git tag -a v0.9.0 <目標CommitHash> -m 'Beta v0.9.0'\n"
             "   ```\n"

@@ -9,12 +9,12 @@ from lab.engine import GitEngine
 
 class Scenario33(BaseScenario):
     id = "33"
-    title = "密鑰已經推上遠端的事故處理"
+    title = '憑證外洩：輪替與歷史清理'
     difficulty = "進階 ⭐⭐⭐⭐⭐"
     story = (
-        "同事 3 個 commit 前不小心將包含 AWS 密鑰的 .env 提交並推送到遠端！\n"
-        "第一步必須先到憑證服務撤銷並輪替密鑰；改寫 Git 歷史不會讓已外洩的密鑰失效。\n"
-        "確認完成後，請清除本機與遠端歷史、加入 .gitignore，並通知團隊丟棄舊 clone、重新 clone。"
+        "下午三點警報大響！小明前輩在 3 個 commit 前不小心把含有 AWS 密鑰的 .env 推上了遠端倉庫！\n"
+        "切記職場保命原則：改寫 Git 歷史不會讓外洩密鑰失效，\n"
+        "必須先到雲端輪替廢棄，再用重型工具從歷史徹底抹除，最後通知全組重新 clone！"
     )
     goals = [
         "撤銷並輪替外洩密鑰後，記錄確認：git config lab.secret-rotation-confirmed yes",

@@ -15,14 +15,11 @@ except Exception as e:
 
 class Scenario10(BaseScenario):
     id = "10"
-    title = "時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug"
+    title = '定位回歸：Bisect 二分搜尋'
     difficulty = "實戰 ⭐⭐⭐⭐⭐"
     story = (
-        "專案在最近幾天累積了連續多個 Commit。\n"
-        "QA 回報：目前 HEAD 最新版執行 python3 test_calc.py 會直接報錯 Crash！\n"
-        "但在 5 個 commit 前的標籤 v1.0，測試完全正常通過。\n"
-        "中間歷經多次重構，肉眼逐一排查極為浪費時間。\n"
-        "請使用 Git 的二分搜尋利器 git bisect，用最少的步驟精準揪出引入 Bug 的元凶 Commit！"
+        "專案上百個 commit 中出現神秘未知 Bug，導致線上功能莫名失靈。主管在週會上嚴肅詢問是誰哪天弄壞的。\n"
+        "身為菜鳥，請化身時光偵探，啟動 git bisect 二分搜尋法，在幾分鐘內精準抓出是哪位前輩留下的內鬼！"
     )
     goals = [
         "執行 git bisect start 啟動二分偵探工作流",
@@ -87,7 +84,7 @@ class Scenario10(BaseScenario):
         code, out, _ = engine.run_git("log", "--grep=optimize arithmetic", "--format=%H", check=False)
         real_bad_hash = out.strip().lower()
 
-        if not real_bad_hash or (culprit not in real_bad_hash and real_bad_hash[:7] not in culprit):
+        if len(culprit) < 7 or not real_bad_hash.startswith(culprit):
             return False, f"你回報的 Commit Hash '{culprit}' 不是真正引入 Bug 的 Commit！請再次確認。"
 
         return True, "神探無誤！你成功運用 git bisect 在成千上萬的提交中以 O(log N) 的極速鎖定了 Bug 源頭！"

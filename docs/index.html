@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Git Scenario Lab 🚀 | 互動式終端機與可視化 Commit 樹狀圖</title>
-  <meta name="description" content="專為單人開發者打造的互動式 Git 終端機情境模擬器。瀏覽器內建可視化 Commit DAG 樹狀圖、檔案衝突檢視器，一鍵鋪設 Config、Merge Conflict、Rebase、Worktree、Reflog、Bisect、Hooks、Patch、Amend、Stash、Plumbing 等 24 大真實職場現場。">
+  <title>Git Scenario Lab | 互動式終端機與可視化 Commit 樹狀圖</title>
+  <meta name="description" content="從初學到進階的互動式 Git 情境練習。41 個 Web／CLI 核心關卡與 8 個 CLI 選修，搭配可視化提交歷史、檔案編輯與真實 Git 操作，學習暫存、分支、同步、衝突處理與工程工具。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261014-10">
+  <link rel="stylesheet" href="style.css?v=20261014-13">
 </head>
 <body>
 
@@ -16,7 +16,7 @@
   <header class="app-header">
     <div class="header-left">
       <a href="./" class="app-brand" title="回到首頁">
-        <span class="logo-icon">🚀</span>
+        <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="6" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M6 8v8m12-8c0 6-12 2-12 8"/></svg>
         <span>Git Scenario Lab</span>
       </a>
 
@@ -24,7 +24,7 @@
       <div class="level-selector-wrapper">
         <button id="level-select-btn" class="btn-level-select" title="點擊切換關卡">
           <span class="level-badge">00</span>
-          <span class="level-name">起點裝備：身分配置與 Auto-Push</span>
+          <span class="level-name">入職設定：提交作者身分</span>
           <span class="arrow-down">▼</span>
         </button>
         <div id="level-dropdown" class="level-dropdown-menu"></div>
@@ -34,16 +34,13 @@
     <!-- Header Action Controls -->
     <div class="header-right">
       <button class="btn-header" onclick="executeLabCommand('hint')" title="終端機印出通關提示">
-        <span>💡</span>
         <span>提示</span>
       </button>
       <button class="btn-header" onclick="executeLabCommand('reset')" title="重設當前關卡至初始狀態">
-        <span>🔄</span>
         <span>重設</span>
       </button>
       <button class="btn-header btn-header-primary" onclick="executeLabCommand('verify')" title="立即驗收目標是否達成">
-        <span>✅</span>
-        <span>驗收通關</span>
+        <span>驗收</span>
       </button>
 
       <!-- More Menu Dropdown -->
@@ -54,11 +51,9 @@
         </button>
         <div id="header-more-dropdown" class="header-more-dropdown">
           <button class="more-menu-item" onclick="openCourseMapModal(); closeHeaderMoreMenu();">
-            <span>🗺️</span>
             <span>課程地圖</span>
           </button>
           <button class="more-menu-item" onclick="openCheatsheet(); closeHeaderMoreMenu();">
-            <span>📖</span>
             <span>現代指令速查</span>
           </button>
           <a href="https://github.com/Hsing24/learn-git" target="_blank" class="more-menu-item" onclick="closeHeaderMoreMenu();">
@@ -111,7 +106,8 @@
           autocapitalize="off"
           spellcheck="false"
           autofocus
-          placeholder="輸入 git 指令或 'next' 前往下一關 (Tab 自動補全、↑/↓ 歷史紀錄)"
+          aria-label="Git 指令"
+          placeholder="輸入 git 指令（Tab 補全、↑/↓ 歷史）"
         >
       </div>
     </section>
@@ -119,43 +115,48 @@
     <!-- Right Panel: Visual Workbench (DAG Graph & File Inspector & Command Guide) -->
     <section class="visual-panel">
 
-      <!-- Navigation Tabs -->
-      <nav class="visual-tabs">
-        <button id="tab-btn-mission" class="tab-btn active" onclick="switchTab('mission')">
-          <span>🎯</span>
-          <span id="tab-title-mission">關卡任務 (0/2)</span>
+      <div class="visual-panel-header">
+        <h2 id="active-panel-title">任務</h2>
+      </div>
+
+      <!-- Right shortcut rail -->
+      <nav class="visual-tabs" role="tablist" aria-label="工作區視窗" aria-orientation="vertical">
+        <button id="tab-btn-graph" class="tab-btn" role="tab" aria-controls="tab-pane-graph" aria-selected="false" tabindex="-1" onclick="switchTab('graph')">
+          <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="6" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M6 8v8m12-8c0 6-12 2-12 8"/></svg>
+          <span>Git Tree</span>
         </button>
-        <button id="tab-btn-guide" class="tab-btn" onclick="switchTab('guide')">
-          <span>📖</span>
-          <span>詳細解說</span>
+        <button id="tab-btn-mission" class="tab-btn active" role="tab" aria-controls="tab-pane-mission" aria-selected="true" tabindex="0" onclick="switchTab('mission')">
+          <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m3 6 2 2 4-4m-6 9 2 2 4-4m-6 9 2 2 4-4M13 6h8m-8 7h8m-8 7h8"/></svg>
+          <span>任務</span>
+          <span id="tab-title-mission" class="rail-progress">0/2</span>
         </button>
-        <button id="tab-btn-graph" class="tab-btn" onclick="switchTab('graph')">
-          <span>🌳</span>
-          <span>Git 樹狀圖(DAG)</span>
-        </button>
-        <button id="tab-btn-files" class="tab-btn" onclick="switchTab('files')">
-          <span>📁</span>
+        <button id="tab-btn-files" class="tab-btn" role="tab" aria-controls="tab-pane-files" aria-selected="false" tabindex="-1" onclick="switchTab('files')">
+          <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7V4h6l2 3h10v13H3Z"/></svg>
           <span>檔案總管</span>
+        </button>
+        <button id="tab-btn-guide" class="tab-btn" role="tab" aria-controls="tab-pane-guide" aria-selected="false" tabindex="-1" onclick="switchTab('guide')">
+          <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v16m0-16C9 2 4 3 2 4v15c3-1 7-1 10 2m0-16c3-3 8-2 10-1v15c-3-1-7-1-10 2"/></svg>
+          <span>補充說明</span>
         </button>
       </nav>
 
       <!-- Tab 0: Mission Tasks & Progress Checklist (Default Active) -->
-      <div id="tab-pane-mission" class="tab-content active">
-        <div id="mission-container" class="mission-scroll-container">
-          <!-- Dynamically populated by app.js: Required tasks with live tick marks + Common/Optional commands -->
+      <div id="tab-pane-mission" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-mission">
+        <div id="mission-container" class="mission-scroll-container" tabindex="0" role="region" aria-label="任務內容">
+          <!-- Required tasks with live completion status -->
         </div>
       </div>
 
-      <!-- Tab 1: Detailed Pedagogical Guide (詳細解說) -->
-      <div id="tab-pane-guide" class="tab-content">
-        <div id="guide-container" class="guide-scroll-container">
+      <!-- Tab 1: Supplementary command notes -->
+      <div id="tab-pane-guide" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-guide" hidden>
+        <div id="guide-container" class="guide-scroll-container" tabindex="0" role="region" aria-label="指令補充說明">
           <!-- Dynamically populated by app.js from command-guides.js -->
         </div>
       </div>
 
       <!-- Tab 2: Interactive SVG Graph (Git 樹狀圖(DAG)) -->
-      <div id="tab-pane-graph" class="tab-content">
-        <div class="graph-container">
+      <div id="tab-pane-graph" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-graph" hidden>
+        <div class="graph-container" tabindex="0" role="region" aria-label="Git 提交樹狀圖">
           <svg id="git-graph-svg" width="800" height="480" viewBox="0 0 800 480"></svg>
           <div class="graph-legend">
             <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div> Commit</div>
@@ -168,9 +169,9 @@
       </div>
 
       <!-- Tab 3: File Tree & Conflict Inspector (檔案總管) -->
-      <div id="tab-pane-files" class="tab-content">
+      <div id="tab-pane-files" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-files" hidden>
         <div class="file-workbench">
-          <div class="files-sidebar">
+          <div class="files-sidebar" tabindex="0" role="region" aria-label="工作目錄檔案">
             <div class="files-sidebar-title">工作目錄檔案清單</div>
             <div id="files-list" class="files-list"></div>
           </div>
@@ -179,10 +180,17 @@
               <span id="file-viewer-name">README.md</span>
               <div id="conflict-actions" class="conflict-banner" style="display: none;">
                 <span style="font-size: 0.8rem; color: #ff7b72; font-weight: 600;">⚡ 衝突標記待處理</span>
-                <button class="btn-resolve-conflict" onclick="resolveConflictInUI()">快速套用合併解法</button>
+                <button class="btn-resolve-conflict" onclick="resolveConflictInUI()">編輯衝突內容</button>
               </div>
             </div>
-            <pre id="file-viewer-content" class="file-viewer-code">// 選擇檔案檢視內容</pre>
+            <pre id="file-viewer-content" class="file-viewer-code" tabindex="0" role="region" aria-label="檔案內容">// 選擇檔案檢視內容</pre>
+            <textarea id="file-editor" class="file-viewer-code file-editor" aria-label="編輯工作區檔案" spellcheck="false" hidden></textarea>
+            <div class="file-editor-actions">
+              <button id="btn-edit-file" class="btn-resolve-conflict" type="button">編輯檔案</button>
+              <button id="btn-save-file" class="btn-resolve-conflict" type="button" hidden>儲存至工作區</button>
+              <button id="btn-cancel-edit" class="btn-resolve-conflict" type="button" hidden>取消</button>
+              <span id="file-editor-status" role="status" aria-live="polite"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -192,12 +200,12 @@
   </main>
 
   <!-- Scenario Intro Modal Alert Dialog -->
-  <div id="mission-modal" class="modal-overlay">
+  <div id="mission-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-story">
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title-row">
           <span id="modal-bracket-tag" class="bracket-tag">[關卡 00]</span>
-          <h3 id="modal-title" class="modal-title">起點裝備：Git 身分、SSH 憑證與 Auto-Push</h3>
+          <h3 id="modal-title" class="modal-title">入職設定：提交作者身分</h3>
         </div>
       </div>
       <div class="modal-body">
@@ -209,7 +217,7 @@
         <label class="modal-hide-checkbox-label">
           <input type="checkbox" id="modal-hide-intro-cb"> 不再自動彈出情境提示
         </label>
-        <button id="btn-modal-confirm" class="btn-modal btn-modal-primary" onclick="confirmScenarioStart()">確定 ➜</button>
+        <button id="btn-modal-confirm" class="btn-modal btn-modal-primary" onclick="confirmScenarioStart()">開始練習</button>
       </div>
     </div>
   </div>
@@ -228,7 +236,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal" onclick="closeVictoryModal()">留在此關把玩</button>
-        <button class="btn-modal btn-modal-primary" onclick="nextScenario()">前往下一關 🚀</button>
+        <button class="btn-modal btn-modal-primary" onclick="nextScenario()">前往下一關</button>
       </div>
     </div>
   </div>
@@ -237,7 +245,7 @@
   <div id="rebase-modal" class="modal-overlay">
     <div class="modal-card modal-card-large">
       <div class="modal-header">
-        <h3 id="rebase-modal-title">🔄 互動式變基 (Interactive Rebase)</h3>
+        <h3 id="rebase-modal-title">互動式變基 (Interactive Rebase)</h3>
         <button class="btn-modal" onclick="abortInteractiveRebase()">✕</button>
       </div>
       <div class="modal-body" id="rebase-modal-body">
@@ -337,7 +345,7 @@
       <div class="modal-header">
         <div class="modal-title-row">
           <span class="bracket-tag">[課綱全景]</span>
-          <h3 class="modal-title">🗺️ Git 實戰工程師修煉地圖 (8 大章節)</h3>
+          <h3 class="modal-title">Git 實戰工程師修煉地圖 (8 大章節)</h3>
         </div>
         <button class="btn-modal" onclick="closeCourseMapModal()">✕</button>
       </div>
@@ -371,7 +379,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal" onclick="closeGraduationModal()">留在此關複習</button>
-        <button id="btn-graduation-next" class="btn-modal btn-modal-primary">前往下一章 🚀</button>
+        <button id="btn-graduation-next" class="btn-modal btn-modal-primary">前往下一章</button>
       </div>
     </div>
   </div>
@@ -380,16 +388,18 @@
   <canvas id="confetti-canvas"></canvas>
 
   <!-- Scripts -->
-  <script src="git-engine.js?v=20261014-10"></script>
-  <script src="graph-renderer.js?v=20261014-10"></script>
-  <script src="command-guides.js?v=20261014-10"></script>
-  <script src="command-guides-extra.js?v=20261014-10"></script>
-  <script src="cheatsheet-data.js?v=20261014-10"></script>
-  <script src="scenarios-data.js?v=20261014-10"></script>
-  <script src="scenarios-extra.js?v=20261014-10"></script>
-  <script src="curriculum.js?v=20261014-10"></script>
-  <script src="curriculum-navigation.js?v=20261014-10"></script>
-  <script src="app.js?v=20261014-10"></script>
+  <script src="git-engine.js?v=20261014-13"></script>
+  <script src="graph-renderer.js?v=20261014-13"></script>
+  <script src="command-guides.js?v=20261014-13"></script>
+  <script src="command-guides-extra.js?v=20261014-13"></script>
+  <script src="command-guides-foundations.js?v=20261014-13"></script>
+  <script src="cheatsheet-data.js?v=20261014-13"></script>
+  <script src="scenarios-data.js?v=20261014-13"></script>
+  <script src="scenarios-extra.js?v=20261014-13"></script>
+  <script src="scenarios-foundations.js?v=20261014-13"></script>
+  <script src="curriculum.js?v=20261014-13"></script>
+  <script src="curriculum-navigation.js?v=20261014-13"></script>
+  <script src="app.js?v=20261014-13"></script>
 
 </body>
 </html>

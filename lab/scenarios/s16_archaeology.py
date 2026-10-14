@@ -7,16 +7,12 @@ from lab.engine import GitEngine
 
 class Scenario16(BaseScenario):
     id = "16"
-    title = "代碼考古學：git log -S 語意搜尋與 git blame 責任溯源"
+    title = '追溯變更：Pickaxe 與 Blame'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "接手龐大或歷史悠久的代碼庫時，最常遇到的兩大挑戰：\n"
-        "1. 某個關鍵變數或配置字串神祕失蹤，想知道『究竟是誰、在哪個 Commit 引入或刪除了它』？\n"
-        "2. 看到某行奇怪的業務邏輯，想知道『當初是誰寫的、在什麼背景下被提交的』？\n"
-        "盲目翻閱幾百個 commit 猶如大海撈針。\n"
-        "Git 內建的考古神器：\n"
-        "- **鶴嘴鎬搜尋 (Pickaxe Search: `git log -S`)**：精準揪出『改變了指定字串出現次數』的 Commit！\n"
-        "- **逐行追溯 (`git blame`)**：一秒看清指定檔案每一行的作者、時間與 Commit Hash！"
+        "專案某行核心計費程式碼被改掉了，主管問是誰改的，大家面面相覷。\n"
+        "身為最沒包袱的新人，請使用 git log -S 搜尋字串出現次數變更，搭配 git blame 責任溯源，\n"
+        "看看到底是哪位前輩在深夜偷偷下的毒手！"
     )
     goals = [
         "使用 git log -S 'CRITICAL_SECRET_TOKEN' --oneline 精確找出引入該密鑰的 Commit",
@@ -26,7 +22,7 @@ class Scenario16(BaseScenario):
     ]
     next_steps = [
         "查看任務指引：cat TASK.md",
-        "執行鶴嘴鎬語意搜尋：git log -S 'CRITICAL_SECRET_TOKEN' --oneline",
+        "執行鶴嘴鎬字串出現次數搜尋：git log -S 'CRITICAL_SECRET_TOKEN' --oneline",
         "記錄該 Commit Hash：echo '<目標CommitHash>' > ANSWER_COMMIT.txt",
         "逐行追溯代碼：git blame database.py",
         "驗收成果：./git-lab verify"
@@ -107,7 +103,7 @@ class Scenario16(BaseScenario):
             "專案中存在一個關鍵密鑰：`CRITICAL_SECRET_TOKEN`。\n"
             "請運用 Git 考古技巧回答以下問題：\n\n"
             "## 任務步驟：\n"
-            "1. 使用鶴嘴鎬語意搜尋指令找出引進該 Token 的 Commit：\n"
+            "1. 使用鶴嘴鎬字串出現次數搜尋指令找出引進該 Token 的 Commit：\n"
             "   ```bash\n"
             "   git log -S 'CRITICAL_SECRET_TOKEN' --oneline\n"
             "   ```\n"
@@ -142,7 +138,7 @@ class Scenario16(BaseScenario):
         # 檢查使用者的輸入是否匹配任何一個目標 hash (支援前綴匹配)
         matched = False
         for th in target_hashes:
-            if th.startswith(user_input) or user_input.startswith(th[:7]):
+            if len(user_input) >= 7 and th.startswith(user_input):
                 matched = True
                 break
 

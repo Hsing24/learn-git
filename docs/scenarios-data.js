@@ -1,15 +1,15 @@
 /**
- * SCENARIOS_DATA - 18 大真實專案現場關卡定義
+ * SCENARIOS_DATA - 核心關卡 00–23 定義
  * 結合真實工作情境、任務目標、初始化狀態與自動驗證邏輯
  */
 
 const SCENARIOS = [
   {
     id: '00',
-    title: '起點裝備：Git 身分、SSH 憑證與 Auto-Push',
+    title: '入職設定：提交作者身分',
     difficulty: '新手必備 🔰',
     category: '基礎裝備',
-    story: '身為小菜雞的您到公司報到，拿到公司買新電腦給資深同事後換下來重灌後的舊電腦並安裝了 git，此時請為您的電腦環境設定 git 吧',
+    story: '入職第一天，你小心翼翼坐在工位上，行政人員搬來一台散熱風扇呼呼狂轉的舊筆電：「這是強哥升級 M3 Max 之後汰換下來的二手筆電，重灌過囉！」你打開終端機，深知如果現在直接 commit，所有產出可能都會被算成強哥的——或者更慘，強哥以前留下的 Bug 都會算在你頭上！請立刻用 git config 設定自己的真名與 Email，提交作者資訊與登入遠端是兩件事；本關先設定作者。',
     goals: [
       '[必備] 配置使用者身分：git config user.name "你的名字" (或加上 --global)',
       '[必備] 配置使用者信箱：git config user.email "you@example.com" (或加上 --global)',
@@ -30,14 +30,14 @@ const SCENARIOS = [
       const email = git.config['user.email'];
       const hasName = Boolean(name && name.trim() !== '' && name !== 'User');
       const hasEmail = Boolean(email && email.includes('@'));
-      const hasAutoPush = git.config['push.autoSetupRemote'] === 'true';
+      const hasAutoTracking = git.config['push.autoSetupRemote'] === 'true';
 
       if (!hasName) return { passed: false, message: '尚未配置 user.name！請執行：git config user.name "你的名字"' };
       if (!hasEmail) return { passed: false, message: '尚未配置 user.email！請執行：git config user.email "you@example.com"' };
 
-      const bonusMsg = hasAutoPush
-        ? '\n⭐ [解鎖進階神器成就] 你同時開啟了 push.autoSetupRemote，未來任何新分支只需敲 git push 即可自動同步遠端！'
-        : '\n💡 [推薦可選小撇步] 你還可以額外輸入 git config push.autoSetupRemote true，體驗免敲 --set-upstream 的極速 push！';
+      const bonusMsg = hasAutoTracking
+        ? '\n⭐ [選用設定] 你同時開啟了 push.autoSetupRemote，使用預設 simple/current/upstream 推送時，可在尚未設定 upstream 的分支首次推送時自動建立追蹤；不會自動執行 push。'
+        : '\n💡 [選用設定] 你還可以額外輸入 git config push.autoSetupRemote true，了解首次推送的 upstream 自動設定。';
 
       return {
         passed: true,
@@ -48,10 +48,10 @@ const SCENARIOS = [
 
   {
     id: '01',
-    title: '工作區、暫存區與第一個 Commit',
+    title: '首次存檔：工作區、暫存區與提交',
     difficulty: '入門 ⭐',
     category: '基礎裝備',
-    story: '剛接手專案的小菜雞寫好了第一版 index.html 與 style.css，現在要把這些新寫好的程式碼打包暫存並拍照存檔，建立專案的第一個正式 Commit。',
+    story: '強哥丟給你一份「便當訂餐系統」的原始碼需求，你花了一上午手抖著寫好第一版程式。現在要把這些心血打包存檔。身為剛入職的新人，你的第一個考驗是：搞懂「工作區」與「暫存區」的差別，建立你在此專案的第一個正式 Commit 里程碑！',
     goals: [
       '使用 git status 查看當前未追蹤檔案',
       '使用 git add . 將所有檔案加入暫存區',
@@ -67,6 +67,8 @@ const SCENARIOS = [
     },
     checkGoal: (git) => {
       const commits = Array.from(git.commits.values());
+      const head = git.getHeadCommit();
+      if (!head || head.tree.get('index.html') !== '<!DOCTYPE html><html><body><h1>Hello Git</h1></body></html>' || head.tree.get('style.css') !== 'body { margin: 0; background: #000; }' || [...head.tree].some(([f, c]) => git.index.get(f) !== c || git.workingTree.get(f) !== c)) return { passed: false, message: '請將 index.html 與 style.css 原始內容一併暫存並提交，確認追蹤檔案乾淨。' };
       if (commits.length === 0) return { passed: false, message: '尚未建立任何 Commit！請執行 git add . 與 git commit -m "..."' };
       return {
         passed: true,
@@ -77,19 +79,19 @@ const SCENARIOS = [
 
   {
     id: '02',
-    title: '分支流動與 Fast-Forward 合併',
+    title: '功能開發：分支與快進合併',
     difficulty: '初階 ⭐⭐',
     category: '分支合併',
-    story: '資深前輩提醒菜雞：「千萬別直接在 main 上亂改！」請從小菜雞的角度開出 feature/login 分支開發登入功能，完成後安全快進合併回 main。',
+    story: '鄰座的小明前輩探頭低聲警告：「菜鳥，千萬別直接在 main 上狂寫！上次有人在 main 亂改被強哥念了整個下午。」請從小菜鳥的角度開出 feature/login 分支開發新功能，完成提交後切回主線，體驗絲滑順暢的 Fast-Forward 快進合併！',
     goals: [
       '開出並切換至新分支：git switch -c feature/login',
-      '在新分支上提交程式碼：git commit -m "feat: add login page"',
+      '編輯 app.js 加入登入功能，再 git add app.js 與 git commit -m "feat: add login page"',
       '切回 main 分支：git switch main',
       '將登入功能合併進 main：git merge feature/login'
     ],
     hints: [
       '使用現代指令：git switch -c feature/login',
-      '提交一個 commit：git commit -m "feat: add login"',
+      '先在檔案頁修改 app.js，再 git add app.js 與 git commit -m "feat: add login"',
       '切回主線：git switch main',
       '快進合併：git merge feature/login'
     ],
@@ -99,12 +101,15 @@ const SCENARIOS = [
       git.HEAD = { type: 'branch', target: 'main' };
       git.workingTree.set('app.js', 'console.log("init");');
       git.index.set('app.js', 'console.log("init");');
+      git.scenarioMeta = { baseId: c.id, initialContent: c.tree.get('app.js') };
     },
     checkGoal: (git) => {
       const mainId = git.branches.get('main');
       const loginId = git.branches.get('feature/login');
       if (!loginId) return { passed: false, message: '尚未建立 feature/login 分支！' };
       if (git.getCurrentBranch() !== 'main') return { passed: false, message: '合併完成後請切回 main 分支！' };
+      const head = git.getHeadCommit();
+      if (loginId === git.scenarioMeta.baseId || !head || head.tree.get('app.js') === git.scenarioMeta.initialContent || head.parents.length !== 1 || !git.isAncestor(git.scenarioMeta.baseId, mainId)) return { passed: false, message: '請先在 feature/login 修改並提交 app.js，再快進合併到 main。' };
       if (mainId !== loginId) return { passed: false, message: 'main 分支尚未合併 feature/login 分支！請執行 git merge feature/login' };
 
       return {
@@ -116,10 +121,10 @@ const SCENARIOS = [
 
   {
     id: '03',
-    title: '迎戰衝突：手動解決 Merge Conflict',
+    title: '同時修改：解決合併衝突',
     difficulty: '進階 ⭐⭐⭐',
     category: '分支合併',
-    story: '小菜雞跟同事改到了同一支檔案同一行，git merge 跳出衝突大爆炸！請冷靜打開檔案手動化解衝突標記並完成合併。',
+    story: '真實的辦公室車禍現場！你滿心歡喜寫好新功能準備合併，終端機卻噴出刺眼紅字：CONFLICT！抬頭一看，小明前輩若無其事地喝咖啡：「啊，我剛剛也改了同一行，忘記跟你說了～」眼前出現 <<<<<<< HEAD 如拆彈剪線，全辦公室都在看你，請冷靜手動化解衝突並完成合併！',
     goals: [
       '嘗試合併：git merge feature/dark-mode（觸發衝突）',
       '解決衝突：編輯 style.css，移除 <<<<<<< 與 >>>>>>> 標記',
@@ -127,7 +132,7 @@ const SCENARIOS = [
     ],
     hints: [
       '直接執行 git merge feature/dark-mode 觸發衝突',
-      '衝突發生後，切換到上方「📁 檔案」頁籤可直接點擊「解決衝突」，或執行 git commit 完成合併'
+      '衝突發生後，切換到上方「📁 檔案」頁籤可直接點擊「解決衝突」，手動確認內容，git add style.css 後才 git commit 完成合併'
     ],
     setup: (git) => {
       const c1 = git.createCommit({ message: 'feat: initial theme', tree: new Map([['style.css', 'body { color: #333; }']]) });
@@ -164,10 +169,10 @@ const SCENARIOS = [
 
   {
     id: '04',
-    title: 'Rebase 藝術：使用 git rebase 保持線性歷史',
+    title: '主線更新：Rebase 與線性歷史',
     difficulty: '進階 ⭐⭐⭐',
     category: '進階歷史',
-    story: '菜雞發 PR 時被主管要求：「歷史太亂了，rebase 一下保持線性！」請使用 git rebase 把分支整合成乾淨的一條線。',
+    story: '你剛送出 PR，強哥馬上在 Slack 敲你：「你這分支歷史怎麼跟蜘蛛網一樣？分支岔出去那麼久，給我 rebase 最新 main，歷史保持一條直線再提！」為了不在試用期第一個月被釘在牆上，請用 git rebase 將分支嫁接到最新主線後方！',
     goals: [
       '確認當前在 feature 分支上',
       '執行 rebase：git rebase main',
@@ -225,17 +230,17 @@ const SCENARIOS = [
 
   {
     id: '05',
-    title: '歷史整形：Interactive Rebase 整理零碎 Commit',
+    title: '整理草稿：互動式 Rebase',
     difficulty: '進階 ⭐⭐⭐',
     category: '進階歷史',
-    story: '菜雞在本地狂敲一堆「fix bug」、「wip」、「test」零碎提交，被主管噴之前，請用 git rebase -i 把碎提交 squash 合併整理乾淨。',
+    story: '昨晚你為了解一個 Bug，本地狂敲了一堆「wip」、「fix bug」、「test again」、「真的最後一次」碎提交。眼看技術主管端著咖啡朝你走過來，趁他點開 GitHub 之前，快用 git rebase -i 啟動歷史整形手術，把遮羞布們 squash 合併成專業又體面的完美提交！',
     goals: [
       '將最近的零碎提交整理為精簡的提交歷史',
       '保持最終 HEAD 只有 1 個完整功能的 commit'
     ],
     hints: [
-      '你可以使用 git reset --soft HEAD~2 重新包裝成一個完整提交',
-      '或者使用 git commit --amend 修補最新提交'
+      '執行 git rebase -i HEAD~2；保留第一行 pick，第二行改 squash 或 fixup',
+      '編輯合併後的提交訊息。amend 只能修補最新提交，不能單獨合併兩個既有提交。'
     ],
     setup: (git) => {
       const c1 = git.createCommit({ message: 'feat: scaffold', tree: new Map([['payment.js', '// payment module\n']]) });
@@ -294,10 +299,10 @@ const SCENARIOS = [
 
   {
     id: '06',
-    title: '模擬協作：遠端衝突與 Non-Fast-Forward Push 被拒',
+    title: '推送被拒：同步遠端並保留雙方提交',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '協作救援',
-    story: '菜雞興奮地敲 git push 卻被遠端狠狠拒絕（Non-Fast-Forward）！原來別人搶先推了進度，請用 git pull --rebase 優雅解套。',
+    story: '寫完功能自信滿滿敲下 git push，終端機卻狠狠賞了你一巴掌：[rejected - non-fast-forward]！原來小明前輩手速更快，搶先一步推了進度。切記職場保命守則：絕對不能用 --force 蓋掉前輩的 code！請用 git pull --rebase 優雅超車再推送！',
     goals: [
       '嘗試 push 觀察 rejected 錯誤',
       '執行 pull rebase：git pull --rebase',
@@ -375,49 +380,36 @@ const SCENARIOS = [
   },
 
   {
-    id: '07',
-    title: '精準挑選：跨分支 Cherry-pick 偷渡關鍵 Commit',
-    difficulty: '實戰 ⭐⭐⭐',
-    category: '協作救援',
-    story: '隔壁部門看中小菜雞分支上某一個特定的 Bug 修復 commit，請用 git cherry-pick 精確偷渡該節點到發布分支。',
-    goals: [
-      '確認當前在 main 分支',
-      '使用 git log experimental 查看安全修補 Commit 的 Hash',
-      '精準 cherry-pick 該 commit：git cherry-pick <commitHash>'
-    ],
-    hints: [
-      '切換到 main：git switch main',
-      '執行 git cherry-pick 加上該修復提交的 Hash（例如 b2c3d4e）'
-    ],
+    id: "07",
+    title: '挑選修復：Cherry-pick 與衝突處理',
+    difficulty: "初階 ⭐⭐",
+    category: "協作救援",
+    story: "只取實驗分支的修復，不引入未完成功能。main 與修復改到同一行；先體驗 abort 回到原狀，再重試解衝突並 continue。",
+    goals: ["在 main 執行 git cherry-pick sec001，觀察衝突", "git cherry-pick --abort 回復原狀", "重新挑選 sec001，將 auth.js 解成同時保留審計與驗證", "git add auth.js，git cherry-pick --continue"],
+    hints: ["查看 git log experimental --oneline", "衝突內容可改成 authorizeWithAuditAndValidation();，再 add 與 --continue"],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: stable main' });
-      git.branches.set('main', c1.id);
-
-      const c2 = git.createCommit({ message: 'wip: experimental messy code', parents: [c1.id] });
-      const cSecurity = git.createCommit({ message: 'fix: critical security patch', parents: [c2.id], hash: 'sec001' });
-      const c3 = git.createCommit({ message: 'wip: half-baked AI model', parents: [cSecurity.id] });
-      git.branches.set('experimental', c3.id);
-
-      git.checkoutOrSwitch('main');
+      const base = git.createCommit({ message: 'feat: authorization base', tree: new Map([['auth.js', 'authorize();\n']]) });
+      const main = git.createCommit({ message: 'feat: audit authorization', parents: [base.id], tree: new Map([['auth.js', 'authorizeWithAudit();\n']]) });
+      const messy = git.createCommit({ message: 'wip: experiment', parents: [base.id], tree: new Map([...base.tree, ['experiment.js', 'unfinished();\n']]) });
+      const fix = git.createCommit({ message: 'fix: validate authorization', hash: 'sec001', parents: [messy.id], tree: new Map([['auth.js', 'authorizeWithValidation();\n'], ['experiment.js', 'unfinished();\n']]) });
+      git.branches.set('main', main.id); git.branches.set('experimental', fix.id); git.checkoutOrSwitch('main');
+      git.scenarioMeta = { mainId: main.id, resolved: 'authorizeWithAuditAndValidation();\n' };
     },
     checkGoal: (git) => {
       const head = git.getHeadCommit();
-      if (git.getCurrentBranch() === 'main' && head && head.message.includes('security patch')) {
-        return {
-          passed: true,
-          message: '🎉 完美採摘！你成功使用 git cherry-pick 將關鍵安全修復偷渡到穩定主線，而巨大的未完成實驗程式碼依然留在原處！'
-        };
-      }
-      return { passed: false, message: 'main 分支最新提交尚未包含 security patch！請執行 git cherry-pick sec001' };
+      const aborted = (git.operationHistory || []).some(o => o.command === 'cherry-pick' && o.args.includes('--abort'));
+      if (!aborted) return { passed: false, message: '先在衝突中執行 cherry-pick --abort，再重試。' };
+      if (git.getCurrentBranch() !== 'main' || !head || head.parents[0] !== git.scenarioMeta.mainId || head.tree.get('auth.js') !== git.scenarioMeta.resolved || head.tree.has('experiment.js') || git.cherryPickInProgress) return { passed: false, message: '請只套用修復、保留 main 的審計行為，解決衝突後 --continue。' };
+      return { passed: true, message: '已挑選修復並保留主線內容，實驗檔案未被引入。' };
     }
   },
 
   {
     id: '08',
-    title: '起死回生：Git Reflog 拯救失蹤的 Commit',
+    title: '誤刪提交：Reflog 救援',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '協作救援',
-    story: '菜雞手抖敲了 git reset --hard 誤刪心血程式碼，嚇得冷汗直流！請使用神秘的 git reflog 黑盒子日記救回失蹤的 Commit。',
+    story: '本來只想退回暫存，手抖敲成了 git reset --hard HEAD~1，今天整整四個小時的心血直接在眼前蒸發！你臉色發白、冷汗直流，心中開始打離職信草稿……別慌！Git 有時光黑盒子日記 git reflog，趁前輩發現前偷偷把丟失的提交召喚回人間！',
     goals: [
       '輸入 git reflog 查閱 HEAD 指標移動歷史',
       '找到誤刪前的那筆 Commit Hash（或 HEAD@{1}）',
@@ -441,7 +433,7 @@ const SCENARIOS = [
       if (head && head.message.includes('precious 1000 lines')) {
         return {
           passed: true,
-          message: '🎉 起死回生！心血程式碼全數救回！只要 Git 曾經為它建立過 commit，在 reflog 的庇護下就永遠沒有真正失去！'
+          message: '🎉 起死回生！心血程式碼全數救回！Reflog 是本機參照移動紀錄，會到期；無引用物件也可能被垃圾回收。請及時用分支或標籤保存救回的提交。'
         };
       }
       return { passed: false, message: '重要程式碼尚未救回！請執行 git reflog 尋找 lost99 並 reset --hard 救回。' };
@@ -449,148 +441,117 @@ const SCENARIOS = [
   },
 
   {
-    id: '09',
-    title: '雙軌並行：Git Worktree 免 Stash 零干擾平行開發',
-    difficulty: '實戰 ⭐⭐⭐⭐',
-    category: '現代工程',
-    story: '正寫到一半突然有線上 emergency hotfix 插單！菜雞不想 stash 搞亂工作區，請用 git worktree 開啟第二工作目錄並行救援。',
-    goals: [
-      '新增獨立工作區目錄：git worktree add hotfix-dir -b hotfix-p0',
-      '在 hotfix-dir 完成修復並提交',
-      '完成後移除該 worktree：git worktree remove hotfix-dir'
-    ],
-    hints: [
-      '執行：git worktree add hotfix-dir -b hotfix-p0',
-      '切換至 hotfix-p0 並 commit',
-      '完成後執行：git worktree remove hotfix-dir'
-    ],
+    id: "09",
+    title: '平行修復：Worktree 獨立工作區',
+    difficulty: "初階 ⭐⭐",
+    category: "上下文切換",
+    story: "主工作區有未完成修改。建立另一個目錄修復 main、提交並移除 linked worktree，回到主工作區確認未完成內容仍在。",
+    goals: ["git worktree add -b hotfix-p0 ../hotfix main", "cd ../hotfix，在 app.js 修正 bug 並提交", "在 linked worktree 中 git switch main 與 git merge hotfix-p0 整合修復，再 cd .. 返回主工作區與 remove", "確認 feature 分支與未提交修改完整保留"],
+    hints: ["git worktree add -b hotfix-p0 ../hotfix main", "cd ../hotfix；在檔案頁修改 app.js，再 add、commit", "cd ..；git worktree remove ../hotfix"],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: big feature in progress' });
-      git.branches.set('main', c1.id);
-      git.checkoutOrSwitch('main');
+      const base = git.createCommit({ message: 'feat: stable app', tree: new Map([['app.js', 'runBuggy();\n']]) });
+      git.branches.set('main', base.id); git.branches.set('feature', base.id); git.checkoutOrSwitch('feature');
+      git.workingTree.set('app.js', 'featureInProgress();\n');
+      git.scenarioMeta = { baseId: base.id, wip: 'featureInProgress();\n' };
     },
     checkGoal: (git) => {
-      if (git.branches.has('hotfix-p0') || git.branches.has('hotfix/p1') || git.worktrees.length > 0 || git.hasCreatedWorktree) {
-        return {
-          passed: true,
-          message: '🎉 雙軌並行掌握！利用 git worktree，你可以在多個目錄同時跑不同分支的 dev server，徹底告別 stash pop 衝突與編譯快取失效！'
-        };
-      }
-      return { passed: false, message: '尚未建立 hotfix worktree！請執行 git worktree add ../hotfix-dir hotfix/p1' };
+      const hotfix = git.commits.get(git.branches.get('hotfix-p0'));
+      if (!git.hasCreatedWorktree || !hotfix || hotfix.id === git.scenarioMeta.baseId || hotfix.tree.get('app.js') === 'runBuggy();\n') return { passed: false, message: '請在 ../hotfix 的獨立工作區完成修復提交。' };
+      if (!hotfix || !git.isAncestor(hotfix.id, git.branches.get('main'))) return { passed: false, message: '請在 linked worktree 切 main 並 merge hotfix-p0，讓主線包含修復。' };
+      if (git.worktrees.length || git.getCurrentBranch() !== 'feature' || git.workingTree.get('app.js') !== git.scenarioMeta.wip || git.branches.get('feature') !== git.scenarioMeta.baseId) return { passed: false, message: '請返回主工作區、移除 linked worktree，保留 feature 的未提交修改。' };
+      return { passed: true, message: '另一個目錄的修復已提交，原工作區的 HEAD、索引與未完成修改獨立保留。' };
     }
   },
 
   {
     id: '10',
-    title: '時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug',
+    title: '定位回歸：Bisect 二分搜尋',
     difficulty: '實戰 ⭐⭐⭐⭐⭐',
     category: '現代工程',
-    story: '專案上百個 commit 中出現神秘未知 Bug，主管要菜雞找出來。請使用 git bisect 二分搜尋法在幾秒鐘內秒殺元凶。',
+    story: '線上出現了神祕靈異現象，功能莫名壞掉，但這幾天有上百個 commit。主管在週會上嚴肅地問：「到底是誰在哪天弄壞的？」身為菜鳥，請化身時光偵探，啟動 git bisect 二分搜尋法，在幾分鐘內抓出是哪位前輩留下的內鬼！',
     goals: [
       '啟動二分偵探：git bisect start',
       '標記當前版本有問題：git bisect bad',
-      '標記初始版本是好的：git bisect good c1',
-      '跟隨 Git 自動檢出的節點反覆標記 good/bad 直到抓出犯人'
+      '標記初始版本是好的：git bisect good c1000',
+      '檢查 calc.js 的結果，標記 good/bad 到找到第一個壞提交，再 git bisect reset'
     ],
     hints: [
       '先執行 git bisect start',
       '再執行 git bisect bad，接著執行 git bisect good <最初的CommitId>'
     ],
     setup: (git) => {
-      let prev = git.createCommit({ message: 'v1.0 stable release', hash: 'c1000' });
+      let prev = git.createCommit({ message: 'v1.0 stable release', hash: 'c1000', tree: new Map([['calc.js', 'result = 2;\n']]) });
       for (let i = 1; i <= 6; i++) {
         const isCulprit = i === 4;
         const msg = isCulprit ? 'perf: optimize math (INTRUDED BUG)' : `chore: update module ${i}`;
-        prev = git.createCommit({ message: msg, parents: [prev.id], hash: isCulprit ? 'bug004' : `c100${i}` });
+        prev = git.createCommit({ message: msg, parents: [prev.id], hash: isCulprit ? 'bug004' : `c100${i}`, tree: new Map([['calc.js', i >= 4 ? 'result = 3;\n' : 'result = 2;\n']]) });
       }
       git.branches.set('main', prev.id);
       git.checkoutOrSwitch('main');
+      git.scenarioMeta = { originalTip: prev.id };
     },
     checkGoal: (git) => {
-      if (git.bisectState.bad === 'bug004' || (git.bisectState.active && git.bisectState.good.length > 0)) {
+      if (git.bisectFoundId === 'bug004' && !git.bisectState.active && git.getCurrentBranch() === 'main' && git.branches.get('main') === git.scenarioMeta.originalTip) {
         return {
           passed: true,
-          message: '🎉 兇手鎖定！你成功運用 Git Bisect 二分演算法秒殺神秘 Bug！這項技能能讓你在龐大歷史中比別人快 10 倍抓出元凶！'
+          message: '🎉 兇手鎖定！你成功運用 Git Bisect 二分演算法秒殺神秘 Bug！已找到第一個錯誤版本，並 reset 回原始分支。'
         };
       }
-      return { passed: false, message: '尚未啟動二分搜尋！請執行 git bisect start、git bisect bad 與 git bisect good c1000。' };
+      return { passed: false, message: '尚未找到第一個壞提交並結束搜尋！請執行 git bisect start、git bisect bad 與 git bisect good c1000。' };
     }
   },
 
   {
-    id: '11',
-    title: '守門神器：Git Hooks 自動化品管與金鑰攔截',
-    difficulty: '實戰 ⭐⭐⭐⭐',
-    category: '現代工程',
-    story: '菜雞差點把包含 AWS 密鑰的設定檔推上網！請配置 pre-commit hook 守門腳本，在 commit 前自動攔截敏感資訊。',
-    goals: [
-      '配置守門員路徑：git config core.hooksPath .githooks',
-      '賦予腳本執行權限：chmod +x .githooks/pre-commit',
-      '嘗試提交敏感金鑰（體驗被攔截）：git commit -m "feat: config with secret"',
-      '緊急繞過守門員完成提交：git commit --no-verify -m "feat: emergency bypass"'
-    ],
-    hints: [
-      '先執行 git config core.hooksPath .githooks 與 chmod +x .githooks/pre-commit',
-      '接著執行 git commit 觀察攔截訊息，最後加上 --no-verify 完成提交'
-    ],
+    id: "11",
+    title: '提交檢查：Hooks 攔截與修正',
+    difficulty: "初階 ⭐⭐",
+    category: "現代工程",
+    story: "本機 pre-commit 用假憑證示範攔截。先看一次失敗，再移除假密鑰並正常提交。Hooks 可被跳過或未安裝，團隊仍需服務端檢查與憑證管理。",
+    goals: ["配置 git config core.hooksPath .githooks 與 chmod +x .githooks/pre-commit", "嘗試 git commit -m \"test: blocked secret\"，確認被攔截", "在檔案頁將 config.env 改成 AWS_KEY=\"\"，git add config.env", "正常 git commit -m \"chore: remove secret\""],
+    hints: ["先配置 hook 路徑與執行權限；假密鑰已暫存", "被攔截後移除密鑰、重新 add，再正常 commit", "--no-verify 可略過部分 hooks；本關不以 bypass 作為成功條件。"],
     setup: (git) => {
       git.hooks.set('pre-commit', 'check-secrets');
+      git.workingTree.set('.githooks/pre-commit', '#!/bin/sh\n# check-secrets\n');
       git.workingTree.set('config.env', 'AWS_KEY="AKIAIOSFODNN7EXAMPLE"');
       git.index.set('config.env', 'AWS_KEY="AKIAIOSFODNN7EXAMPLE"');
     },
     checkGoal: (git) => {
       const head = git.getHeadCommit();
-      const content = git.index.get('config.env') || '';
-      if (head && (!content.includes('AKIAIOSFODNN7EXAMPLE') || head.message.includes('bypass') || head.message.includes('clean') || git.hasBypassedHook)) {
-        return {
-          passed: true,
-          message: '🎉 守門成功！你親身體驗了 Git Hooks 的強大防禦力！配合 core.hooksPath 或 Husky，全團隊共享自動化品管與資安防線！'
-        };
-      }
-      return { passed: false, message: '尚未完成提交！請在被守門員攔截後，使用 --no-verify 或移除金鑰完成提交。' };
+      if (!git.hasBlockedHook) return { passed: false, message: '先嘗試提交假密鑰，觀察 hook 攔截。' };
+      if (!head || head.tree.get('config.env')?.includes('AKIAIOSFODNN7EXAMPLE') || git.hasBypassedHook) return { passed: false, message: '請移除假密鑰、重新 add，透過正常 commit 完成。' };
+      return { passed: true, message: '已體驗攔截並提交修正。Hooks 是本機檢查，不是安全保證。' };
     }
   },
 
   {
-    id: '12',
-    title: '精準原子暫存：git add -p 局部區塊暫存',
-    difficulty: '進階 ⭐⭐⭐',
-    category: '現代工程',
-    story: '菜雞在一支檔案裡改了兩件事，前輩要求分開提交。請用 git add -p 互動式逐塊暫存，達成乾淨的原子提交 (Atomic Commit)。',
-    goals: [
-      '使用 git add -p shopping.py 進入互動暫存模式',
-      '只暫存修復折扣的區塊 (Hunk 1)',
-      '提交該原子修復：git commit -m "fix: apply discount in total calculation"'
-    ],
-    hints: [
-      '執行 git add -p shopping.py',
-      '在提示出現時，對第一個區塊按 y，第二個區塊按 n',
-      '最後執行 git commit'
-    ],
+    id: "12",
+    title: '拆分變更：Patch 局部暫存',
+    difficulty: "初階 ⭐⭐",
+    category: "現代工程",
+    story: "同一檔案包含折扣修復和輸出格式調整，請只暫存第一個 hunk，讓提交包含一件可獨立審查的變更。",
+    goals: ["git add -p shopping.py，只接受第一個 hunk", "提交折扣修復", "確認格式修改仍留在工作區"],
+    hints: ["第一個 hunk 選 y、第二個選 n", "git diff --staged 確認快照，再 git commit -m \"fix: discount\""],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: shopping cart base' });
-      git.branches.set('main', c1.id);
-      git.checkoutOrSwitch('main');
-      git.workingTree.set('shopping.py', '// modified discount and currency');
+      const original = 'def total(price):\n    return price\n\n\n\n\n\n\n\n\n\ndef label():\n    return "Total"\n';
+      const discount = original.replace('return price', 'return price * 0.9');
+      const changed = discount.replace('"Total"', '"TOTAL"');
+      const c = git.createCommit({ message: 'feat: shopping base', tree: new Map([['shopping.py', original]]) });
+      git.branches.set('main', c.id); git.checkoutOrSwitch('main'); git.workingTree.set('shopping.py', changed);
+      git.scenarioMeta = { baseId: c.id, discount, changed };
     },
     checkGoal: (git) => {
       const head = git.getHeadCommit();
-      if (head && head.message.toLowerCase().includes('discount')) {
-        return {
-          passed: true,
-          message: '🎉 掌握原子提交！利用 git add -p，即使在同一個檔案內做了多處修改，也能精準組織出乾淨俐落、容易 Review 的 Atomic Commits！'
-        };
-      }
-      return { passed: false, message: '尚未完成獨立折扣修復的原子提交！請使用 git add -p shopping.py 並 commit。' };
+      if (!head || head.parents[0] !== git.scenarioMeta.baseId || head.tree.get('shopping.py') !== git.scenarioMeta.discount || git.workingTree.get('shopping.py') !== git.scenarioMeta.changed) return { passed: false, message: '提交只能包含折扣修復；格式修改須留在工作區。請用 add -p 拆分。' };
+      return { passed: true, message: '提交包含折扣修復，另一個 hunk 留待下一次提交。' };
     }
   },
 
   {
     id: '13',
-    title: '亡羊補牢：.gitignore 追蹤失效與 git rm --cached',
+    title: '停止追蹤：Gitignore 與移除索引',
     difficulty: '初階 ⭐⭐',
     category: '協作救援',
-    story: '菜雞把 .env 誤加入版本庫，事後補上 .gitignore 卻沒用！請用 git rm --cached 從索引除名並保全本地檔案。',
+    story: '你昨天不小心把本地產生的臨時記錄檔 .env 給 commit 進去了，今天雖然補上了 .gitignore，Git 卻完全無視！小明前輩笑著說：「已經被追蹤的檔案，gitignore 救不了你啦。」請用 git rm --cached 把它從索引剔除，同時保留本地檔案！',
     goals: [
       '使用 git rm --cached .env 從 Git 索引移除追蹤（保留本機檔案）',
       '建立 .gitignore 並寫入 .env',
@@ -613,10 +574,11 @@ const SCENARIOS = [
       git.workingTree.set('.gitignore', '.env\n');
     },
     checkGoal: (git) => {
-      if (!git.index.has('.env') && git.workingTree.has('.env')) {
+      const head = git.getHeadCommit();
+      if (head && !head.tree.has('.env') && head.tree.get('.gitignore')?.split(/\r?\n/).includes('.env') && !git.index.has('.env') && git.workingTree.has('.env')) {
         return {
           passed: true,
-          message: '🎉 救回機密檔案！記住黃金法則：『已追蹤的檔案不受 .gitignore 約束』！透過 git rm --cached，優雅除名同時保全本機開發配置！'
+          message: '🎉 已停止追蹤！歷史中的秘密仍需輪替憑證與額外清理。記住黃金法則：『已追蹤的檔案不受 .gitignore 約束』！透過 git rm --cached，優雅除名同時保全本機開發配置！'
         };
       }
       return { passed: false, message: '.env 依然在 Git 追蹤名單中！請執行 git rm --cached .env。' };
@@ -625,10 +587,10 @@ const SCENARIOS = [
 
   {
     id: '14',
-    title: '線上緊急 Revert：解救正式機事故的 Revert Merge (git revert -m 1)',
+    title: '撤銷合併：Revert 的主線選擇',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '協作救援',
-    story: '菜雞 merge 上線的新功能害線上系統掛了！請使用 git revert -m 1 針對 Merge Commit 安全產生 revert commit。',
+    story: '災難降臨！小明前輩剛剛興高采烈合併進 main 的功能，一上線就讓生產環境 CPU 飆到 100%！主管大喊：「快倒退！但絕對不能 force push 改寫主線歷史！」身為在場唯一的冷靜工程師，請用 git revert -m 1 安全產生反向提交，挽救全公司的伺服器！',
     goals: [
       '觀察當前 HEAD 是一個雙親的 Merge Commit',
       '使用 git revert -m 1 HEAD 產生安全的 revert commit',
@@ -639,15 +601,16 @@ const SCENARIOS = [
       '-m 1 代表以主線 Parent 1 為基準反轉該次合併的所有改動'
     ],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: stable v1.0' });
-      const cBroken = git.createCommit({ message: 'feat: broken payment v2', parents: [c1.id] });
-      const cMerge = git.createCommit({ message: 'Merge branch feature into main', parents: [c1.id, cBroken.id] });
+      const c1 = git.createCommit({ message: 'feat: stable v1.0', tree: new Map([['payment.js', 'payStable();\n']]) });
+      const cBroken = git.createCommit({ message: 'feat: broken payment v2', parents: [c1.id], tree: new Map([['payment.js', 'payBroken();\n']]) });
+      const cMerge = git.createCommit({ message: 'Merge branch feature into main', parents: [c1.id, cBroken.id], tree: new Map(cBroken.tree) });
       git.branches.set('main', cMerge.id);
       git.checkoutOrSwitch('main');
+      git.scenarioMeta = { mergeId: cMerge.id, stable: c1.tree.get('payment.js') };
     },
     checkGoal: (git) => {
       const head = git.getHeadCommit();
-      if (head && head.message.toLowerCase().includes('revert')) {
+      if (head && head.parents[0] === git.scenarioMeta.mergeId && head.tree.get('payment.js') === git.scenarioMeta.stable && git.isAncestor(git.scenarioMeta.mergeId, head.id)) {
         return {
           passed: true,
           message: '🎉 救火成功！你成功運用 git revert -m 1 解救了線上正式機事故！向前推進產生 revert commit，既平息災難又保留完整審計歷史！'
@@ -659,13 +622,13 @@ const SCENARIOS = [
 
   {
     id: '15',
-    title: '版本里程碑：Git Tag 與語意化版號發布',
+    title: '版本標記：附註標籤',
     difficulty: '初階 ⭐⭐',
     category: '基礎裝備',
-    story: '產品發布日到了！菜雞負責為穩定版本貼上語意化版號標籤 (Semantic Versioning)，請使用 git tag 建立附註標籤。',
+    story: '歷經千辛萬苦，團隊的產品終於迎來大改版。技術主管拍拍你的肩膀：「菜鳥，今天的正式發布由你來下標籤。」請依照語意化版號規範 (Semantic Versioning)，使用 git tag 建立附註標籤，為專案刻下重要的里程碑！',
     goals: [
       '在當前進度打上附註標籤：git tag -a v1.0.0 -m "Release v1.0.0"',
-      '給歷史 Commit 補簽標籤：git tag -a v0.9.0 cAuth -m "Beta release"'
+      '給歷史 Commit 補上標籤：git tag -a v0.9.0 cAuth -m "Beta release"'
     ],
     hints: [
       '執行：git tag -a v1.0.0 -m "Release v1.0.0"',
@@ -678,12 +641,12 @@ const SCENARIOS = [
       git.checkoutOrSwitch('main');
     },
     checkGoal: (git) => {
-      const hasV1 = git.tags.has('v1.0.0');
-      const hasV09 = git.tags.has('v0.9.0');
+      const hasV1 = git.tags.get('v1.0.0')?.type === 'annotated' && git.tags.get('v1.0.0').commitId === git.getHeadCommitId();
+      const hasV09 = git.tags.get('v0.9.0')?.type === 'annotated' && git.tags.get('v0.9.0').commitId === 'cAuth';
       if (hasV1 && hasV09) {
         return {
           passed: true,
-          message: '🎉 里程碑標記完成！學會了附註標籤與歷史補簽，配合 git push origin --tags 即可全自動觸發 GitHub Releases 與 CI/CD 構建！'
+          message: '🎉 里程碑標記完成！學會了附註標籤與歷史補上，附註標籤不等於簽署標籤；push 只同步標籤。建立 Release 或 CI/CD 自動化需另行設定。'
         };
       }
       return { passed: false, message: '尚未完成標籤設定！請建立 v1.0.0 與 v0.9.0 標籤。' };
@@ -692,10 +655,10 @@ const SCENARIOS = [
 
   {
     id: '16',
-    title: '程式碼考古學：git log -S 搜尋與 git blame',
+    title: '追溯變更：Pickaxe 與 Blame',
     difficulty: '進階 ⭐⭐⭐',
     category: '現代工程',
-    story: '專案某行核心程式碼被改掉了，菜雞要抓出是誰哪次改的。請使用 git log -S 搜尋語意變更，搭配 git blame 責任溯源。',
+    story: '專案裡一段關鍵的計費核心代碼莫名被改動了，主管問是誰改的，大家面面相覷。身為最沒包袱的新人，請使用 git log -S 搜尋字串變動歷史，搭配 git blame 追溯責任人，看看到底是哪位前輩在深夜偷偷下的毒手！',
     goals: [
       '使用鶴嘴鎬搜尋：git log -S "CRITICAL_SECRET_TOKEN" --oneline',
       '找出引入該變數的 Commit Hash',
@@ -725,52 +688,39 @@ const SCENARIOS = [
       }
       return {
         passed: true,
-        message: '🎉 神級考古技術解鎖！git log -S 只看變數增減次數，搭配 git blame -w 忽略排版，接手任何大型專案都能 3 秒破案！'
+        message: '🎉 神級考古技術解鎖！git log -S 搜尋指定字串出現次數的變化，不理解程式語意，搭配 git blame -w 忽略排版，協助縮小調查範圍。'
       };
     }
   },
 
   {
-    id: '17',
-    title: '重複衝突終結者：git rerere 記錄與自動重用解法',
-    difficulty: '實戰 ⭐⭐⭐⭐',
-    category: '現代工程',
-    story: '菜雞在長期分支每天 rebase 都要解同一批衝突，快發瘋了！請開啟 git rerere 自動記憶衝突解法，再也不重複解題。',
-    goals: [
-      '開啟配置：git config rerere.enabled true',
-      '合併觸發衝突並手動解決第一次',
-      '觀察 Git 自動記錄 resolution，享受未來 0 秒免解體驗！'
-    ],
-    hints: [
-      '先執行：git config rerere.enabled true',
-      '接著執行：git merge feature/api 解決衝突並提交'
-    ],
+    id: "17",
+    title: '重複衝突：Rerere 記錄與重用',
+    difficulty: "初階 ⭐⭐",
+    category: "現代工程",
+    story: "同一個內容衝突需要處理兩次。開啟 rerere、解決第一次並提交，退回主線原位置再合併，檢查重用內容並重新 add、commit。",
+    goals: ["git config rerere.enabled true", "git merge feature/api，手動解決 server.js，再 add、commit", "git reset --hard main-before；再次 git merge feature/api", "觀察解法重用，檢查內容後 git add server.js 與 git commit"],
+    hints: ["第一次可把 server.js 改成 serveLtsAndAsync();", "第一個合併完成後 reset --hard main-before，重試同一個合併", "rerere 套用內容後仍需檢查與暫存；不保證任意新衝突都能重用"],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: base server' });
-      const cMain = git.createCommit({ message: 'feat: update lts', parents: [c1.id] });
-      const cApi = git.createCommit({ message: 'feat: update async', parents: [c1.id] });
-      git.branches.set('main', cMain.id);
-      git.branches.set('feature/api', cApi.id);
-      git.checkoutOrSwitch('main');
+      const base = git.createCommit({ message: 'feat: base server', tree: new Map([['server.js', 'serve();\n']]) });
+      const main = git.createCommit({ message: 'feat: lts', parents: [base.id], tree: new Map([['server.js', 'serveLts();\n']]) });
+      const api = git.createCommit({ message: 'feat: async', parents: [base.id], tree: new Map([['server.js', 'serveAsync();\n']]) });
+      git.branches.set('main', main.id); git.branches.set('main-before', main.id); git.branches.set('feature/api', api.id); git.checkoutOrSwitch('main');
+      git.scenarioMeta = { resolved: 'serveLtsAndAsync();\n' };
     },
     checkGoal: (git) => {
-      const isRerere = git.config['rerere.enabled'] === 'true';
-      if (isRerere) {
-        return {
-          passed: true,
-          message: '🎉 恭喜解鎖 Git 最被低估的黑魔法：git rerere！長期分支與多步驟 rebase 從此不再害怕重複衝突，省下無數寶貴時間！'
-        };
-      }
-      return { passed: false, message: '尚未開啟 rerere！請執行 git config rerere.enabled true。' };
+      const head = git.getHeadCommit();
+      if (!git.rerereRecorded || !git.rerereReused || !head || head.parents.length !== 2 || head.tree.get('server.js') !== git.scenarioMeta.resolved || git.mergeInProgress) return { passed: false, message: '需要完成第一次記錄、第二次實際重用，檢查內容並完成合併。' };
+      return { passed: true, message: '相同衝突的已記錄解法已重用；你也確認並提交了結果。' };
     }
   },
 
   {
     id: '18',
-    title: '完美補完：git commit --amend 追補漏檔與修改最後提交',
+    title: '補上漏檔：Amend 最新提交',
     difficulty: '初階 ⭐⭐',
     category: '提交修飾',
-    story: '菜雞剛 commit 完才驚覺漏放了一張圖，且 commit message 拼錯字！請用 git commit --amend 零痕跡完美修補。',
+    story: '才剛驕傲地按下 commit，一轉頭驚覺：程式碼裡有一個超低級的變數名稱拼錯，而且漏放了一張圖！要是被強哥看到肯定會被笑三個月。趁還沒 push 到遠端，使用 git commit --amend 替換目前分支的最新提交；原提交仍可能由 reflog 找到。',
     goals: [
       '暫存遺漏檔案：git add assets/logo.png',
       '追加檔案並修正訊息：git commit --amend -m "feat: release v1.0.0"',
@@ -808,68 +758,42 @@ const SCENARIOS = [
   },
 
   {
-    id: '19',
-    title: '救急暫存：Git Stash 工作區暫存、彈出與清理',
-    difficulty: '初階 ⭐⭐',
-    category: '上下文切換',
-    story: '菜雞寫到一半被叫去開會修別的分支，請用 git stash -u 暫存未追蹤修改，修完切回分支用 git stash pop 還原現場。',
-    goals: [
-      '使用 git stash -u 打包工作區修改與未追蹤檔案',
-      '切換至 main 分支並提交緊急修復：git switch main ➜ 提交 hotfix.txt',
-      '切回 feature/cart 分支並使用 git stash pop 彈出還原工作區'
-    ],
-    hints: [
-      '執行：git stash -u',
-      '切換主線：git switch main，建立 hotfix 並 commit',
-      '切回分支：git switch feature/cart，執行：git stash pop'
-    ],
+    id: "19",
+    title: '切換任務：Stash 保留與衝突',
+    difficulty: "初階 ⭐⭐",
+    category: "上下文切換",
+    story: "暫存索引、工作區和未追蹤檔案後切去修復 main。原功能分支又改了同一檔案，pop 產生衝突；解決後確認 stash 尚在，完成提交再 drop。",
+    goals: ["git stash push -u 保存 cart.py 與 coupon.py", "git switch main，修改 app.py 修復並提交", "git switch feature/cart，把 cart.py 改成 cartWithTax(); 並提交", "git stash pop --index，觀察同檔衝突與保留的 stash", "將 cart.py 解成 cartWithTaxAndDiscount();，保留 coupon.py，add、commit，最後 stash drop"],
+    hints: ["初始 cart.py 已有 staged 與 unstaged 兩種快照；--index 嘗試恢復索引", "main 必須修改 app.py；功能分支中途提交 cartWithTax();", "pop 衝突時 stash 不會自動移除。解決、確認內容並提交後才 drop。"],
     setup: (git) => {
-      const c1 = git.createCommit({ message: 'feat: initial release', tree: new Map([['app.py', 'console.log("stable");']]) });
-      git.branches.set('main', c1.id);
-
-      const cCart = git.createCommit({
-        message: 'feat: scaffold cart',
-        parents: [c1.id],
-        tree: new Map([['app.py', 'console.log("stable");'], ['cart.py', 'export const cart = [];']])
-      });
-      git.branches.set('feature/cart', cCart.id);
-      git.checkoutOrSwitch('feature/cart');
-
-      git.workingTree.set('cart.py', 'export const cart = [/* with discount */];');
-      git.workingTree.set('coupon.py', 'export const coupon = "SUMMER_50";');
+      const base = git.createCommit({ message: 'feat: base', tree: new Map([['app.py', 'runBuggy();\n'], ['cart.py', 'cart();\n']]) });
+      git.branches.set('main', base.id); git.branches.set('feature/cart', base.id); git.checkoutOrSwitch('feature/cart');
+      git.index.set('cart.py', 'cartWithDiscount();\n'); git.workingTree.set('cart.py', 'cartWithDiscountDraft();\n');
+      git.workingTree.set('coupon.py', 'SUMMER_50\n');
+      git.scenarioMeta = { baseId: base.id, resolved: 'cartWithTaxAndDiscount();\n', coupon: 'SUMMER_50\n' };
     },
     checkGoal: (git) => {
-      const mainCommit = git.commits.get(git.branches.get('main'));
-      if (!mainCommit || !mainCommit.message.toLowerCase().includes('hotfix')) {
-        return { passed: false, message: '尚未在 main 分支完成緊急 hotfix 提交！請先 stash 暫存後，切換至 main 提交修復。' };
-      }
-      if (git.getCurrentBranch() !== 'feature/cart') {
-        return { passed: false, message: '請切回 feature/cart 分支並執行 git stash pop！' };
-      }
-      if (!git.workingTree.has('coupon.py')) {
-        return { passed: false, message: '未追蹤的 coupon.py 尚未還原！請執行 git stash pop。' };
-      }
-      return {
-        passed: true,
-        message: '🎉 漂亮通關！你熟練運用了 git stash -u 與 git stash pop，在零殘留與零髒 commit 的情況下化解了上下文切換的危機！'
-      };
+      const main = git.commits.get(git.branches.get('main')), head = git.getHeadCommit();
+      if (!main || main.id === git.scenarioMeta.baseId || main.tree.get('app.py') === 'runBuggy();\n') return { passed: false, message: '先保存工作進度，再於 main 修改 app.py 並提交修復。' };
+      if (!git.hasStashConflict || git.getCurrentBranch() !== 'feature/cart' || !head || head.tree.get('cart.py') !== git.scenarioMeta.resolved || head.tree.get('coupon.py') !== git.scenarioMeta.coupon || git.stash.length || git.conflictState) return { passed: false, message: '需要實際 pop 衝突、保留未追蹤檔案、解決並提交，最後 drop 留存的 stash。' };
+      return { passed: true, message: '已保存快照、處理 pop 衝突並清理留存的 stash。' };
     }
   },
 
   {
     id: '20',
-    title: '乾淨俐落：git mv 檔案更名與 git clean -fd 清理雜物',
+    title: '整理檔案：更名與清理預覽',
     difficulty: '初階 ⭐⭐',
     category: '工作區維護',
-    story: '菜雞手動改檔名造成 Git 誤認是砍掉重新建檔，且本地殘留一堆雜物。請用 git mv 保持歷史，並用 git clean -fd 掃除未追蹤垃圾。',
+    story: '你想整理專案目錄，想重新命名檔案並同步暫存；Git 會依內容相似度推斷更名；加上編譯噴出的一堆 .tmp 垃圾檔，工作區髒到不行。先用 git clean -nd 預覽清理範圍，確認後再 -fd。',
     goals: [
       '使用 git mv utils.py helpers.py 完成檔案更名並加入暫存',
-      '使用 git clean -fd 清除未追蹤的 dump.tmp 與 temp_test/',
+      '先 git clean -nd 預覽，再 git clean -fd 清除未追蹤的 dump.tmp 與 temp_test/',
       '提交更名變更：git commit -m "refactor: rename utils to helpers"'
     ],
     hints: [
       '更名指令：git mv utils.py helpers.py',
-      '清理指令：git clean -fd',
+      '預覽：git clean -nd；確認後清理：git clean -fd',
       '提交變更：git commit -m "refactor: rename utils to helpers"'
     ],
     setup: (git) => {
@@ -886,10 +810,11 @@ const SCENARIOS = [
     },
     checkGoal: (git) => {
       const head = git.getHeadCommit();
+      if (!git.cleanDryRun?.includes('dump.tmp')) return { passed: false, message: '刪除前必須用 git clean -nd 預覽未追蹤檔案。' };
       if (!head || !head.tree.has('helpers.py')) {
         return { passed: false, message: '尚未完成 helpers.py 提交！請使用 git mv utils.py helpers.py 並 commit。' };
       }
-      if (git.workingTree.has('dump.tmp')) {
+      if (git.workingTree.has('dump.tmp') || git.workingTree.has('temp_test/cache.pid')) {
         return { passed: false, message: 'dump.tmp 仍殘留在工作目錄！請執行 git clean -fd 清理。' };
       }
       return {
@@ -901,10 +826,10 @@ const SCENARIOS = [
 
   {
     id: '21',
-    title: '遠端全貌：git remote 管理與 git fetch vs git pull 深度解密',
+    title: '觀察遠端：Fetch 與 Pull',
     difficulty: '進階 ⭐⭐⭐',
     category: '遠端協作',
-    story: '菜雞接手開源專案 Fork，搞不懂 pull 跟 fetch 差在哪。請配置 upstream 遠端，先 fetch 觀察遠端進度再決定合併策略。',
+    story: '接手團隊的開源專案 Fork，你一直搞不懂為什麼前輩們都說「沒事不要亂 git pull，先 fetch 看看」。請學會配置 upstream 遠端，先用 git fetch 安全探查遠端動靜，再有把握地下達合併指令，避免盲目 pull 踩雷！',
     goals: [
       '新增上游遠端：git remote add upstream https://github.com/corp/upstream.git',
       '抓取上游進度：git fetch upstream',
@@ -944,10 +869,10 @@ const SCENARIOS = [
 
   {
     id: '22',
-    title: '移花接木：錯在 main 提交的救星 (Branch & Reset 平移救援)',
+    title: '移走誤提交：分支與 Reset',
     difficulty: '初階 ⭐⭐',
     category: '災難平移',
-    story: '菜雞犯了最經典的錯誤：忘記開分支直接在 main 上做了 2 個提交！請在當前位置開分支貼紙，再把 main reset 退回去拯救主線。',
+    story: '菜鳥最大禁忌：你埋頭苦幹了兩個小時、連做了兩個 commit，猛然抬頭看終端機——天啊！當前分支居然是 main！強哥正拿著咖啡從走廊走過來，請用「開新分支貼標籤 + 把 main reset 退回」的移花接木大法，在神不知鬼不覺間拯救主線！',
     goals: [
       '原地開出新分支：git branch feature/oauth',
       '切回 main 分支：git switch main',
@@ -988,10 +913,10 @@ const SCENARIOS = [
 
   {
     id: '23',
-    title: '底層透視：.git 水管底層物件解密 (Plumbing: cat-file & SHA-1)',
+    title: '探索物件：Commit、Tree 與 Blob',
     difficulty: '進階 ⭐⭐⭐',
-    category: '底層解密',
-    story: '菜雞想搞懂 Git 到底如何存檔案。請使用水管底層指令 git cat-file -t 與 -p，解密 blob、tree 與 commit 物件的真實結構。',
+    category: '底層物件',
+    story: '強哥對你說：「如果你只會 add 和 commit，那你只是個打字機；懂了 .git 物件資料庫，你才真正懂 Git。」請化身底層駭客，git cat-file 是讀取物件，不是解密。Git 預設常用 SHA-1，亦可建立 SHA-256 倉庫；請用 git cat-file 剖析 blob、tree 與 commit 物件的真實骨架，讓前輩對你刮目相看！',
     goals: [
       '查看 HEAD 物件型別：git cat-file -t HEAD',
       '傾印 HEAD 提交內容：git cat-file -p HEAD',

@@ -6,12 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario27(BaseScenario):
     id = "27"
-    title = "分離 HEAD：查看舊版本並救回在上面做的 commit"
+    title = '維護舊版：Detached HEAD 與分支救援'
     difficulty = "初階 ⭐⭐"
     story = (
-        "PM 要你看一下 v1.0 那時候的畫面。\n"
-        "你切過去順手修了一個 bug 還 commit 了，切回 main 時 Git 警告你「有 commit 被留下了」。\n"
-        "請為這個孤立的 commit 開出 hotfix/v1-legacy 分支，妥善保留並切回 main！"
+        "PM 跑來問：「v1.0 以前的舊版本表現如何？」你 checkout 過去測試，順手修復了一個問題並 commit。\n"
+        "切回 main 之前 Git 警告你 HEAD 處於分離狀態！\n"
+        "請為這個孤立無援、飄在半空中的 commit 開出救生分支，妥善保存勞動成果！"
     )
     goals = [
         "使用 git switch --detach v1.0 切換至舊版本",

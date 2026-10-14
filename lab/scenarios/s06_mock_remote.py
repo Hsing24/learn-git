@@ -9,19 +9,17 @@ from lab.engine import GitEngine
 
 class Scenario06(BaseScenario):
     id = "06"
-    title = "模擬協作：遠端衝突與 Non-Fast-Forward 推送被拒"
+    title = '推送被拒：同步遠端並保留雙方提交'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "單人學習最難體會的痛點：多人對 GitHub 遠端倉庫進行即時協作！\n"
-        "實驗室已在本地為你搭建了模擬的遠端中央倉庫 (origin)。\n"
-        "你在本地 main 上寫好了「會員積分系統 (points.py)」並建立了 Commit。\n"
-        "但就在你要推送到遠端時，同事 Alice 早一步向遠端 push 了「公告通知 (notice.txt)」！\n"
-        "當你嘗試 git push 時，Git 會拋出令初學者膽顫心驚的 non-fast-forward 被拒絕錯誤！"
+        "你在本地辛勤寫完功能，滿心歡喜敲下 git push，終端機卻狠狠賞了你一巴掌：[rejected - non-fast-forward]！\n"
+        "原來小明前輩手速更快，搶先一步推了進度 notice.txt。\n"
+        "切記職場保命守則：絕對不能用 --force 蓋掉前輩的 code！請用 git pull --rebase 優雅解套再推送！"
     )
     goals = [
         "嘗試執行 git push origin main，親眼觀察終端機出現的 [rejected] 報錯訊息",
         "理解為什麼會被拒絕（遠端存在你本地所沒有的 Alice 提交）",
-        "使用業界標準做法：執行 git pull --rebase origin main 同步遠端並重整歷史",
+        "依本關線性歷史目標：執行 git pull --rebase origin main 同步遠端並重整歷史",
         "再次執行 git push origin main，成功將功能推送至遠端倉庫！"
     ]
     next_steps = [
@@ -75,6 +73,8 @@ class Scenario06(BaseScenario):
             subprocess_run = engine.run_git("-C", str(temp_path), "add", "notice.txt", env=env)
             engine.run_git("-C", str(temp_path), "commit", "-m", "feat(alice): add maintenance notice", env=env)
             engine.run_git("-C", str(temp_path), "push", "origin", "main", env=env)
+            _, alice_head, _ = engine.run_git("rev-parse", "HEAD", cwd=temp_path)
+            engine.run_git("config", "lab.scenario06.alice", alice_head.strip())
 
         # Now in user repo, create user's commit locally without pulling Alice's commit
         engine.commit_file("points.py", "def get_points(user): return 100\n", "feat: add user points system")
@@ -94,4 +94,12 @@ class Scenario06(BaseScenario):
         if code != 0 or code2 != 0 or remote_head.strip() != local_head.strip():
             return False, "遠端倉庫的 HEAD 與你的本地 main 尚未同步！請確認已成功執行 git push origin main。"
 
+        from lab.scenarios.expanded import ended
+        _, alice, _ = engine.run_git("config", "--get", "lab.scenario06.alice", check=False)
+        if not ended(engine) or engine.run_git("merge-base", "--is-ancestor", alice.strip(), "main", check=False)[0] != 0:
+            return False, "請保留 Alice 的原提交，不能用 force 覆蓋遠端。"
+        for filename, expected in {"points.py": "def get_points(user): return 100\n", "notice.txt": "公告：系統將於今晚維護更新。\n"}.items():
+            code, committed, _ = engine.run_git("show", f"main:{filename}", check=False)
+            if code != 0 or committed != expected:
+                return False, f"{filename} 必須完整提交並推送，不能只留在工作目錄。"
         return True, "太棒了！你親身經歷了多人協作中最關鍵的推送衝突，並學會以優雅的 git pull --rebase 解決！"

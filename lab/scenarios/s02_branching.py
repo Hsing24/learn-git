@@ -6,12 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario02(BaseScenario):
     id = "02"
-    title = "分支流動：建立、切換與 Fast-Forward 合併"
+    title = '功能開發：分支與快進合併'
     difficulty = "初階 ⭐⭐"
     story = (
-        "主線 (main) 上已有便當系統的基礎程式。現在產品經理希望新增「會員折扣」模組。\n"
-        "團隊規範嚴格禁止直接在 main 開發！你必須開闢一條獨立分支 feature-discount，\n"
-        "完成功能開發與提交後，切換回 main 分支並將其合併進主線。"
+        "鄰座的小明前輩探頭低聲警告：「菜鳥，產品經理說要加會員折扣，但千萬別直接在 main 上狂寫！\n"
+        "上次有人在 main 亂改被強哥念了整個下午。」\n"
+        "你必須開闢獨立分支 feature-discount 開發，完成後切回主線並安全快進 (Fast-Forward) 合併！"
     )
     goals = [
         "建立並切換至新分支 feature-discount",
@@ -56,4 +56,8 @@ class Scenario02(BaseScenario):
         if "discount.py" not in [l.strip() for l in out.splitlines()]:
             return False, "discount.py 尚未被 commit 或合併進 main 分支。"
 
+        from lab.scenarios.expanded import ended
+        code, _, _ = engine.run_git("merge-base", "--is-ancestor", "feature-discount", "main", check=False)
+        if code != 0 or not ended(engine):
+            return False, "請在 feature-discount 提交功能並合併到 main，完成整合流程。"
         return True, "太棒了！你順利完成了建立分支、切換分支、獨立開發到合併 (Fast-Forward) 的完整工作流！"

@@ -18,21 +18,12 @@ def handle_request():
 
 class Scenario09(BaseScenario):
     id = "09"
-    title = "雙軌並行：Git Worktree 免 Stash 零干擾平行開發"
+    title = '平行修復：Worktree 獨立工作區'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "你正在分支 feature-ai 上開發大型推薦系統，工作區裡充斥著未完成的草稿代碼與測試快取。\n"
-        "突然間！線上伺服器爆發緊急 P0 故障！主管要求你立刻切回 main 開發熱修復 (Hotfix)。\n"
-        "許多人會下意識執行 git stash，但在現代大型工程專案中，切換分支往往會導致 node_modules 重裝、\n"
-        "編譯快取失效、IDE 索引重建，且事後 stash pop 容易產生可怕衝突！\n\n"
-        "【現代業界的最佳時機指引：Worktree vs. Stash】\n"
-        "• 該用 git worktree 的時機：\n"
-        "  1. 跨分支平行開發與緊急 Hotfix（不中斷當前任務與除錯進度）\n"
-        "  2. Code Review 同事的分支（可在獨立目錄同時啟動兩個服務對照）\n"
-        "  3. 避免編譯快取、構建產物與 node_modules 失效或重新安裝\n"
-        "• git stash 依然有其定位的時機：\n"
-        "  1. 同一分支內 < 5 分鐘的微小暫存\n"
-        "  2. 本地有未提交零星修改，想快速 git pull --rebase 拉取遠端最新代碼後立刻 pop 恢復"
+        "你在主工作區正改得一頭熱，環境都跑起來了，主管突然衝進來：「線上 Emergency P0 事故！立刻修！」\n"
+        "不想用 stash 搞亂工作區重新編譯，資深前輩傳授密技：\n"
+        "用 git worktree 開啟第二工作目錄並行救援，秒速修完 hotfix 瀟灑閃人！"
     )
     goals = [
         "理解現代前端/後端專案中 git worktree 與 git stash 的核心定位與選擇時機",
@@ -54,7 +45,7 @@ class Scenario09(BaseScenario):
     ]
     hints = [
         "【何時用 Worktree vs. 何時用 Stash？】\n"
-        "• 使用 git worktree：跨分支平行開發、緊急 Hotfix、Code Review、避免編譯快取/node_modules 重建。\n"
+        "• 使用 git worktree：跨分支平行開發、緊急 Hotfix、Code Review、減少切換原目錄造成的環境干擾；新目錄的依賴仍需自行管理。\n"
         "• 使用 git stash：同一分支內 < 5 分鐘的臨時小暫存、快速 pull 遠端代碼。\n"
         "建立新工作樹指令：git worktree add hotfix-dir -b hotfix-p0 main（這會在當前目錄下建立 hotfix-dir 資料夾，並檢出 hotfix-p0 分支）。",
         "進入 hotfix-dir 後，編輯 server.py 將 status 改為正常，再執行 git commit 完成提交。",
@@ -90,4 +81,9 @@ class Scenario09(BaseScenario):
         if "hotfix-dir" in out:
             return False, "臨時工作樹 hotfix-dir 尚未清理，請執行 git worktree remove hotfix-dir。"
 
+        if engine.read_file("ai_notes.txt") != "TODO: pending hyperparameter tuning\n":
+            return False, "原有 ai_notes.txt 草稿遺失，worktree 修復須保留 feature WIP。"
+        code, _, _ = engine.run_git("merge-base", "--is-ancestor", "hotfix-p0", "main", check=False)
+        if code != 0:
+            return False, "main 必須合併 hotfix-p0 的修復提交。"
         return True, "太強了！你掌握了專業團隊必備的 git worktree，清楚分清 worktree 與 stash 的現代應用時機，實現從容優雅的平行開發！"

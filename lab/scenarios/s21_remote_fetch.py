@@ -7,16 +7,11 @@ from lab.engine import GitEngine
 
 class Scenario21(BaseScenario):
     id = "21"
-    title = "遠端全貌：git remote 管理與 git fetch vs git pull 深度解密"
+    title = '觀察遠端：Fetch 與 Pull'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "高見龍老師《為你自己學 Git》關鍵協作課題：Fork 專案與 Fetch/Pull 核心差異！\n"
-        "當你參與開源專案或跨團隊協作時，你除了擁有自己 Fork 的遠端倉庫 (`origin`) 之外，\n"
-        "還必須追蹤原作者/團隊的核心主倉庫（通常命名為 `upstream`）。\n"
-        "很多新手習慣盲目敲 `git pull`，但其實 `git pull` 的底層本質是 **『git fetch + git merge』**！\n"
-        "在大型專案中，未經檢查直接 pull 很容易被突如其來的衝突或不相容改動打亂當前工作。\n"
-        "本關為你在本地搭設了模擬的 upstream 上游倉庫。\n"
-        "請配置 upstream 遠端、透過 `git fetch upstream` 下載最新進度觀察，再將其合併進本地 main 分支！"
+        "接手開源專案 Fork，你一直搞不懂為什麼前輩們都說「沒事不要亂 git pull，先 fetch 看看」。\n"
+        "請配置 upstream 遠端，先用 git fetch 觀察遠端進度再決定合併策略，避免盲目 pull 踩雷！"
     )
     goals = [
         "查看 mock_upstream 的路徑，並使用 git remote add upstream <path> 註冊上游遠端",
@@ -72,6 +67,8 @@ class Scenario21(BaseScenario):
         engine.run_git("add", "security.py", cwd=temp_author)
         engine.run_git("commit", "-m", "fix: critical security patch from upstream", cwd=temp_author)
         engine.run_git("push", "origin", "main", cwd=temp_author)
+        _, patch_oid, _ = engine.run_git("rev-parse", "HEAD", cwd=temp_author)
+        engine.run_git("config", "lab.scenario21.patch", patch_oid.strip())
         import shutil
         shutil.rmtree(temp_author, ignore_errors=True)
 
@@ -101,4 +98,10 @@ class Scenario21(BaseScenario):
         if lines:
             return False, "工作區尚有未提交或未合併的檔案，請維持乾淨狀態。"
 
+        from lab.scenarios.expanded import ended
+        _, patch, _ = engine.run_git("config", "--get", "lab.scenario21.patch", check=False)
+        _, tracking, _ = engine.run_git("rev-parse", "upstream/main", check=False)
+        _, content, _ = engine.run_git("show", "HEAD:security.py", check=False)
+        if not ended(engine) or tracking.strip() != patch.strip() or engine.run_git("merge-base", "--is-ancestor", patch.strip(), "HEAD", check=False)[0] != 0 or content != "SECRET_SALT = 'hashing_salt_9988'\ndef verify_token(): return True\n":
+            return False, "請 fetch 正確上游提交並完整合入，不能另造相同訊息取代補丁。"
         return True, "🎉 太專業了！你解鎖了 git remote 與 git fetch 的完整協作思維，在掌握遠端動向後精準合入上游進度，完全避免了盲目 pull 的風險！"

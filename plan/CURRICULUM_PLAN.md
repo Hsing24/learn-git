@@ -1,3 +1,5 @@
+> 2026-10-14 課綱 v3 更新：作者已授權修正本文件下述舊文案保護範圍，並全面補強教材、引擎與驗收。最新順序以 `docs/curriculum.js` 為準；49 關的範圍與平台限制見 [README](../README.md) 與 [LAB_GUIDE](../LAB_GUIDE.md)。以下保留原始規劃供追溯，不作為 v3 的驗收規格。
+
 # Git Scenario Lab — 課綱 v2 規劃書（實作交接文件）
 
 > **給實作者（Gemini）的說明**：本文件是規格書。請照「§8 實作分期」的順序做，每一期做完都要跑 `python3 tests/test_all_scenarios.py`，而且 Web 版要能從頭玩到尾。

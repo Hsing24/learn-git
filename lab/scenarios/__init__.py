@@ -40,6 +40,10 @@ from lab.scenarios.s33_secret_purge import Scenario33
 from lab.scenarios.s34_submodule import Scenario34
 from lab.scenarios.s35_sparse_checkout import Scenario35
 
+from lab.scenarios.expanded import (
+    Scenario36, Scenario37, Scenario38, Scenario39, Scenario40, Scenario41, Scenario42, Scenario43, Scenario44, Scenario45, Scenario46, Scenario47, Scenario48
+)
+
 _ALL_INSTANCES: List[BaseScenario] = [
     Scenario00(),
     Scenario01(),
@@ -77,6 +81,20 @@ _ALL_INSTANCES: List[BaseScenario] = [
     Scenario33(),
     Scenario34(),
     Scenario35(),
+    Scenario36(),
+    Scenario37(),
+    Scenario38(),
+    Scenario39(),
+    Scenario40(),
+    Scenario41(),
+    Scenario42(),
+    Scenario43(),
+    Scenario44(),
+    Scenario45(),
+    Scenario46(),
+    Scenario47(),
+    Scenario48(),
+
 ]
 
 SCENARIO_MAP: Dict[str, BaseScenario] = {s.id: s for s in _ALL_INSTANCES}
@@ -102,7 +120,7 @@ ALIASES: Dict[str, str] = {
     "00": "00",
     "config": "00",
     "setup": "00",
-    "ssh": "00",
+    "ssh": "40",
     "1": "01",
     "basics": "01",
     "2": "02",
@@ -191,6 +209,8 @@ ALIASES: Dict[str, str] = {
     "34": "34",
     "35": "35",
 }
+
+ALIASES.update({str(i): str(i) for i in range(36, 49)})
 
 # Automatically add slug and displayNum aliases from curriculum
 for item in _curriculum_items:

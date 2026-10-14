@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const webPlayableScenarioCount = scenarioNavigation.countWebPlayable(ORDERED_SCENARIOS);
 
   let currentScenarioIndex = 0;
+  let pendingInitialIntro = false;
   const completedScenarios = new Set(
     JSON.parse(localStorage.getItem('git_lab_completed_scenarios') || '[]')
   );
@@ -120,6 +121,36 @@ document.addEventListener('DOMContentLoaded', () => {
     afterIndex,
     completedScenarios
   );
+
+  // Easter egg: Player name from Level 00 git config or localStorage
+  function getUserName() {
+    try {
+      const fromStorage = localStorage.getItem('git_lab_user_name');
+      if (fromStorage && fromStorage.trim() && fromStorage.trim() !== 'User') {
+        return fromStorage.trim();
+      }
+    } catch (e) {}
+    if (window.git && git.config && git.config['user.name'] && git.config['user.name'].trim() && git.config['user.name'] !== 'User') {
+      return git.config['user.name'].trim();
+    }
+    return '';
+  }
+
+  function personalizeStory(storyText, userName) {
+    if (!userName || !storyText) return storyText;
+    return storyText
+      .replace(/「菜鳥，/g, `「${userName}，`)
+      .replace(/「菜鳥……/g, `「${userName}……`)
+      .replace(/「欸菜鳥，/g, `「欸 ${userName}，`)
+      .replace(/「菜鳥！/g, `「${userName}！`)
+      .replace(/從小菜鳥的角度/g, `從新人 ${userName} 的角度`)
+      .replace(/身為剛入職的新人/g, `身為剛入職的新人 ${userName}`)
+      .replace(/身為最沒包袱的新人/g, `身為最沒包袱的新人 ${userName}`)
+      .replace(/身為新人/g, `身為新人 ${userName}`)
+      .replace(/身為菜鳥/g, `身為新人 ${userName}`)
+      .replace(/強哥交給你第一份/g, `強哥交給 ${userName} 第一份`)
+      .replace(/展開職場生存記！/g, `${userName} 的職場生存記正式開演！`);
+  }
 
   // DOM Elements
   const terminalOutput = document.getElementById('terminal-output');
@@ -139,6 +170,56 @@ document.addEventListener('DOMContentLoaded', () => {
   const missionContainer = document.getElementById('mission-container');
   let isCurrentScenarioPassed = false;
   let completedTasks = new Set();
+  let selectedFilename = null;
+  let editingFilename = null;
+  let pendingPatch = null;
+
+  function finishCommand(command, code = 0) {
+    updatePrompt();
+    refreshGraph();
+    renderFileList();
+    if (code === 0) checkTaskProgress(command);
+    checkScenarioSuccess(false);
+    scrollToBottom();
+    return code;
+  }
+
+  function setFileEditing(active) {
+    const editor = document.getElementById('file-editor');
+    if (!editor) return;
+    editor.hidden = !active;
+    fileViewerContent.hidden = active;
+    document.getElementById('btn-edit-file').hidden = active;
+    document.getElementById('btn-save-file').hidden = !active;
+    document.getElementById('btn-cancel-edit').hidden = !active;
+    if (!active) editingFilename = null;
+  }
+
+  function beginFileEdit() {
+    if (!selectedFilename) return;
+    if (pendingPatch) {
+      printOutput('請先完成 patch 選擇或輸入 q，再編輯檔案。');
+      return;
+    }
+    editingFilename = selectedFilename;
+    const editor = document.getElementById('file-editor');
+    editor.value = git.workingTree.get(selectedFilename) ?? '';
+    setFileEditing(true);
+    editor.focus();
+  }
+
+  document.getElementById('btn-edit-file')?.addEventListener('click', beginFileEdit);
+  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setFileEditing(false));
+  document.getElementById('btn-save-file')?.addEventListener('click', () => {
+    if (!editingFilename) return;
+    if (pendingPatch) return;
+    const file = editingFilename;
+    git.workingTree.set(file, document.getElementById('file-editor').value);
+    setFileEditing(false);
+    document.getElementById('file-editor-status').textContent = '已儲存至工作區；請自行檢視、暫存與提交。';
+    finishCommand('edit ' + file);
+    selectFile(file);
+  });
 
   function getRequiredSteps(scenario) {
     const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
@@ -148,135 +229,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return scenario.goals.map((g, i) => ({ step: i + 1, cmd: g, why: g }));
   }
 
-  function getCommonCommands(scenario) {
-    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
-    if (!guide) return [];
-
-    const list = [];
-    if (scenario.id === '00' && guide.configCategories && guide.configCategories.optional) {
-      guide.configCategories.optional.forEach(opt => {
-        list.push({ cmd: `git config ${opt.key}`, desc: `${opt.label} — ${opt.desc}` });
-      });
-      return list;
-    }
-
-    if (guide.guidedSteps) {
-      guide.guidedSteps.filter(s => s.category === 'optional').forEach(s => {
-        list.push({ cmd: s.cmd, desc: s.why });
-      });
-    }
-
-    if (guide.variations) {
-      guide.variations.forEach(v => {
-        if (!list.some(item => item.cmd === v.cmd)) {
-          list.push({ cmd: v.cmd, desc: v.name ? `${v.name}：${v.desc}` : v.desc });
-        }
-      });
-    }
-    return list;
-  }
-
-  // Render Mission Tasks Panel with Live Progress and Checkbox Ticks
+  // Render required tasks with live progress; command notes live in the guide.
   function renderMissionPanel(scenario) {
-    const container = document.getElementById('mission-container');
-    if (!container) return;
-
+    if (!missionContainer) return;
     const requiredSteps = getRequiredSteps(scenario);
-    const commonCommands = getCommonCommands(scenario);
-
     const completedCount = requiredSteps.filter((_, idx) => completedTasks.has(idx)).length;
     const totalRequired = requiredSteps.length;
-
-    // Update tab header title: 關卡任務 (0/2)
     const tabTitleEl = document.getElementById('tab-title-mission');
-    if (tabTitleEl) {
-      tabTitleEl.textContent = `關卡任務 (${completedCount}/${totalRequired})`;
-    }
+    if (tabTitleEl) tabTitleEl.textContent = `${completedCount}/${totalRequired}`;
+    document.getElementById('tab-btn-mission').setAttribute('aria-label', `任務，已完成 ${completedCount} / ${totalRequired} 項`);
 
-    const tasksHtml = requiredSteps.map((s, idx) => {
-      const isDone = completedTasks.has(idx);
-      return `
-        <div class="mission-task-card ${isDone ? 'completed' : 'pending'}">
-          <div class="task-checkbox-col">
-            <span class="task-checkbox ${isDone ? 'checked' : 'unchecked'}">${isDone ? '✔' : ''}</span>
-          </div>
-          <div class="task-content-col">
-            <div class="task-why-text ${isDone ? 'completed-text' : ''}">${escapeHtml(s.why)}</div>
-            <div class="task-cmd-row">
-              <code class="task-cmd-chip">${escapeHtml(s.cmd)}</code>
-              <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(s.cmd)}')" title="填入終端機">
-                填入 ➜
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    const commonCmdsHtml = commonCommands.map(item => `
-      <div class="common-cmd-card">
-        <div class="common-cmd-content">
-          <code class="common-cmd-chip">${escapeHtml(item.cmd)}</code>
-          <p class="common-cmd-desc">${escapeHtml(item.desc)}</p>
-        </div>
-        <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(item.cmd)}')" title="填入終端機">
-          填入 ➜
-        </button>
-      </div>
-    `).join('');
-
-    container.innerHTML = `
+    missionContainer.innerHTML = `
       <div class="mission-panel-header">
         <div class="mission-title-row">
-          <span class="bracket-tag">[關卡 ${scenario.id}]</span>
-          <h2 class="mission-heading">${escapeHtml(scenario.title)}</h2>
+          <span class="bracket-tag">[${scenario.displayNum || scenario.id}]</span>
+          <h3 class="mission-heading">${escapeHtml(scenario.title)}</h3>
         </div>
         <div class="mission-progress-bar-container">
           <div class="mission-progress-status">
-            <span>🎯 必要目標完成度</span>
+            <span>任務進度</span>
             <span class="progress-count">${completedCount} / ${totalRequired}</span>
           </div>
-          <div class="progress-track">
-            <div class="progress-fill" style="transform: scaleX(${totalRequired > 0 ? (completedCount / totalRequired) : 0});"></div>
+          <div class="progress-track" role="progressbar" aria-label="任務進度" aria-valuemin="0" aria-valuemax="${totalRequired}" aria-valuenow="${completedCount}">
+            <div class="progress-fill" style="transform: scaleX(${totalRequired > 0 ? completedCount / totalRequired : 0});"></div>
           </div>
         </div>
       </div>
-
-      <div class="mission-story-box">
-        <details class="story-details" open>
-          <summary class="story-summary">
-            <span>🎭 關卡職場情境</span>
-            <span class="story-toggle-icon">▾</span>
-          </summary>
-          <div class="story-content">
-            <p>${escapeHtml(scenario.story)}</p>
-          </div>
-        </details>
-      </div>
-
-      <div class="mission-section">
-        <h3 class="mission-section-title">
-          <span>🎯 本關必要任務</span>
-          <span class="badge-required-count">共 ${totalRequired} 項</span>
-        </h3>
-        <p class="mission-section-desc">請依序在終端機輸入下列指令，完成後將自動打勾：</p>
-        <div class="mission-tasks-list">
-          ${tasksHtml}
-        </div>
-      </div>
-
-      ${commonCommands.length > 0 ? `
-      <div class="mission-section">
-        <h3 class="mission-section-title">
-          <span>⚡ 其他常用/推薦指令</span>
-          <span class="badge-optional-count">可選擴充</span>
-        </h3>
-        <p class="mission-section-desc">依照業界實戰推薦之延伸打法，不計入通關必要次數：</p>
-        <div class="common-cmds-list">
-          ${commonCmdsHtml}
-        </div>
-      </div>
-      ` : ''}
+      <p class="mission-section-desc">自行輸入指令，完成後自動勾選。</p>
+      <ol class="mission-tasks-list">
+        ${requiredSteps.map((step, idx) => {
+          const isDone = completedTasks.has(idx);
+          return `
+            <li class="mission-task-card ${isDone ? 'completed' : 'pending'}">
+              <div class="task-checkbox-col">
+                <span class="task-checkbox ${isDone ? 'checked' : 'unchecked'}" role="img" aria-label="${isDone ? '已完成' : '待完成'}">${isDone ? '✔' : ''}</span>
+              </div>
+              <div class="task-content-col">
+                <div class="task-why-text ${isDone ? 'completed-text' : ''}">${escapeHtml(cleanGuideText(step.why))}</div>
+                <code class="task-cmd-chip">${escapeHtml(step.cmd)}</code>
+              </div>
+            </li>
+          `;
+        }).join('')}
+      </ol>
     `;
   }
 
@@ -291,6 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentScenarioIndex = index;
     isCurrentScenarioPassed = false;
     completedTasks.clear();
+    pendingPatch = null;
+    selectedFilename = null;
+    setFileEditing(false);
+    const editorStatus = document.getElementById('file-editor-status');
+    if (editorStatus) editorStatus.textContent = '';
 
     if (terminalNextBar) terminalNextBar.style.display = 'none';
 
@@ -351,7 +351,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (sc.id === '00') {
         if (idx === 0) {
           const name = git.config['user.name'];
-          if (name && name.trim() && name !== 'User') completedTasks.add(idx);
+          if (name && name.trim() && name !== 'User') {
+            completedTasks.add(idx);
+            try {
+              localStorage.setItem('git_lab_user_name', name.trim());
+            } catch (e) {}
+          }
         } else if (idx === 1) {
           const email = git.config['user.email'];
           if (email && email.includes('@')) completedTasks.add(idx);
@@ -382,248 +387,97 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMissionPanel(sc);
   }
 
-  // Render Pedagogical Command Guide for the Active Scenario
+  // Keep prose free of decorative badges while preserving command examples.
+  function cleanGuideText(value = '') {
+    return value
+      .replace(/【★[^】]*】\s*/g, '')
+      .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
+      .trim();
+  }
+
+  // Group examples and explanations by Git command, merging repeated syntax.
   function renderCommandGuide(scenario) {
     if (!guideContainer) return;
-    const guide = (typeof COMMAND_GUIDES !== 'undefined' && COMMAND_GUIDES[scenario.id]) ? COMMAND_GUIDES[scenario.id] : null;
+    const guide = typeof COMMAND_GUIDES !== 'undefined' ? COMMAND_GUIDES[scenario.id] : null;
+    const groups = new Map();
 
-    if (!guide) {
-      guideContainer.innerHTML = `
-        <div class="guide-header">
-          <div class="guide-title-row">
-            <span class="guide-tag">關卡 ${scenario.id}</span>
-            <h2 class="guide-heading">${escapeHtml(scenario.title)}</h2>
-          </div>
-          <p class="guide-summary">${escapeHtml(scenario.story)}</p>
-        </div>
-      `;
-      return;
+    function addCommand(item) {
+      const commandName = item.cmd.match(/\bgit\s+([a-z][\w-]*)\b/);
+      const groupName = commandName ? `git ${commandName[1]}` : '檔案操作';
+      if (!groups.has(groupName)) groups.set(groupName, new Map());
+      const entries = groups.get(groupName);
+      if (!entries.has(item.cmd)) entries.set(item.cmd, { cmd: item.cmd, notes: new Set() });
+      const entry = entries.get(item.cmd);
+      if (item.name) entry.name = cleanGuideText(item.name);
+      if (item.category) entry.category = item.category;
+      if (item.isPopular) entry.isPopular = true;
+      [item.why, item.desc, item.popularReason].filter(Boolean).forEach(note => entry.notes.add(cleanGuideText(note)));
     }
 
-    // 1. Situation block
-    const situationHtml = guide.scenarioContext ? `
-      <div class="guide-situation-card">
-        <div class="situation-header">
-          <span class="situation-badge">💼 職場情境現場</span>
-          <span class="situation-role">👤 扮演角色：${escapeHtml(guide.scenarioContext.role)}</span>
-        </div>
-        <p class="situation-desc">${escapeHtml(guide.scenarioContext.situation)}</p>
+    (guide?.guidedSteps || getRequiredSteps(scenario)).forEach(addCommand);
+    (guide?.variations || []).forEach(addCommand);
+    if (guide?.configCategories) {
+      Object.entries(guide.configCategories).forEach(([category, items]) => items.forEach(item => {
+        const value = item.key === 'user.name' ? ' "你的名字"' : item.key === 'user.email' ? ' "you@example.com"' : '';
+        const cmd = `git config ${item.key}${value}`;
+        const existing = groups.get('git config')?.has(cmd);
+        addCommand({ cmd, name: item.label, category, desc: existing ? '' : item.desc });
+      }));
+    }
+
+    const resetMatrixHtml = guide?.resetModeRows ? `
+      <div class="reset-matrix-table-wrap">
+        <table class="cheat-table reset-matrix-table">
+          <caption>git reset 模式比較</caption>
+          <thead><tr>
+            <th scope="col">模式</th><th scope="col">HEAD</th><th scope="col">暫存區</th><th scope="col">工作區</th>
+          </tr></thead>
+          <tbody>${guide.resetModeRows.map(row => `
+            <tr><td><code>${escapeHtml(row.mode)}</code></td><td>${escapeHtml(row.head)}</td><td>${escapeHtml(row.index)}</td><td>${escapeHtml(row.workingTree)}</td></tr>
+          `).join('')}</tbody>
+        </table>
       </div>
+      <p class="guide-section-desc reset-matrix-warning">${escapeHtml(cleanGuideText(guide.resetModeWarning))}</p>
     ` : '';
-
-    // 2. Config Categories block (Level 00 specific)
-    let configCategoriesHtml = '';
-    if (guide.configCategories) {
-      const reqItems = guide.configCategories.required.map(item => {
-        const fullCmd = `git config ${item.key.includes(' ') ? item.key : `${item.key} "${item.key === 'user.name' ? '你的名字' : 'you@example.com'}"`}`;
-        return `
-          <div class="config-item-row required-item">
-            <div class="config-item-info">
-              <div class="config-item-header">
-                <code class="config-item-key">${escapeHtml(item.key)}</code>
-                <span class="config-item-label">${escapeHtml(item.label)}</span>
-              </div>
-              <p class="config-item-desc">${escapeHtml(item.desc)}</p>
-            </div>
-            <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(fullCmd)}')" title="點擊填入此設定">
-              填入 ➜
-            </button>
-          </div>
-        `;
-      }).join('');
-
-      const optItems = guide.configCategories.optional.map(item => {
-        const fullCmd = `git config ${item.key}`;
-        return `
-          <div class="config-item-row optional-item">
-            <div class="config-item-info">
-              <div class="config-item-header">
-                <code class="config-item-key">${escapeHtml(item.key)}</code>
-                <span class="config-item-label">${escapeHtml(item.label)}</span>
-              </div>
-              <p class="config-item-desc">${escapeHtml(item.desc)}</p>
-            </div>
-            <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(fullCmd)}')" title="點擊填入此設定">
-              填入 ➜
-            </button>
-          </div>
-        `;
-      }).join('');
-
-      configCategoriesHtml = `
-        <div class="guide-section">
-          <h3 class="guide-section-title">⚙️ Git 必備設定 vs 推薦可選設定解析</h3>
-          <p class="guide-section-desc">Git 不是只有死記三條指令！清楚分辨「底線必備（缺一不可）」與「提效推薦（大幅省時）」：</p>
-          <div class="config-split-grid">
-            <div class="config-split-col required-col">
-              <div class="config-col-header">
-                <span class="badge-col-type badge-required">🔴 必備底線設定 (Required)</span>
-                <span class="config-col-subtitle">缺少則 Git 拒絕提交 Commit，本關設定完成即可通關</span>
-              </div>
-              <div class="config-col-body">
-                ${reqItems}
-              </div>
-            </div>
-            <div class="config-split-col optional-col">
-              <div class="config-col-header">
-                <span class="badge-col-type badge-optional">🟢 推薦/可選進階設定 (Optional & Best Practices)</span>
-                <span class="config-col-subtitle">非強制，但大幅消除重複輸入與跨平台地雷（設定享彩蛋成就）</span>
-              </div>
-              <div class="config-col-body">
-                ${optItems}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // 3. Guided Steps block
-    let guidedStepsHtml = '';
-    if (guide.guidedSteps && guide.guidedSteps.length > 0) {
-      const stepsCards = guide.guidedSteps.map(s => {
-        const categoryBadge = s.category === 'required'
-          ? `<span class="badge-step-cat badge-cat-req">必備</span>`
-          : (s.category === 'optional' ? `<span class="badge-step-cat badge-cat-opt">推薦可選</span>` : '');
-
-        return `
-          <div class="guided-step-item">
-            <div class="guided-step-header">
-              <div class="guided-step-meta">
-                <span class="step-num-badge">步驟 ${s.step}</span>
-                ${categoryBadge}
-              </div>
-              <code class="guided-step-cmd">${escapeHtml(s.cmd)}</code>
-              <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(s.cmd)}')" title="填入終端機">
-                填入 ➜
-              </button>
-            </div>
-            <div class="guided-step-why">
-              <span class="why-label">💡 為什麼要下此指令：</span>
-              <span class="why-text">${escapeHtml(s.why)}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      guidedStepsHtml = `
-        <div class="guide-section">
-          <h3 class="guide-section-title">🧭 實戰情境與引導式解題步驟</h3>
-          <p class="guide-section-desc">帶著情境問題循序思考，每一步皆有清晰的底層原因與目的：</p>
-          <div class="guided-steps-list">
-            ${stepsCards}
-          </div>
-        </div>
-      `;
-    }
-
-    const resetModeMatrixHtml = guide.resetModeRows ? `
-      <div class="guide-section">
-        <h3 class="guide-section-title">🧭 git reset 三種模式：HEAD、Index 與工作區</h3>
-        <p class="guide-section-desc">HEAD 都會移到指定提交；模式差異在於是否重設 Index（暫存區）與 Working Tree（工作區）。</p>
-        <div class="reset-matrix-table-wrap">
-          <table class="cheat-table reset-matrix-table">
-            <thead>
-              <tr>
-                <th scope="col">模式</th>
-                <th scope="col">HEAD</th>
-                <th scope="col">Index（暫存區）</th>
-                <th scope="col">Working Tree（工作區）</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${guide.resetModeRows.map(row => `
-                <tr>
-                  <td><code>${escapeHtml(row.mode)}</code></td>
-                  <td>${escapeHtml(row.head)}</td>
-                  <td>${escapeHtml(row.index)}</td>
-                  <td>${escapeHtml(row.workingTree)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        <p class="guide-section-desc reset-matrix-warning">${escapeHtml(guide.resetModeWarning)}</p>
-      </div>
-    ` : '';
-
-    // 4. Variations
-    const variantsHtml = (guide.variations || []).map(v => `
-      <div class="guide-variant-card ${v.isPopular ? 'popular' : ''}">
-        <div class="variant-header">
-          <code class="variant-cmd">${escapeHtml(v.cmd)}</code>
-          <div class="variant-badges">
-            <span class="badge-variant-name">${escapeHtml(v.name)}</span>
-            ${v.isPopular ? `<span class="badge-popular">★ 業界最常用</span>` : ''}
-          </div>
-          <button class="btn-paste-cmd" onclick="insertCommandToTerminal('${escapeJsString(v.cmd)}')" title="點擊直接填入終端機">
-            填入 ➜
-          </button>
-        </div>
-        <p class="variant-desc">${escapeHtml(v.desc)}</p>
-        ${v.popularReason ? `<div class="variant-popular-note">💡 ${escapeHtml(v.popularReason)}</div>` : ''}
-      </div>
-    `).join('');
-
-    const pitfallsHtml = (guide.pitfalls || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
 
     guideContainer.innerHTML = `
-      <div class="guide-header">
-        <div class="guide-title-row">
-          <span class="guide-tag">關卡 ${scenario.id} 深度解析</span>
-          <h2 class="guide-heading">${escapeHtml(scenario.title)}</h2>
-        </div>
-        <p class="guide-summary">${escapeHtml(guide.summary)}</p>
-      </div>
-
-      ${situationHtml}
-
-      <div class="guide-target-card">
-        <div class="target-card-label">🎯 本關核心操作指令</div>
-        <div class="target-card-body">
-          <code class="target-card-cmd">${escapeHtml(guide.targetCommand)}</code>
-          <button class="btn-paste-cmd btn-paste-primary" onclick="insertCommandToTerminal('${escapeJsString(guide.targetCommand)}')" title="填入終端機">
-            填入終端機 ➜
-          </button>
-        </div>
-      </div>
-
-      ${resetModeMatrixHtml}
-
-      ${configCategoriesHtml}
-
-      ${guidedStepsHtml}
-
-      ${variantsHtml ? `
-      <div class="guide-section">
-        <h3 class="guide-section-title">⚡ 指令語法變體與不同打法對照</h3>
-        <p class="guide-section-desc">這項操作在 Git 中有多種打法，以下為完整選項比較與使用情境：</p>
-        <div class="guide-variants-list">
-          ${variantsHtml}
-        </div>
-      </div>
-      ` : ''}
-
-      ${guide.whyPopularTitle ? `
-      <div class="guide-section">
-        <h3 class="guide-section-title">🤔 ${escapeHtml(guide.whyPopularTitle)}</h3>
-        <div class="guide-rationale-box">
-          <p>${escapeHtml(guide.whyPopularContent)}</p>
-        </div>
-      </div>
-      ` : ''}
-
-      ${pitfallsHtml ? `
-      <div class="guide-section">
-        <h3 class="guide-section-title">🛡️ 避坑指南與實戰防線</h3>
-        <div class="guide-pitfalls-box">
-          <ul class="pitfalls-list">
-            ${pitfallsHtml}
+      ${guide?.summary ? `<p class="guide-summary">${escapeHtml(cleanGuideText(guide.summary))}</p>` : ''}
+      <nav class="guide-command-index" aria-label="本關指令">
+        ${[...groups.keys()].map((name, index) => `<a href="#guide-command-${index}">${escapeHtml(name)}</a>`).join('')}
+      </nav>
+      ${[...groups].map(([name, entries], index) => `
+        <section id="guide-command-${index}" class="command-guide-section" aria-labelledby="guide-command-title-${index}">
+          <h3 id="guide-command-title-${index}" class="command-guide-title">${escapeHtml(name)}</h3>
+          <ul class="command-examples">
+            ${[...entries.values()].map(entry => `
+              <li class="command-example">
+                <div class="command-example-header">
+                  <code>${escapeHtml(entry.cmd)}</code>
+                  ${entry.isPopular ? '<span class="command-star" role="img" aria-label="常用指令" title="常用指令">★</span>' : ''}
+                  ${entry.category ? `<span class="command-category">${entry.category === 'optional' ? '延伸' : '必要'}</span>` : ''}
+                </div>
+                ${entry.name ? `<p class="command-example-name">${escapeHtml(entry.name)}</p>` : ''}
+                <ul class="command-notes">${[...entry.notes].map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul>
+              </li>
+            `).join('')}
           </ul>
-        </div>
-      </div>
+          ${name === 'git reset' ? resetMatrixHtml : ''}
+        </section>
+      `).join('')}
+      ${guide?.whyPopularContent ? `
+        <section class="guide-section guide-rationale" aria-labelledby="guide-rationale-title">
+          <h3 id="guide-rationale-title" class="guide-section-title"><span role="img" aria-label="補充觀念">💡</span> ${escapeHtml(cleanGuideText(guide.whyPopularTitle || '補充觀念'))}</h3>
+          <p class="guide-summary">${escapeHtml(cleanGuideText(guide.whyPopularContent))}</p>
+        </section>
+      ` : ''}
+      ${guide?.pitfalls?.length ? `
+        <section class="guide-section" aria-labelledby="guide-pitfalls-title">
+          <h3 id="guide-pitfalls-title" class="guide-section-title">注意事項</h3>
+          <ul class="command-notes guide-pitfalls">${guide.pitfalls.map(note => `<li>${escapeHtml(cleanGuideText(note))}</li>`).join('')}</ul>
+        </section>
       ` : ''}
     `;
+    guideContainer.scrollTop = 0;
   }
 
   function escapeHtml(str) {
@@ -635,19 +489,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
-
-  function escapeJsString(str) {
-    if (!str) return '';
-    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
-  }
-
-  window.insertCommandToTerminal = (rawCmd) => {
-    let clean = rawCmd.split(' (')[0].trim();
-    terminalInput.value = clean;
-    terminalInput.focus();
-    terminalInput.setSelectionRange(clean.length, clean.length);
-    scrollToBottom();
-  };
 
   // Update prompt with active branch
   function updatePrompt() {
@@ -701,30 +542,29 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    let first = true;
     for (const file of allFiles) {
-      const item = document.createElement('div');
+      const item = document.createElement('button');
+      item.type = 'button';
       item.className = 'file-tree-item';
       const conflictFiles = git.conflictState?.files || (git.conflictState?.file ? [git.conflictState.file] : []);
       const isConflict = conflictFiles.includes(file) &&
         (!git.rebaseState?.conflictFiles?.has(file) || git.rebaseState.unresolvedFiles.has(file));
       item.innerHTML = `
-        <span class="file-icon">${isConflict ? '⚡' : '📄'}</span>
-        <span class="file-name">${file}</span>
+        <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M14 2H5v20h14V7ZM14 2v5h5M8 12h8m-8 4h8"/></svg>
+        <span class="file-name">${escapeHtml(file)}</span>
         ${isConflict ? '<span class="tag-conflict">衝突中</span>' : ''}
       `;
       item.onclick = () => selectFile(file);
       filesList.appendChild(item);
 
-      if (first) {
-        selectFile(file);
-        first = false;
-      }
     }
+    selectFile(allFiles.has(selectedFilename) ? selectedFilename : allFiles.values().next().value);
   }
 
   function selectFile(filename) {
     if (!fileViewerName || !fileViewerContent) return;
+    if (editingFilename && filename !== editingFilename) return;
+    selectedFilename = filename;
     fileViewerName.textContent = filename;
     const content = git.workingTree.get(filename) || git.index.get(filename) || '';
     fileViewerContent.textContent = content;
@@ -750,7 +590,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Command Execution Dispatcher
   function executeCommand(rawCmd) {
     const cmd = preprocessInput(rawCmd);
-    if (!cmd) return;
+    if (!cmd) return 0;
+
+    if (pendingPatch) return answerPatch(cmd);
+    const chain = splitCommandChain(cmd);
+    if (chain.length > 1) {
+      for (const part of chain) {
+        const code = executeCommand(part);
+        if (code !== 0 || pendingPatch) return code;
+      }
+      return 0;
+    }
 
     // Record history with deduplication
     if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
@@ -760,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentDraft = '';
 
     // Echo input command with prompt
-    const promptText = `user@git-lab:~/workspace ${promptBranchSpan.textContent} $ ${cmd}`;
+    const promptText = `user@git-lab:~/workspace${git.currentDirectory ? '/' + git.currentDirectory : ''} ${promptBranchSpan.textContent} $ ${cmd}`;
     printOutput(`\x1b[38;2;139;148;158m${promptText}\x1b[0m`);
 
     // Parse tokens respecting quotes
@@ -770,62 +620,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mainCmd === 'next' || mainCmd === 'n') {
       window.nextScenario();
-      return;
+      return 0;
     }
 
     if (mainCmd === 'guide') {
       window.switchTab('guide');
-      printOutput(`\x1b[38;2;88;166;255m[已切換至「📖 指令深度教室」頁籤]\x1b[0m`);
-      return;
+      printOutput(`\x1b[38;2;88;166;255m[已切換至補充說明]\x1b[0m`);
+      return 0;
     }
 
     if (mainCmd === 'clear') {
       terminalOutput.innerHTML = '';
-      return;
+      return 0;
     }
 
     if (mainCmd === 'help') {
       printHelp();
-      return;
+      return 0;
     }
 
     if (mainCmd === 'hint') {
       const sc = ORDERED_SCENARIOS[currentScenarioIndex];
       printOutput(`\x1b[38;2;210;153;34m💡 [通關提示]：\x1b[0m\n${sc.hints.join('\n')}\n`);
-      return;
+      return 0;
     }
 
     if (mainCmd === 'goal' || mainCmd === 'mission') {
       window.openMissionModal();
-      return;
+      return 0;
     }
 
     if (mainCmd === 'levels' || mainCmd === 'list') {
       toggleLevelDropdown();
-      return;
+      return 0;
     }
 
     if (mainCmd === 'reset') {
       loadScenario(currentScenarioIndex);
       printOutput(`\x1b[38;2;248;81;73m✔ 當前關卡已重設至初始狀態。\x1b[0m`);
-      return;
+      return 0;
     }
 
     if (mainCmd === 'verify') {
       checkScenarioSuccess(true);
-      return;
+      return ORDERED_SCENARIOS[currentScenarioIndex].checkGoal(git).passed ? 0 : 1;
     }
 
     if (mainCmd === 'tree') {
       printOutput(git.logCmd(['--oneline', '--graph']).output);
-      return;
+      return 0;
     }
 
     if (mainCmd === 'echo') {
       const raw = cmd.replace(/^echo\s+/, '');
-      const match = raw.match(/^(.*?)\s*(>{1,2})\s*([^\s]+)$/);
+      const match = raw.match(/^(.*?)\s*(>{1,2})\s*([^\s]+)$/s);
       if (match) {
-        let content = match[1].trim().replace(/^['"]|['"]$/g, '');
+        const echoText = match[1].trim();
+        const interpretEscapes = echoText.startsWith('-e ');
+        let content = echoText.replace(/^-e\s+/, '').replace(/^['"]|['"]$/g, '');
+        if (interpretEscapes) content = content.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
         const append = match[2] === '>>';
         const filename = match[3].trim();
         const existing = git.workingTree.get(filename) || '';
@@ -833,10 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         printOutput(raw.replace(/^['"]|['"]$/g, ''));
       }
-      updatePrompt();
-      refreshGraph();
-      renderFileList();
-      return;
+      return finishCommand(cmd);
     }
 
     if (mainCmd === 'touch') {
@@ -844,56 +694,138 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!git.workingTree.has(file)) {
         git.workingTree.set(file, '');
       }
-      updatePrompt();
-      refreshGraph();
-      renderFileList();
-      return;
+      return finishCommand(cmd);
     }
 
+    if (mainCmd === 'cd') {
+      const result = git.changeDirectory(args[0] || '.');
+      if (result.output) printOutput(result.output);
+      setFileEditing(false);
+      selectedFilename = null;
+      return finishCommand(cmd, result.code);
+    }
+    if (mainCmd === 'pwd') {
+      printOutput(`/workspace${git.currentDirectory ? '/' + git.currentDirectory : ''}`);
+      return 0;
+    }
+    if (mainCmd === 'cat') {
+      const file = args[0];
+      if (!git.workingTree.has(file)) {
+        printOutput(`cat: ${file}: No such file`);
+        return 1;
+      }
+      printOutput(git.workingTree.get(file));
+      return 0;
+    }
+    if (mainCmd === 'rm') {
+      for (const file of args.filter(arg => !arg.startsWith('-'))) git.workingTree.delete(file);
+      return finishCommand(cmd);
+    }
+    if (mainCmd === 'chmod') {
+      const file = args[args.length - 1];
+      if (!git.workingTree.has(file) || !args.includes('+x')) {
+        printOutput('usage: chmod +x <existing-file>');
+        return 1;
+      }
+      git.executableFiles ||= new Set();
+      git.executableFiles.add(file);
+      return finishCommand(cmd);
+    }
+
+    let code = 0;
     if (mainCmd === 'git') {
-      handleGitCommand(args);
+      code = handleGitCommand(args) ?? 0;
     } else {
       printOutput(`command not found: ${mainCmd}. 輸入 \x1b[38;2;88;166;255mhelp\x1b[0m 查看支援的 Git 指令。`);
+      code = 127;
     }
 
-    // Refresh UI, Task Progress & Check Goal
-    updatePrompt();
-    refreshGraph();
-    renderFileList();
-    checkTaskProgress(cmd);
-    checkScenarioSuccess(false);
-    scrollToBottom();
+    return finishCommand(cmd, code);
+  }
+
+  function splitCommandChain(command) {
+    const parts = [];
+    let quote = null;
+    let start = 0;
+    for (let i = 0; i < command.length; i++) {
+      if (command[i] === '\\') { i++; continue; }
+      if (quote) { if (command[i] === quote) quote = null; }
+      else if (command[i] === '"' || command[i] === "'") quote = command[i];
+      else if (command.slice(i, i + 2) === '&&') {
+        parts.push(command.slice(start, i).trim());
+        start = i + 2;
+        i++;
+      }
+    }
+    parts.push(command.slice(start).trim());
+    return parts;
+  }
+
+  function showPatchHunk() {
+    const hunk = pendingPatch.hunks[pendingPatch.position];
+    printOutput(hunk.diff);
+    printOutput(`(${pendingPatch.position + 1}/${pendingPatch.hunks.length}) Stage this hunk [y,n,q]?`);
+  }
+
+  function answerPatch(answer) {
+    if (!['y', 'n', 'q'].includes(answer)) {
+      printOutput('請輸入 y 暫存、n 略過或 q 結束；此模擬器按目前顯示的區塊選擇。');
+      return 1;
+    }
+    if (answer === 'y') pendingPatch.selected.push(pendingPatch.position);
+    pendingPatch.position++;
+    if (answer !== 'q' && pendingPatch.position < pendingPatch.hunks.length) {
+      showPatchHunk();
+      return 0;
+    }
+    const { file, selected, hunks } = pendingPatch;
+    pendingPatch = null;
+    const result = git.addPatch(file, selected, hunks);
+    if (result.output) printOutput(result.output);
+    return finishCommand(`git add -p ${file}`, result.code);
   }
 
   function handleGitCommand(args) {
     if (args.length === 0) {
       printOutput('usage: git [--version] [--help] <command> [<args>]');
-      return;
+      return 1;
     }
 
     const sub = args[0];
     const subArgs = args.slice(1);
+    if (git.initialized === false && !['init', 'config'].includes(sub)) {
+      printOutput('fatal: not a git repository；請先執行 git init。');
+      return 128;
+    }
+    function emit(result) {
+      if (result.output) printOutput(result.output);
+      return result.code;
+    }
 
     switch (sub) {
+      case 'init':
+        return emit(git.init(subArgs));
       case 'status':
-        const isShort = subArgs.includes('-s') || subArgs.includes('--short');
+        const isShort = subArgs.includes('-s') || subArgs.includes('--short') || subArgs.includes('--porcelain');
         const st = git.status(subArgs);
         if (isShort) {
           let sOut = '';
           if (subArgs.includes('-b') || subArgs.includes('--branch')) {
             sOut += `## ${st.branch || 'HEAD (no branch)'}\n`;
           }
-          if (st.conflict) {
-            sOut += `\x1b[38;2;248;81;73mUU ${st.conflict.file}\x1b[0m\n`;
-          }
+          const rows = new Map();
+          if (st.conflict) (st.conflict.files || [st.conflict.file]).forEach(file => rows.set(file, ['U', 'U']));
           st.staged.forEach(s => {
             const code = s.status === 'new file' ? 'A' : (s.status === 'deleted' ? 'D' : 'M');
-            sOut += `\x1b[38;2;46;160;67m${code}  ${s.file}\x1b[0m\n`;
+            if (!rows.has(s.file)) rows.set(s.file, [' ', ' ']);
+            if (rows.get(s.file)[0] !== 'U') rows.get(s.file)[0] = code;
           });
           st.unstaged.forEach(s => {
             const code = s.status === 'deleted' ? 'D' : 'M';
-            sOut += `\x1b[38;2;210;153;34m ${code} ${s.file}\x1b[0m\n`;
+            if (!rows.has(s.file)) rows.set(s.file, [' ', ' ']);
+            if (rows.get(s.file)[1] !== 'U') rows.get(s.file)[1] = code;
           });
+          for (const [file, columns] of rows) sOut += `${columns.join('')} ${file}\n`;
           st.untracked.forEach(f => {
             sOut += `\x1b[38;2;248;81;73m?? ${f}\x1b[0m\n`;
           });
@@ -920,19 +852,27 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'add':
+        if ((subArgs.includes('-p') || subArgs.includes('--patch')) && editingFilename) {
+          printOutput('請先儲存或取消檔案編輯，再選擇 patch；顯示的區塊會以已儲存內容為準。');
+          return 1;
+        }
         const resAdd = git.add(subArgs);
         if (resAdd.output) printOutput(resAdd.output);
-        break;
+        if (resAdd.patch?.hunks?.length) {
+          pendingPatch = { ...resAdd.patch, selected: [], position: 0 };
+          showPatchHunk();
+        }
+        return resAdd.code;
 
       case 'commit':
         const resCommit = git.commit(subArgs);
         printOutput(resCommit.output);
-        break;
+        return resCommit.code;
 
       case 'branch':
         const resBranch = git.branch(subArgs);
         if (resBranch.output) printOutput(resBranch.output);
-        break;
+        return resBranch.code;
 
       case 'checkout':
       case 'switch':
@@ -947,16 +887,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!target) {
           printOutput(`fatal: missing branch name or reference`);
-          return;
+          return 1;
         }
         const resSwitch = git.checkoutOrSwitch(target, isCreate, isDetach);
         if (resSwitch.output) printOutput(resSwitch.output);
-        break;
+        return resSwitch.code;
 
       case 'restore':
         const resRestore = git.restore(subArgs);
         if (resRestore.output) printOutput(resRestore.output);
-        break;
+        return resRestore.code;
 
       case 'merge':
         const isAbort = subArgs.includes('--abort');
@@ -966,15 +906,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isAbort) {
           const resMerge = git.merge('--abort', { abort: true });
           if (resMerge.output) printOutput(resMerge.output);
-          break;
+          return resMerge.code;
         }
         if (!targetMerge && !isSquash) {
           printOutput('fatal: No branch specified to merge.');
-          return;
+          return 1;
         }
-        const resMerge = git.merge(targetMerge, { noFf, squash: isSquash });
+        const resMerge = git.merge(targetMerge, { noFf, squash: isSquash, ffOnly: subArgs.includes('--ff-only') });
         if (resMerge.output) printOutput(resMerge.output);
-        break;
+        return resMerge.code;
 
       case 'rebase':
         const isInteractiveRebase = subArgs.includes('-i') || subArgs.includes('--interactive');
@@ -987,17 +927,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isContinue) {
           const resCont = git.rebase('--continue');
           if (resCont.output) printOutput(resCont.output);
-          break;
+          return resCont.code;
         }
         if (isAbortRebase) {
           const resAb = git.rebase('--abort');
           if (resAb.output) printOutput(resAb.output);
-          break;
+          return resAb.code;
         }
         if (isSkip) {
           const resSk = git.rebase('--skip');
           if (resSk.output) printOutput(resSk.output);
-          break;
+          return resSk.code;
         }
 
         if (ontoIdx !== -1) {
@@ -1007,11 +947,11 @@ document.addEventListener('DOMContentLoaded', () => {
           const targetBranch = ontoArgs[2] || null;
           if (!newbase || !upstream) {
             printOutput('fatal: Needed --onto <newbase> <upstream> [<branch>]');
-            break;
+            return 1;
           }
           const resOnto = git.rebaseOnto(newbase, upstream, targetBranch);
           if (resOnto.output) printOutput(resOnto.output);
-          break;
+          return resOnto.code;
         }
 
         const targetRebase = subArgs.find(a => !a.startsWith('-')) || 'main';
@@ -1019,11 +959,11 @@ document.addEventListener('DOMContentLoaded', () => {
           const plan = git.rebaseInteractivePlan(targetRebase, { autosquash: hasAutosquash });
           if (plan.code !== 0) {
             printOutput(plan.output);
-            return;
+            return plan.code;
           }
           if (plan.commits.length === 0) {
             printOutput(plan.output || `Current branch ${git.getCurrentBranch()} is up to date.`);
-            return;
+            return 0;
           }
           let todoOut = '';
           plan.commits.forEach(c => {
@@ -1033,21 +973,21 @@ document.addEventListener('DOMContentLoaded', () => {
           todoOut += `\n# Rebase onto ${targetRebase} (${plan.commits.length} commands)\n[開啟 Interactive Rebase Todo 視窗中...]`;
           printOutput(todoOut);
           openRebaseModal(plan);
-          return;
+          return 0;
         }
         const resRebase = git.rebase(targetRebase);
         if (resRebase.output) printOutput(resRebase.output);
-        break;
+        return resRebase.code;
 
       case 'cherry-pick':
         const hash = subArgs[0];
         if (!hash) {
           printOutput('fatal: Commit hash required for cherry-pick.');
-          return;
+          return 1;
         }
         const resCherry = git.cherryPick(hash);
         if (resCherry.output) printOutput(resCherry.output);
-        break;
+        return resCherry.code;
 
       case 'reset':
         let mode = '--mixed';
@@ -1056,7 +996,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetReset = subArgs.find(a => !a.startsWith('-')) || 'HEAD';
         const resReset = git.reset(targetReset, mode);
         if (resReset.output) printOutput(resReset.output);
-        break;
+        return resReset.code;
 
       case 'revert':
         let mainline = null;
@@ -1067,64 +1007,51 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetRevert = subArgs.find((a, idx) => !a.startsWith('-') && (mIdx === -1 || idx !== mIdx + 1)) || 'HEAD';
         const resRevert = git.revert(targetRevert, { mainline });
         if (resRevert.output) printOutput(resRevert.output);
-        break;
+        return resRevert.code;
 
       case 'tag':
         const resTag = git.tag(subArgs);
         if (resTag.output) printOutput(resTag.output);
-        break;
+        return resTag.code;
 
       case 'reflog':
-        printOutput(git.reflogCmd().output);
-        break;
+        return emit(git.reflogCmd());
 
       case 'log':
-        printOutput(git.logCmd(subArgs).output);
-        break;
+        return emit(git.logCmd(subArgs));
 
       case 'blame':
-        printOutput(git.blameCmd(subArgs).output);
-        break;
+        return emit(git.blameCmd(subArgs));
 
       case 'worktree':
-        printOutput(git.worktree(subArgs).output);
-        break;
+        return emit(git.worktree(subArgs));
 
       case 'bisect':
-        printOutput(git.bisect(subArgs).output);
-        break;
+        return emit(git.bisect(subArgs));
 
       case 'rm':
-        printOutput(git.rm(subArgs).output);
-        break;
+        return emit(git.rm(subArgs));
 
       case 'stash':
-        printOutput(git.stashCmd(subArgs).output);
-        break;
+        return emit(git.stashCmd(subArgs));
 
       case 'clean':
-        printOutput(git.cleanCmd(subArgs).output);
-        break;
+        return emit(git.cleanCmd(subArgs));
 
       case 'mv':
-        printOutput(git.mvCmd(subArgs).output);
-        break;
+        return emit(git.mvCmd(subArgs));
 
       case 'remote':
-        printOutput(git.remoteCmd(subArgs).output);
-        break;
+        return emit(git.remoteCmd(subArgs));
 
       case 'fetch':
-        printOutput(git.fetchCmd(subArgs).output);
-        break;
+        return emit(git.fetchCmd(subArgs));
 
       case 'cat-file':
-        printOutput(git.catFileCmd(subArgs).output);
-        break;
+        return emit(git.catFileCmd(subArgs));
 
       case 'config':
-        printOutput(git.configCmd(subArgs).output);
-        break;
+        return emit(git.configCmd(subArgs));
 
       case 'diff':
         const resDiff = git.diffCmd(subArgs);
@@ -1137,58 +1064,49 @@ document.addEventListener('DOMContentLoaded', () => {
             printOutput('(比對完成：無任何差異)');
           }
         }
-        break;
+        return resDiff.code;
 
       case 'check-ignore':
-        const targetIgnore = subArgs.find(a => !a.startsWith('-')) || '.env';
-        printOutput(`.gitignore:1:${targetIgnore}\t${targetIgnore}`);
-        break;
+        return emit(git.checkIgnore(subArgs));
 
       case 'show':
         const resShow = git.showCmd(subArgs);
         if (resShow.output) printOutput(resShow.output);
-        break;
+        return resShow.code;
 
       case 'clone':
         const resClone = git.clone(subArgs[0], subArgs[1]);
         if (resClone.output) printOutput(resClone.output);
-        break;
+        return resClone.code;
 
       case 'rerere':
-        const rSub = subArgs[0] || 'status';
-        if (rSub === 'diff') {
-          printOutput(`--- a/server.js\n+++ b/server.js\n@@ -5,3 +5,3 @@\n-<<<<<<< HEAD\n-const port = 8080;\n-=======\n-const port = 3000;\n->>>>>>> feature/api\n+const port = 3000;\n(rerere diff：比對當前衝突標記與記憶庫中已記錄之解法差異)`);
-        } else if (rSub === 'status') {
-          printOutput(`server.js\n(rerere status：檔案正在受 rerere 衝突記憶機制追蹤中)`);
-        } else {
-          printOutput(`Recorded preimage for 'server.js'`);
-        }
-        break;
+        return emit(git.rerereCmd(subArgs));
 
       case 'rev-parse':
-        const curHeadId = git.getHeadCommitId() || 'c1a2b3c';
-        const fullSha = (curHeadId + '7890abcdef1234567890abcdef1234567890abcdef').substring(0, 40);
-        printOutput(fullSha);
-        break;
+        return emit(git.revParse(subArgs));
+
+      case 'lab':
+        return emit(git.labCmd(subArgs));
 
       case 'filter-repo':
       case 'filter-branch':
         const resFilter = git.filterRepo(subArgs);
         if (resFilter.output) printOutput(resFilter.output);
-        break;
+        return resFilter.code;
 
       case 'pull':
         const resPull = git.pull(subArgs);
         if (resPull.output) printOutput(resPull.output);
-        break;
+        return resPull.code;
 
       case 'push':
         const resPush = git.push(subArgs);
         if (resPush.output) printOutput(resPush.output);
-        break;
+        return resPush.code;
 
       default:
         printOutput(`git: '${sub}' is not a supported git command.`);
+        return 1;
     }
   }
 
@@ -1281,10 +1199,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check Chapter Graduation (§7.6)
         if (isFirstTimePass && sc.chapterKey && sc.chapterKey !== 'optional') {
           const chLevels = ORDERED_SCENARIOS.filter(s => s.chapterKey === sc.chapterKey && scenarioNavigation.isWebPlayable(s));
-          const isLastInChapter = chLevels.length > 0 && chLevels[chLevels.length - 1].id === sc.id;
-          if (isLastInChapter) {
+          const chapterComplete = chLevels.length > 0 && chLevels.every(level => completedScenarios.has(level.id));
+          if (chapterComplete) {
             setTimeout(() => {
-              openChapterGraduationModal(sc);
+              if (ORDERED_SCENARIOS[currentScenarioIndex]?.id === sc.id && isCurrentScenarioPassed) openChapterGraduationModal(sc);
             }, 600);
           }
         }
@@ -1362,6 +1280,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function printHelp() {
     printOutput(`\x1b[38;2;88;166;255mGit Scenario Lab — 支援指令表：\x1b[0m
+  git init [-b main]          建立版本庫
   git status                  查看分支與工作區狀態
   git add <file> | . | -p     加入暫存區 (支援 -p 局部暫存)
   git commit [--amend] -m     建立或修補 Commit
@@ -1369,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', () => {
   git merge <branch> [--no-ff] 合併分支 (支援衝突模擬)
   git rebase <branch>         rebase 保持線性歷史
   git stash [list|pop|-u]     暫存工作區修改
-  git clean -fd               清除未追蹤檔案
+  git clean -nd / -fd         先預覽再清理未追蹤檔案
   git mv <old> <new>          版本控管更名
   git cherry-pick <hash>      單獨挑選特定 Commit
   git reset [--hard|--soft]   移動 HEAD 指標
@@ -1379,17 +1298,22 @@ document.addEventListener('DOMContentLoaded', () => {
   git bisect [start|bad|good] 二分搜尋 (Bisect) 除錯
   git rm --cached <file>      自 Git 索引除名保全本地檔案
   git remote / git fetch      遠端節點管理與抓取
-  git cat-file [-t|-p]        解密水管底層物件
+  git cat-file [-t|-p]        檢視 Git 物件內容
+  git check-ignore -v <file>  檢查忽略規則
+  git rev-parse <ref>         解析版本參照
+  git lab pr merge <branch>   模擬平台合併 PR
+  cd <worktree> / cd ..       切換獨立工作目錄
+  echo / cat / touch / rm     編輯與檢查工作區檔案
   git reflog / git log / blame 查看歷史黑盒子日記
 
 平台輔助指令：
   next (n)   前往下一關 (快速鍵: Alt+→)
-  guide      切換至指令深度教室
+  guide      開啟補充說明
   hint       查看當前關卡提示
-  goal       開啟關卡任務簡報
+  goal       查看關卡情境
   verify     驗收目標完成狀態
   reset      重設當前關卡
-  levels     展開 24 關地圖抽屜
+  levels     展開課程地圖與 CLI 選修
   clear      清空終端機畫面
 `);
   }
@@ -1421,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const promptText = `user@git-lab:~/workspace ${promptBranchSpan.textContent} $ ${val}^C`;
         printOutput(`\x1b[38;2;139;148;158m${promptText}\x1b[0m`);
         terminalInput.value = '';
+        pendingPatch = null;
         currentDraft = '';
         historyIndex = commandHistory.length;
         scrollToBottom();
@@ -1477,7 +1402,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let candidates = [];
 
       if (tokens.length <= 1) {
-        const topCmds = ['git', 'next', 'guide', 'hint', 'help', 'verify', 'reset', 'clear', 'levels'];
+        const topCmds = ['git', 'cd', 'pwd', 'echo', 'cat', 'touch', 'rm', 'chmod', 'next', 'guide', 'hint', 'help', 'verify', 'reset', 'clear', 'levels'];
         candidates = topCmds.filter(c => c.startsWith(tokens[0]));
       } else if (tokens[0] === 'git') {
         if (tokens.length === 2) {
@@ -1485,7 +1410,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'status', 'add', 'commit', 'branch', 'switch', 'checkout', 'merge',
             'rebase', 'cherry-pick', 'reset', 'revert', 'tag', 'worktree',
             'bisect', 'rm', 'stash', 'clean', 'mv', 'remote', 'fetch',
-            'pull', 'push', 'diff', 'log', 'reflog', 'blame', 'cat-file', 'config'
+            'pull', 'push', 'diff', 'log', 'reflog', 'blame', 'cat-file', 'config', 'init', 'restore', 'check-ignore', 'rev-parse', 'lab', 'rerere'
           ];
           candidates = gitSubs.filter(s => s.startsWith(tokens[1])).map(s => `git ${s}`);
         } else {
@@ -1542,7 +1467,8 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       window.nextScenario();
     } else if (e.key === 'Enter' && terminalNextBar && terminalNextBar.style.display !== 'none' &&
-        nextScenarioButton && nextScenarioButton.style.display !== 'none' && document.activeElement !== terminalInput) {
+        nextScenarioButton && nextScenarioButton.style.display !== 'none' && document.activeElement !== terminalInput &&
+        !e.target.closest('button, input')) {
       e.preventDefault();
       window.nextScenario();
     }
@@ -1557,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = document.getElementById('modal-title');
     if (titleEl) titleEl.textContent = sc.title;
     const storyEl = document.getElementById('modal-story');
-    if (storyEl) storyEl.textContent = sc.story;
+    if (storyEl) storyEl.textContent = personalizeStory(sc.story, getUserName());
     const hideCb = document.getElementById('modal-hide-intro-cb');
     if (hideCb) hideCb.checked = (localStorage.getItem('git_lab_hide_intro_modal') === 'true');
     missionModal.style.display = 'flex';
@@ -1595,9 +1521,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', (e) => {
     if (missionModal && missionModal.style.display === 'flex') {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      if (e.key === 'Escape') {
         e.preventDefault();
         window.confirmScenarioStart();
+      } else if (e.key === 'Tab') {
+        const controls = [...missionModal.querySelectorAll('input, button')];
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     }
   });
@@ -1810,7 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const groupProgress = chLevels.length > 0 ? `${chDoneCount}/${chLevels.length}` : `${groupLevels.length} 項 CLI 實戰`;
 
         groupHeader.innerHTML = `
-          <span class="group-title">📖 ${escapeHtml(sc.chapterTitle)}</span>
+          <span class="group-title">${escapeHtml(sc.chapterTitle)}</span>
           <span class="group-progress">${groupProgress}</span>
         `;
         levelDropdown.appendChild(groupHeader);
@@ -1860,38 +1797,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Tab Switching (§7.3)
+  // The shortcut rail switches one panel at every viewport size.
   window.switchTab = (tabId) => {
-    // If widescreen (>= 1440px) and graph tab requested, default to mission since graph is already pinned
-    if (tabId === 'graph' && window.innerWidth >= 1440) {
-      tabId = 'mission';
-    }
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    const btn = document.getElementById(`tab-btn-${tabId}`);
-    const content = document.getElementById(`tab-pane-${tabId}`);
-    if (btn) btn.classList.add('active');
-    if (content) content.classList.add('active');
+    const labels = { graph: 'Git Tree', mission: '任務', files: '檔案總管', guide: '補充說明' };
+    if (!labels[tabId]) return;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      const isActive = btn.id === `tab-btn-${tabId}`;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', String(isActive));
+      btn.tabIndex = isActive ? 0 : -1;
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+      const isActive = content.id === `tab-pane-${tabId}`;
+      content.classList.toggle('active', isActive);
+      content.hidden = !isActive;
+    });
+    document.getElementById('active-panel-title').textContent = labels[tabId];
   };
 
-  // Conflict Resolution Action in UI
+  document.querySelector('.visual-tabs').addEventListener('keydown', event => {
+    const buttons = [...document.querySelectorAll('.visual-tabs .tab-btn')];
+    const current = buttons.indexOf(event.target);
+    if (current < 0) return;
+    let next;
+    if (event.key === 'ArrowDown') next = (current + 1) % buttons.length;
+    else if (event.key === 'ArrowUp') next = (current - 1 + buttons.length) % buttons.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = buttons.length - 1;
+    else return;
+    event.preventDefault();
+    buttons[next].click();
+    buttons[next].focus();
+  });
+
+  // Let learners decide the final contents before staging a resolution.
   window.resolveConflictInUI = () => {
     if (!git.conflictState) return;
-    const file = git.conflictState.file;
-    const versions = git.conflictState.conflictVersions?.get(file);
-    const cleanContent = versions
-      ? [versions.ours, versions.theirs]
-          .filter(content => content !== '')
-          .map(content => content.endsWith('\n') ? content : `${content}\n`)
-          .join('')
-      : `// [手動解決衝突] 合併了兩端的最佳實作\nexport const theme = 'unified-dark-mode';\n`;
-    git.workingTree.set(file, cleanContent);
-    git.add([file]);
-    const nextStep = git.rebaseInProgress ? 'git rebase --continue' : 'git commit';
-    printOutput(`\x1b[38;2;46;160;67m✔ 已解決 ${file} 衝突並加入暫存區！請執行 ${nextStep}。\x1b[0m`);
-    renderFileList();
+    const file = selectedFilename || git.conflictState.file;
     selectFile(file);
-    terminalInput.focus();
+    beginFileEdit();
   };
 
   // Header More Menu (§7.4)
@@ -1949,7 +1893,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.closeCourseMapModal = () => {
     const modal = document.getElementById('course-map-modal');
     if (modal) modal.style.display = 'none';
-    terminalInput.focus();
+    if (pendingInitialIntro) {
+      pendingInitialIntro = false;
+      window.openMissionModal();
+    } else {
+      terminalInput.focus();
+    }
   };
 
   window.jumpToChapterFromMap = (chKey) => {
@@ -2006,7 +1955,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (nextBtn) {
       if (nextChapLvlIdx !== -1) {
         nextBtn.style.display = 'block';
-        nextBtn.textContent = `前往下一章 (${ORDERED_SCENARIOS[nextChapLvlIdx].chapterTitle}) 🚀`;
+        nextBtn.textContent = `前往下一章 (${ORDERED_SCENARIOS[nextChapLvlIdx].chapterTitle})`;
         nextBtn.onclick = () => {
           closeGraduationModal();
           loadScenario(nextChapLvlIdx);
@@ -2106,6 +2055,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // First visit check: show the Course Map before any scenario intro.
   const showCourseMapOnFirstVisit = !localStorage.getItem('git_lab_has_visited') && completedScenarios.size === 0;
   if (showCourseMapOnFirstVisit) {
+    pendingInitialIntro = localStorage.getItem('git_lab_hide_intro_modal') !== 'true';
     localStorage.setItem('git_lab_has_visited', 'true');
     setTimeout(() => {
       openCourseMapModal();

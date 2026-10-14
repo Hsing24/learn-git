@@ -6,11 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario26(BaseScenario):
     id = "26"
-    title = "合併策略：Fast-forward / --no-ff / --squash 與清理分支"
+    title = '整合功能：Merge、Squash 與分支清理'
     difficulty = "初階 ⭐⭐"
     story = (
-        "GitHub 上有三個合併按鈕（Create a merge commit / Squash and merge / Rebase and merge）。\n"
-        "主管要你在本機親手操作一遍，搞懂 --no-ff 與 --squash 的差別，並學會刪除分支！"
+        "GitHub PR 上常見的三種合併模式到底差在哪？\n"
+        "技術主管請你在本機親手操作 --no-ff 保留完整歷史、與 --squash 壓平成乾淨單一節點的差別，\n"
+        "並清理已無用處的過期分支，搞懂大專案的協作哲學！"
     )
     goals = [
         "在 main 分支上執行 git merge --no-ff feature/a 保留分支拓撲",

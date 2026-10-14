@@ -7,19 +7,15 @@ from lab.engine import GitEngine
 
 class Scenario20(BaseScenario):
     id = "20"
-    title = "乾淨俐落：git mv 檔案更名與 git clean -fd 清理雜物"
+    title = '整理檔案：更名與清理預覽'
     difficulty = "初階 ⭐⭐"
     story = (
-        "高見龍老師《為你自己學 Git》實戰狀況題：版本控管下的正確檔案更名與垃圾清除！\n"
-        "狀況一：專案進行架構重構，團隊規範將舊檔名 `utils.py` 改為現代慣用的 `helpers.py`。\n"
-        "如果你只是在終端機打 `mv utils.py helpers.py`，Git 會把它視為『刪除 utils.py』加上『新增未追蹤 helpers.py』兩件事；\n"
-        "使用 `git mv utils.py helpers.py` 則能直接在暫存區建立乾淨明確的 renamed 變更！\n\n"
-        "狀況二：本地測試執行後，在工作區遺留了雜亂的未追蹤檔案 `debug.log`、`dump.tmp`，以及測試目錄 `temp_test/`。\n"
-        "請使用 `git clean -fd` 一鍵將所有未追蹤的垃圾檔案與子目錄徹底抹除，回歸極簡純淨狀態！"
+        "你想整理專案目錄，Git 依內容相似度判斷更名，git mv 可一次完成檔案移動與暫存，且本地殘留一堆雜物。\n"
+        "請用 git mv 保全歷史軌跡，並用 git clean -fd 如強力吸塵器般掃光雜物！"
     )
     goals = [
         "使用 git mv utils.py helpers.py 將檔案更名並直接加入暫存區",
-        "使用 git clean -fd 強制清理工作目錄中所有未追蹤的垃圾檔案與目錄",
+        "先用 git clean -nd 預覽，再用 git clean -fd 清理工作目錄中所有未追蹤的垃圾檔案與目錄",
         "將更名修改提交：git commit -m 'refactor: rename utils to helpers'",
         "確認工作區乾淨，且無任何雜物殘留"
     ]
@@ -32,9 +28,9 @@ class Scenario20(BaseScenario):
         "驗收成果：./git-lab verify"
     ]
     hints = [
-        "git clean 非常無情！清理前建議先下 -n (dry-run) 參數預覽：git clean -nd。",
+        "git clean 非常無情！清理前必須先下 -n (dry-run) 參數預覽：git clean -nd。",
         "-f 代表 force 強制執行，-d 代表包含目錄 (directories)。",
-        "若連同 .gitignore 忽略的編譯產物也想一併徹底清空，可加上 -x 參數：git clean -fdx。"
+        "-x 也刪除被忽略的檔案；需要時先用 git clean -ndx 預覽，Git 無法復原未追蹤檔案。"
     ]
 
     def setup(self, engine: GitEngine) -> None:

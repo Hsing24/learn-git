@@ -1,4 +1,4 @@
-"""Automated acceptance tests for all 36 CLI scenarios and curriculum consistency."""
+"""Automated acceptance tests for all 49 CLI scenarios and curriculum consistency."""
 
 import os
 import shutil
@@ -185,8 +185,10 @@ class TestAllScenarios(unittest.TestCase):
         passed, msg = sc.verify(self.engine)
         self.assertFalse(passed)
 
-        self.engine.run_git("reset", "--soft", "HEAD~3")
-        self.engine.run_git("commit", "-m", "feat: implement user authentication")
+        editor = self.engine.project_root / "squash-editor.py"
+        editor.write_text("import pathlib,sys\np=pathlib.Path(sys.argv[1]);lines=p.read_text().splitlines();p.write_text('\\n'.join([lines[0]] + [line.replace('pick ', 'fixup ', 1) if line.startswith('pick ') else line for line in lines[1:]])+'\\n')\n")
+        self.engine.run_git("rebase", "-i", "HEAD~3", env={"GIT_SEQUENCE_EDITOR": f"{sys.executable} {editor}"})
+        self.engine.run_git("commit", "--amend", "-m", "feat: implement user authentication")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
@@ -221,8 +223,15 @@ class TestAllScenarios(unittest.TestCase):
                 break
         self.assertIsNotNone(target_hash)
 
-        code, out, err = self.engine.run_git("cherry-pick", target_hash)
-        self.assertEqual(code, 0)
+        code, out, err = self.engine.run_git("cherry-pick", target_hash, check=False)
+        self.assertNotEqual(code, 0)
+        self.engine.run_git("cherry-pick", "--abort")
+        code, _, _ = self.engine.run_git("cherry-pick", target_hash, check=False)
+        self.assertNotEqual(code, 0)
+        from lab.scenarios.s07_cherry_pick import SECURITY_CODE
+        self.engine.create_file("security.py", "# Production audit\n" + SECURITY_CODE)
+        self.engine.run_git("add", "security.py")
+        self.engine.run_git("cherry-pick", "--continue")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
@@ -312,6 +321,15 @@ exit 0
         os.chmod(hook_path, 0o755)
         self.engine.run_git("config", "core.hooksPath", ".githooks")
 
+        code, _, _ = self.engine.run_git("add", "settings.py")
+        code, _, _ = self.engine.run_git("commit", "-m", "test secret", check=False)
+        self.assertNotEqual(code, 0)
+        before = self.engine.get_head_hash()
+        self.assertFalse(sc.verify(self.engine)[0])
+        self.assertEqual(self.engine.get_head_hash(), before, "hook verify must not create commits")
+        self.engine.create_file("settings.py", "import os\nTOKEN = os.environ.get('SERVICE_TOKEN')\n")
+        self.engine.run_git("add", "settings.py")
+        self.engine.run_git("commit", "-m", "safe settings")
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
@@ -322,35 +340,13 @@ exit 0
         passed, msg = sc.verify(self.engine)
         self.assertFalse(passed)
 
-        # Simulate staging only hunk 1 (discount)
-        partial_code = '''def calculate_total(items, discount_rate=0.1):
-    # 計算購物車總金額（套用九折優惠 Bugfix）
-    subtotal = sum(item["price"] * item.get("quantity", 1) for item in items)
-    discount = subtotal * discount_rate
-    return round(subtotal - discount, 2)
-
-
-# ---------------------------------------------
-# 下方為收據列印模組（相隔足夠行數以形成獨立 Hunk）
-# ---------------------------------------------
-
-
-def print_receipt(customer_name, items, total):
-    # 列印客戶收據
-    print("=== 收據 ===")
-    print(f"客戶: {customer_name}")
-    for item in items:
-        print(f"- {item['name']}: {item['price']}")
-    print(f"總計: {total}")
-    print("============")
-'''
-        shopping_path = self.engine.workspace / "shopping.py"
-        shopping_path.write_text(partial_code, encoding="utf-8")
-        self.engine.run_git("add", "shopping.py")
+        self.engine.run_git("commit", "--allow-empty", "-m", "fake atomic commit")
+        self.assertFalse(sc.verify(self.engine)[0], "empty commit must not satisfy patch staging")
+        self.engine.run_git("reset", "--soft", "HEAD^")
+        process = subprocess.run(["git", "add", "-p", "shopping.py"], input="y\nn\n",
+            cwd=self.engine.workspace, capture_output=True, text=True)
+        self.assertEqual(process.returncode, 0, process.stderr)
         self.engine.run_git("commit", "-m", "fix: apply discount in total calculation")
-
-        # Now write full modified code leaving hunk 2 unstaged
-        shopping_path.write_text(MODIFIED_SHOPPING_CODE, encoding="utf-8")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
@@ -437,6 +433,15 @@ def print_receipt(customer_name, items, total):
         )
         self.engine.run_git("add", "server.py")
         self.engine.run_git("commit", "-m", "merge: resolve server.py with rerere")
+        self.assertFalse(sc.verify(self.engine)[0], "one merge does not demonstrate reused resolution")
+        resolved = self.engine.read_file("server.py")
+        self.engine.run_git("switch", "-c", "retry", "main-before")
+        code, _, _ = self.engine.run_git("merge", "feature/modern-api", check=False)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(self.engine.read_file("server.py"), resolved, "rerere must actually reuse the content")
+        self.engine.run_git("add", "server.py")
+        self.engine.run_git("commit", "--no-edit")
+        self.engine.run_git("switch", "main")
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
@@ -469,7 +474,19 @@ def print_receipt(customer_name, items, total):
         self.engine.run_git("add", "hotfix.txt")
         self.engine.run_git("commit", "-m", "fix: emergency hotfix on main")
         self.engine.run_git("checkout", "feature/cart")
-        self.engine.run_git("stash", "pop")
+        self.engine.run_git("stash", "apply", "--index")
+        self.engine.run_git("stash", "drop")
+        directory = self.engine.workspace / "stash-conflict"
+        self.engine.run_git("stash", "push", cwd=directory)
+        (directory / "state.txt").write_text("upstream\n")
+        self.engine.run_git("commit", "-am", "upstream", cwd=directory)
+        code, _, _ = self.engine.run_git("stash", "apply", cwd=directory, check=False)
+        self.assertNotEqual(code, 0)
+        self.assertTrue(self.engine.run_git("stash", "list", cwd=directory)[1].strip())
+        (directory / "state.txt").write_text("upstream\nstashed\n")
+        self.engine.run_git("add", "state.txt", cwd=directory)
+        self.engine.run_git("commit", "-m", "resolve stash conflict", cwd=directory)
+        self.engine.run_git("stash", "drop", cwd=directory)
 
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
@@ -483,6 +500,8 @@ def print_receipt(customer_name, items, total):
 
         # User steps: git mv utils.py helpers.py, git clean -fd, git commit
         self.engine.run_git("mv", "utils.py", "helpers.py")
+        _, preview, _ = self.engine.run_git("clean", "-nd")
+        self.assertIn("dump.tmp", preview)
         self.engine.run_git("clean", "-fd")
         self.engine.run_git("commit", "-m", "refactor: rename utils to helpers")
 
@@ -582,6 +601,9 @@ def print_receipt(customer_name, items, total):
         self.engine.run_git("reset", "--soft", "HEAD~1")
         self.engine.run_git("commit", "-m", "feat: complete payment feature")
         self.assertTrue((self.engine.workspace / "debug.log").exists())
+        self.assertFalse(sc.verify(self.engine)[0], "soft/mixed/hard sandbox results are required")
+        for mode in ("soft", "mixed", "hard"):
+            self.engine.run_git("reset", f"--{mode}", "HEAD^", cwd=self.engine.workspace / f"reset-{mode}")
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
@@ -707,6 +729,12 @@ def print_receipt(customer_name, items, total):
         self.assertFalse(sc.verify(self.engine)[0])
 
         sc.setup(self.engine)
+        self.engine.run_git("rebase", "main", check=False)
+        self.engine.run_git("rebase", "--abort")
+        self.engine.run_git("switch", "skip-practice")
+        self.engine.run_git("rebase", "main", check=False)
+        self.engine.run_git("rebase", "--skip")
+        self.engine.run_git("switch", "feature")
         code, _, _ = self.engine.run_git("rebase", "main", check=False)
         self.assertNotEqual(code, 0, "The documented rebase must pause for conflict resolution")
         self.engine.create_file(
@@ -830,6 +858,19 @@ def print_receipt(customer_name, items, total):
         self.assertEqual(code, 0, f"Could not inspect committed submodule: {err}")
         self.assertTrue(tree_entry.startswith("160000 commit "), tree_entry)
 
+        self.assertFalse(sc.verify(self.engine)[0], "consumer initialization is required")
+        consumer = self.engine.workspace / "consumer"
+        self.engine.run_git("clone", str(self.engine.workspace), str(consumer))
+        self.assertFalse((consumer / "libs/shared/lib.py").exists())
+        self.engine.run_git("-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive", cwd=consumer)
+        self.assertEqual((consumer / "libs/shared/lib.py").read_text(), "def shared_fn(): return 42\n")
+        self.engine.run_git("fetch", "origin", cwd=self.engine.workspace / "libs/shared")
+        self.engine.run_git("switch", "--detach", "origin/next", cwd=self.engine.workspace / "libs/shared")
+        self.engine.run_git("add", "libs/shared")
+        self.engine.run_git("commit", "-m", "update shared pin")
+        self.engine.run_git("pull", "--ff-only", cwd=consumer)
+        self.assertFalse(sc.verify(self.engine)[0], "consumer must check out the updated pin")
+        self.engine.run_git("-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive", cwd=consumer)
         passed, msg = sc.verify(self.engine)
         self.assertTrue(passed, msg)
 
@@ -990,17 +1031,21 @@ def print_receipt(customer_name, items, total):
         # 2. Python Scenario Map IDs
         python_ids = set(SCENARIO_MAP.keys())
 
-        # 3. JavaScript Scenarios IDs from scenarios-data.js and scenarios-extra.js
+        # Web contains the 41 core levels; CLI-only electives remain manifest entries.
         js_ids = set()
         id_pattern = re.compile(r"id:\s*['\"]([0-9]{2})['\"]")
-        for fn in ["scenarios-data.js", "scenarios-extra.js"]:
+        for fn in ["scenarios-data.js", "scenarios-extra.js", "scenarios-foundations.js"]:
             p = REPO_ROOT / "docs" / fn
             if p.exists():
-                matches = id_pattern.findall(p.read_text(encoding="utf-8"))
-                js_ids.update(matches)
+                js_ids.update(id_pattern.findall(p.read_text(encoding="utf-8")))
+        core_ids = {level["id"] for chapter in curr.get("chapters", []) for level in chapter.get("levels", [])}
+        self.assertEqual(len(manifest_ids), 49)
+        self.assertEqual(len(core_ids), 41)
+        self.assertEqual(manifest_ids, python_ids)
+        self.assertEqual(core_ids, js_ids - {"34", "35"})
 
-        self.assertEqual(manifest_ids, python_ids, f"Manifest IDs != Python IDs: {manifest_ids ^ python_ids}")
-        self.assertEqual(manifest_ids, js_ids, f"Manifest IDs != JS IDs: {manifest_ids ^ js_ids}")
+# Keep the historical direct invocation exercising the expanded curriculum as well.
+from test_curriculum_expansion import TestCurriculumExpansion
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,11 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario30(BaseScenario):
     id = "30"
-    title = "精準修補歷史中的某個 commit"
+    title = '修補舊提交：Fixup 與 Autosquash'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "PR 包含 4 個 commit。Reviewer 發現你在第 2 個 commit 寫錯了 typo。\n"
-        "不要新增零碎的 'fix typo' commit，請用 git commit --fixup 與 autosquash 精確融進原提交！"
+        "提了 4 個 commit 的 PR，Reviewer 強哥在第 2 個 commit 抓出一個 typo：\n"
+        "「不要給我後面補一個 fix typo commit 污染歷史，融進去！」\n"
+        "請用現代黑科技 --fixup 與 --autosquash 進行微創手術，精確將修正靶向融進原提交！"
     )
     goals = [
         "修正 validator.py 的 typo 並暫存：git add validator.py",

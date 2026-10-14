@@ -6,10 +6,10 @@
 const SCENARIOS_EXTRA = [
   {
     id: '24',
-    title: '看懂變更：status / diff / log / show',
+    title: '接手專案：Status、Diff、Log 與 Show',
     difficulty: '入門 ⭐',
     category: '單機日常循環',
-    story: '你剛接手同事未完成的半成品，工作區有些改動、暫存區有些檔案，還有未追蹤的備忘錄。在急著寫新代碼前，請先看懂當前變更與版本歷史！',
+    story: '小明前輩下班前拍拍你的肩：「欸菜鳥，這支半成品你先看一下，明天接著寫。」工作區有些被改動、暫存區有些被 stage，還有未追蹤的便簽。在急著寫扣前，先用偵探四部曲看懂前輩到底改了什麼、歷史進度在哪裡！',
     goals: [
       '使用 git status -s 觀察簡短狀態與雙欄標記',
       '使用 git diff 檢視工作區未暫存的修改',
@@ -76,12 +76,13 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '25',
-    title: '後悔藥對照：restore / reset 三種模式',
+    title: '撤銷操作：Restore 與三種 Reset',
     difficulty: '初階 ⭐⭐',
     category: '單機日常循環',
-    story: '一個下午同時犯了三個錯：config.js 被手滑改壞（尚未暫存）、debug.log 誤加進暫存區、還手抖提前提交了半成品 wip。請用現代後悔藥精準復原！',
+    story: '今天下午衰神附體，接連犯了三個錯：手滑改壞 config.js（未暫存）、不小心把 debug.log 暫存進去了、還手抖提前 commit 了半成品 wip。別慌！拿出現代 Git 後悔藥對照表，精準對症下藥，逐一復原案發現場！',
     goals: [
-      '使用 git restore config.js 放棄工作區的錯誤修改',
+      '先 git restore config.js 與 git restore --staged debug.log；debug.log 保留在工作區，再在 mixed-demo 執行 reset --mixed HEAD~1、觀察暫存清空，再 restore payment.js；在 hard-demo 執行 reset --hard HEAD~1，觀察工作區一併回復；最後切回 main',
+      '使用 git restore config.js 從索引還原工作區的錯誤修改',
       '使用 git restore --staged debug.log 取消暫存（檔案仍留在硬碟）',
       '使用 git reset --soft HEAD~1 撤銷 wip 提交，保留變更於暫存區',
       '重新提交一個乾淨的 commit：git commit -m "feat: complete payment setup"'
@@ -97,6 +98,7 @@ const SCENARIOS_EXTRA = [
       const c2 = git.createCommit({ message: 'wip: half done', parents: [c1.id], tree: new Map([['config.js', 'const API_HOST = "https://api.prod";\n'], ['payment.js', 'function pay() { process(); }\n']]) });
 
       git.branches.set('main', c2.id);
+      git.branches.set('mixed-demo', c2.id); git.branches.set('hard-demo', c2.id);
       git.HEAD = { type: 'branch', target: 'main' };
 
       git.workingTree = new Map(c2.tree);
@@ -117,6 +119,9 @@ const SCENARIOS_EXTRA = [
     },
     checkGoal: (git) => {
       const meta = git.scenarioMeta || {};
+      const history = git.operationHistory || [];
+      if (!history.some(o => o.command === 'reset' && o.args.includes('--mixed')) || !history.some(o => o.command === 'reset' && o.args.includes('--hard')) || git.branches.get('mixed-demo') !== meta.baseId || git.branches.get('hard-demo') !== meta.baseId) return { passed: false, message: '先完成 mixed-demo 與 hard-demo 的獨立 reset 練習。' };
+      if (git.getCurrentBranch() !== 'main') return { passed: false, message: '最後請回 main 完成 soft reset 重整提交。' };
       const curConfig = git.workingTree.get('config.js');
       if (curConfig !== meta.origConfig) {
         return { passed: false, message: 'config.js 尚未復原！請執行 git restore config.js 放棄工作區修改。' };
@@ -149,10 +154,10 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '26',
-    title: '合併策略：Fast-forward / --no-ff / --squash 與清理分支',
+    title: '整合功能：Merge、Squash 與分支清理',
     difficulty: '初階 ⭐⭐',
     category: '分支與整合',
-    story: 'GitHub PR 有三種常見合併模式。主管請你在本地親自操作 --no-ff 與 --squash，體會分支歷史保留與壓扁的區別，並學會刪除分支。',
+    story: 'GitHub PR 上常見的三種合併按鈕到底差在哪？技術主管請你在本機親手操作 --no-ff 保留完整歷史、與 --squash 壓平成乾淨單一節點的差別，並清理已無用處的過期分支，搞懂大專案的協作哲學！',
     goals: [
       '在 main 上合併 feature/a 並保留分支形狀：git merge --no-ff feature/a',
       '在 main 上壓縮合併 feature/b：git merge --squash feature/b',
@@ -223,17 +228,17 @@ const SCENARIOS_EXTRA = [
 
       return {
         passed: true,
-        message: '🎉 太棒了！你完整理解了 Fast-forward、--no-ff 與 --squash 三種合併策略，並學會以 -d 與 -D 清理分支！'
+        message: '🎉 太棒了！你完成了 --no-ff 與 --squash 練習；Fast-forward 另於分支基礎關練習。GitHub PR 提供 merge、squash、rebase merge，沒有獨立 FF 按鈕，並學會以 -d 與 -D 清理分支！'
       };
     }
   },
 
   {
     id: '27',
-    title: '分離 HEAD：查看舊版本並救回在上面做的 commit',
+    title: '維護舊版：Detached HEAD 與分支救援',
     difficulty: '初階 ⭐⭐',
     category: '分支與整合',
-    story: 'PM 請你確認 v1.0 釋出時的舊版表現。你切過去順手修復了一處問題並 commit。切回 main 前，請為這個孤立 commit 開出 hotfix/v1-legacy 分支妥善保存！',
+    story: 'PM 跑來問：「v1.0 以前的舊版本表現如何？」你 checkout 過去測試，順手修復了一個問題並 commit。切回 main 之前 Git 警告你 HEAD 處於分離狀態！請為這個孤立無援、飄在半空中的 commit 開出救生分支，妥善保存勞動成果！',
     goals: [
       '以分離 HEAD 切換至標籤：git switch --detach v1.0',
       '在舊版本上修復並提交一個 commit',
@@ -295,10 +300,10 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '28',
-    title: 'Clone、首次推送與追蹤分支',
+    title: '加入協作：Clone 與追蹤分支',
     difficulty: '初階 ⭐⭐',
     category: '遠端協作基礎',
-    story: '加入團隊第一天，從公司遠端倉庫 clone 專案、開出個人分支、建立 upstream 推送，並看懂 branch -vv 的領先/落後狀態！',
+    story: '第一天進辦公室，強哥把公司的遠端 Repo 網址貼給你。身為新人，請從 clone 專案開始，建立你的功能分支，設定 upstream 首次推送到遠端，並學會用 git branch -vv 掌握本地與遠端的領先/落後動態！',
     goals: [
       '複製遠端倉庫：git clone origin',
       '開出新分支：git switch -c feature/profile',
@@ -378,12 +383,14 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '29',
-    title: 'Rebase 中途衝突：continue / abort / skip',
+    title: '變基中斷：Continue、Abort 與 Skip',
     difficulty: '進階 ⭐⭐⭐',
     category: '打造乾淨歷史',
-    story: '照主管說的 rebase main，結果在第 2 個 commit 發生衝突，終端機停在半途中。請手動解決衝突並順利執行 git rebase --continue 完成變基！',
+    story: '聽從強哥的建議執行 git rebase main，結果在第 2 個 commit 突然卡死爆發衝突，終端機停在半途中進退兩難！請冷靜手動排除衝突，執行 git rebase --continue 順利把路走完，學會身為成熟工程師必備的變基續行力！',
     goals: [
-      '啟動變基：git rebase main（觸發衝突並停在中間節點）',
+      '先切 abort-demo，git rebase main 觸發衝突後 git rebase --abort，確認 tip 回到原位',
+      '再切 skip-demo，git rebase main 觸發衝突後 git rebase --skip，明確丟棄衝突的 feature step 2',
+      '最後切 feature，啟動變基：git rebase main（觸發衝突並停在中間節點）',
       '觀察狀態：git status 查看衝突檔案',
       '化解衝突後標記暫存：git add app.py',
       '繼續完成變基流程：git rebase --continue'
@@ -409,6 +416,7 @@ const SCENARIOS_EXTRA = [
       cf3Tree.set('test.js', testContent);
       const cf3 = git.createCommit({ message: 'feat: feature step 3', parents: [cf2.id], tree: cf3Tree });
       git.branches.set('feature', cf3.id);
+      git.branches.set('abort-demo', cf3.id); git.branches.set('skip-demo', cf3.id);
 
       git.checkoutOrSwitch('feature');
 
@@ -422,6 +430,14 @@ const SCENARIOS_EXTRA = [
     },
     checkGoal: (git) => {
       const meta = git.scenarioMeta || {};
+      const history = git.operationHistory || [];
+      if (!history.some(o => o.command === 'rebase' && o.args.includes('--abort')) || git.branches.get('abort-demo') !== meta.origFeatureTip) return { passed: false, message: '先完成 abort-demo 練習，確認原始分支 tip 完整回復。' };
+      const skipped = git.commits.get(git.branches.get('skip-demo'));
+      if (!history.some(o => o.command === 'rebase' && o.args.includes('--skip')) || !skipped || !git.isAncestor(meta.mainId, skipped.id) || skipped.tree.get('app.py') !== git.commits.get(meta.mainId).tree.get('app.py') || skipped.tree.get('helper.js') !== meta.helperContent || skipped.tree.get('test.js') !== meta.testContent) return { passed: false, message: '完成 skip-demo：只丟棄衝突的 step 2，保留 helper.js 與 test.js。' };
+      if (git.getCurrentBranch() !== 'feature') return { passed: false, message: '完成 abort 與 skip 練習後，最後回 feature 保留所有變更並 continue。' };
+      const skipChain = []; let skip = skipped;
+      while (skip && skip.id !== meta.mainId) { skipChain.unshift(skip); skip = git.commits.get(skip.parents[0]); }
+      if (!skip || skipChain.length !== 2 || skipChain[0].message !== meta.featureMessages[0] || skipChain[1].message !== meta.featureMessages[2]) return { passed: false, message: 'skip-demo 應只重播 step 1 與 step 3，不保留 step 2。' };
       const fId = git.branches.get('feature');
       const mainId = git.branches.get('main') || meta.mainId;
       if (!fId) return { passed: false, message: 'feature 分支不存在。' };
@@ -472,10 +488,10 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '30',
-    title: '精準修補歷史中的某個 commit',
+    title: '修補舊提交：Fixup 與 Autosquash',
     difficulty: '進階 ⭐⭐⭐',
     category: '打造乾淨歷史',
-    story: 'PR 包含 4 個 commit。Reviewer 發現你在第 2 個 commit 寫錯了 typo。不要新增零碎的 "fix typo" commit，請用 --fixup 與 --autosquash 精確融進原提交！',
+    story: '提了 4 個 commit 的 PR，Reviewer 強哥在第 2 個 commit 抓出一個 typo：「不要給我後面補一個 fix typo commit 污染歷史，融進去！」請用現代黑科技 --fixup 與 --autosquash 進行微創手術，精確將修正靶向融進原提交！',
     goals: [
       '修正 validator.js 的 typo 並暫存：git add validator.js',
       '建立精準修補提交：git commit --fixup <target-hash>',
@@ -544,21 +560,21 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '31',
-    title: '一個 PR 從開到收：變基最新主線與安全強推',
+    title: 'PR 更新與合併後收尾：Rebase 與租約推送',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '團隊工作流與發布',
-    story: '你的 PR 等待 Review 時主線被合併了 2 個新功能。主管要求你 rebase 最新 main 再推，且必須使用安全的 --force-with-lease，合併後清理分支！',
+    story: '你的 PR 等待 Review 時主線又被合了 2 個新功能。主管要求你 rebase 最新 main 再推，且千交代萬交代：使用 --force-with-lease；預設租約依賴遠端追蹤參照，背景 fetch 可能更新它，必要時指定預期的遠端 hash。體驗一個 PR 從開工、更新、安全覆蓋到最終清理分支的完整流程！',
     goals: [
       '拉取遠端最新變更：git fetch origin',
       '將 feature 變基至遠端最新主線：git rebase origin/main',
       '以安全租約強制推送：git push --force-with-lease',
-      '切回 main 同步並刪除本地與遠端特徵分支'
+      '模擬 PR 合併：git lab pr merge，再切回 main 同步並清理分支'
     ],
     hints: [
       '執行 git fetch origin',
       '執行 git rebase origin/main',
       '執行 git push --force-with-lease origin feature/cart',
-      '執行 git switch main && git pull，再刪除 feature/cart'
+      '執行 git lab pr merge；git switch main && git pull --ff-only，再刪除 feature/cart 與 fetch --prune'
     ],
     setup: (git) => {
       const c0 = git.createCommit({ message: 'feat: base ecommerce' });
@@ -594,6 +610,7 @@ const SCENARIOS_EXTRA = [
     },
     checkGoal: (git) => {
       const meta = git.scenarioMeta || {};
+      if (!(git.operationHistory || []).some(o => o.command === 'lab' && o.args[0] === 'pr' && o.args[1] === 'merge')) return { passed: false, message: '完成更新推送後，請執行 git lab pr merge 模擬實際 PR 合併。' };
       const localMain = git.branches.get('main');
       const remoteMain = git.remotes.origin?.branches?.get('main');
       const hasLocalCart = git.branches.has('feature/cart');
@@ -656,10 +673,10 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '32',
-    title: 'Stacked PR：基底分支被 squash merge 之後',
+    title: '堆疊分支：Rebase Onto 搬移範圍',
     difficulty: '進階 ⭐⭐⭐⭐⭐',
     category: '進階工程',
-    story: '你在 feature/api 上開出 feature/ui。後來 feature/api 被 squash merge 進 main，導致 feature/ui 一 rebase 就重複衝突。請使用 git rebase --onto 完美截枝嫁接！',
+    story: '你在 feature/api 上開出 feature/ui 疊疊樂開發。沒想到主管直接將 api 分支 squash merge 進 main，導致 ui 分支一 rebase 就滿地衝突！這時唯有手術刀級的 git rebase --onto 能幫你完美截枝，乾淨嫁接回主線！',
     goals: [
       '使用 git rebase --onto main feature/api feature/ui 精確搬移',
       '確保 feature/ui 乾淨接在 main 最新節點之後',
@@ -724,10 +741,10 @@ const SCENARIOS_EXTRA = [
 
   {
     id: '33',
-    title: '密鑰已經推上遠端的事故處理',
+    title: '憑證外洩：輪替與歷史清理',
     difficulty: '進階 ⭐⭐⭐⭐⭐',
     category: '進階工程',
-    story: '同事 3 個 commit 前不小心將包含 AWS 密鑰的 .env 推送到遠端倉庫！先到憑證服務撤銷並輪替密鑰，確認後再清理歷史；改寫 Git 不會讓密鑰失效。清理完成後要求團隊丟棄舊 clone 並重新 clone。',
+    story: '下午三點警報大響！小明前輩在 3 個 commit 前不小心把含有 AWS 密鑰的 .env 推上了遠端倉庫！切記職場保命原則：改寫 Git 歷史不會讓外洩密鑰失效，必須先到雲端輪替廢棄，再用重型工具從歷史徹底抹除，最後通知全組重新 clone！',
     goals: [
       '先撤銷並輪替外洩密鑰，再記錄確認：git config lab.secret-rotation-confirmed yes',
       '自歷史中徹底抹除 .env 檔案',
@@ -830,17 +847,18 @@ const SCENARIOS_EXTRA = [
   {
     id: '34',
     cliOnly: true,
-    title: '跨專案代碼復用：Git Submodule 子模組',
+    title: '引用專案：Submodule 固定版本',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '選修主題',
-    story: '專案需要共用外部函式庫。請使用 git submodule add 掛載子模組，並提交版本參照！',
+    story: '專案需要引入公司共用的底層套件庫。強哥警告：「不要直接把外部 code 複製貼上進來！」請使用 git submodule add 正確掛載子模組，提交版本指針，體會多倉庫協作的嚴謹度！',
     goals: [
+      '完成父專案後，以消費端 clone，執行 git submodule update --init --recursive，確認固定版本，再更新並提交新的 gitlink',
       '添加子模組：git submodule add ./sub-repo libs/shared',
-      '提交子模組參照：git commit -m "feat: add shared submodule"'
+      '在父專案提交 .gitmodules 與 gitlink：git add .gitmodules libs/shared，再 git commit -m "feat: add shared submodule"'
     ],
     hints: [
       '執行 git submodule add ./sub-repo libs/shared',
-      '執行 git commit -am "feat: add submodule"'
+      'git add .gitmodules libs/shared，再 git commit -m "feat: add submodule"；commit -a 不包含未追蹤的 .gitmodules'
     ],
     setup: (git) => {
       const c0 = git.createCommit({ message: 'feat: base project' });
@@ -862,10 +880,10 @@ const SCENARIOS_EXTRA = [
   {
     id: '35',
     cliOnly: true,
-    title: '超大型 Monorepo 救星：Sparse Checkout 局部檢出',
+    title: '大型專案：Sparse Checkout 工作區範圍',
     difficulty: '實戰 ⭐⭐⭐⭐',
     category: '選修主題',
-    story: '代碼庫體積龐大，只希望在本地檢出 packages/web 目錄，請啟用 sparse-checkout！',
+    story: '公司的老古董 Monorepo 歷史龐大動輒幾十 GB，你的小筆電硬碟快被塞爆了。在只要開發前端模組的情況下，請開啟 sparse-checkout 稀疏檢出，只展開需要的工作區目錄。這不會自行縮減下載；partial clone 延後部分物件下載，shallow clone 截短歷史。',
     goals: [
       '啟用局部檢出：git sparse-checkout init --cone',
       '設定指定檢出目錄：git sparse-checkout set packages/web'

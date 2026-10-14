@@ -51,13 +51,12 @@ def print_receipt(customer_name, items, total):
 
 class Scenario12(BaseScenario):
     id = "12"
-    title = "精準原子暫存：git add -p 局部區塊暫存 (Patch Staging)"
+    title = '拆分變更：Patch 局部暫存'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "在真實日常開發中，我們常常在同一個檔案內做了兩到三處不同維度的修改：\n"
-        "例如：修復了一個計算金額的 Bug，同時又替收據增加了貨幣符號的顯示。\n"
-        "如果直接使用 `git add .` 全部提交，會將修復與新功能混在一起，違背『原子提交 (Atomic Commit)』與 Clean Code 原則，讓 PR Code Review 極為痛苦。\n"
-        "Git 提供了殺手級功能：`git add -p`（Patch 模式），允許我們以代碼區塊 (Hunk) 為單位，精確挑選要暫存的變更！"
+        "你在同一個檔案裡順手改了商業邏輯與排版格式，本想一個 git add . 搞定，\n"
+        "強哥路過冷冷地說：「單一職責懂不懂？分開提交。」\n"
+        "請用 git add -p 互動式逐塊拆解暫存，達成乾淨專業的原子提交 (Atomic Commit)！"
     )
     goals = [
         "使用 git diff 觀察 shopping.py 中同時存在兩個不同區塊的修改",
@@ -115,34 +114,21 @@ class Scenario12(BaseScenario):
         )
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
-        # 1. 檢查 commit 數量是否增加
-        code_count, out_count, _ = engine.run_git("rev-list", "--count", "HEAD", check=False)
-        if code_count != 0:
-            return False, "無法讀取 Git 提交紀錄。"
-        
-        count = int(out_count.strip())
-        if count < 2:
-            return False, "尚未產生任何新的 Commit！請使用 `git add -p` 暫存其中一個區塊並執行 commit。"
-
-        # 2. 檢視自 initial commit 以來的第一個新 commit 的 diff
-        # 如果用戶有 2 個 commit (initial + 1 個原子 commit)
-        # 取得 HEAD 的 diff
-        _, commit_diff, _ = engine.run_git("show", "HEAD", check=False)
-
-        has_discount = "discount_rate" in commit_diff
-        has_currency = "NT$" in commit_diff
-
-        # 檢查是否在同一個 commit 裡同時包進了兩個改動 (沒有拆開)
-        if count == 2 and has_discount and has_currency:
-            return False, (
-                "🚨 檢測到你在最新 Commit 中同時打包了『折扣計算』與『NT$ 貨幣符號』兩處改動！\n"
-                "本關目標是鍛鍊『原子提交』，請重新執行 `./git-lab reset 12`，"
-                "並在 `git add -p` 提示時分別按 `y` 與 `n` 將它們拆開！"
-            )
-
-        # 若最新 commit 或前一個 commit 成功分離了這兩個區塊
-        return True, (
-            "🎉 太棒了！你成功掌握了 `git add -p` 互動式區塊暫存！\n"
-            "在大型專案中，當你在一個檔案改了多個功能或修復時，利用 patch 模式精準切分 Hunk、"
-            "組織乾淨單一職責的 Atomic Commit，能大幅提升 PR Code Review 品質與 Git 歷史可讀性！"
-        )
+        from lab.scenarios.expanded import ended
+        count = engine.get_commit_count()
+        if count not in (2, 3) or not ended(engine):
+            return False, "請完成折扣的獨立提交；收據變更可留工作目錄或另作第二筆提交。"
+        _, commits, _ = engine.run_git("rev-list", "--reverse", "HEAD")
+        first = commits.splitlines()[1]
+        expected = MODIFIED_SHOPPING_CODE.split("def print_receipt", 1)[0] + "def print_receipt" + INITIAL_SHOPPING_CODE.split("def print_receipt", 1)[1]
+        code, snapshot, _ = engine.run_git("show", first + ":shopping.py", check=False)
+        _, files, _ = engine.run_git("diff-tree", "--no-commit-id", "--name-only", "-r", first, check=False)
+        if code != 0 or snapshot != expected or files.strip() != "shopping.py":
+            return False, "第一筆新增提交必須只包含完整折扣 hunk，收據仍保留原版；空提交或一次全暫存無法通關。"
+        if engine.read_file("shopping.py") != MODIFIED_SHOPPING_CODE:
+            return False, "請保留完整折扣與收據變更，不能丟棄未暫存內容。"
+        if count == 3:
+            code, latest, _ = engine.run_git("show", "HEAD:shopping.py", check=False)
+            if code != 0 or latest != MODIFIED_SHOPPING_CODE:
+                return False, "第二筆新增提交必須完整保留收據變更。"
+        return True, "折扣補丁已獨立提交，收據變更完整保留。"

@@ -1,199 +1,181 @@
-# 🚀 Git Scenario Lab
+# Git Scenario Lab
 
-> **專為單人開發者打造的現代 Git 實戰情境實驗室。**
-> 
-> 🌐 **瀏覽器互動式終端機 & 可視化 Commit 樹狀圖**: [https://hsing24.github.io/learn-git/](https://hsing24.github.io/learn-git/)
-> 
-> 具備類似 LearnGitBranching 的直覺介面，但**大幅強化真實職場工程情境**：共 36 個關卡，其中 34 個核心關卡可用 Web 模擬器練習，另有 2 個 CLI 專屬選修。Web 版免安裝，打開瀏覽器即可開始。
-> 
-> 本專案同時支援：
-> 1. 🌐 **Web 線上模擬器**：瀏覽器即時 SVG DAG 樹狀圖、檔案衝突檢視器、8 大章節課程地圖與章節結業卡。
-> 2. 💻 **本地終端機 CLI (`./git-lab`)**：在自己的 macOS / Linux 終端機與真實 Git 沙盒環境中實戰練習。
+為初學到進階使用者設計的 Git 情境練習。從版本庫、暫存快照與日常復原，逐步學習遠端協作、歷史整理、除錯及工程工具。
 
-Git 最關鍵的核心技能（例如 **帳號配置與 SSH 免密連線**、**Merge Conflict 衝突解決**、**Rebase 歷史整容**、**Git Worktree 雙軌並行**、**Git Bisect 二分除錯**、**Reflog 災難救援**），通常都需要「第二個同事」或「龐大交錯的歷史紀錄」。
+[開啟 Web 模擬器](https://hsing24.github.io/learn-git/)。目前共 **49 關：41 個 Web／CLI 核心關卡、8 個 CLI 選修**，依 8 個章節排列。關卡 ID 保留；課程順序調整不會重新編號既有進度。
 
-一個人在本機自學時很難製造這些逼真的情境。**Git Scenario Lab** 讓你只要一行指令，就能在獨立的練習目錄中自動搭建出最真實的專案現場！
+- **Web**：免安裝的模擬終端機、提交圖、可編輯檔案、逐區塊暫存與獨立 worktree 工作區。
+- **CLI**：在 `workspace/` 內呼叫真實 Git；每關自動建立本機練習情境及模擬遠端。
 
----
-
-## ⚡ 快速開始 (Quick Start)
+## 快速開始
 
 ```bash
-# 1. 複製專案
 git clone https://github.com/Hsing24/learn-git.git
 cd learn-git
-
-# 2. 列出 34 個核心關卡與 2 個 CLI 選修（依 8 大章節分組）
 ./git-lab list
-
-# 3. 進入第 00 關：配備身分、SSH 免密金鑰與自動建立遠端分支
 ./git-lab start 00
-
-# 4. 進入工作區操作
 cd workspace
-
-# 5. 完成任務後驗收成果
+# 依任務設定提交作者；完成後驗收
 ./git-lab verify
 ```
 
-## 平台與版本需求
+從零建立版本庫的練習是 `./git-lab start 36`。下一關依課程順序進行，不必按照 ID 大小。切換或重設關卡會重建練習目錄，請先保存要保留的練習成果。
 
-| 使用方式 | 支援平台與版本 |
+## 平台與版本
+
+| 使用方式 | 需求 |
 | :--- | :--- |
-| Web 模擬器 | 支援 JavaScript、SVG 與 `localStorage` 的現代瀏覽器；不用安裝 Git、Python 或 Node.js。 |
-| CLI 練習 | macOS、Linux 或 WSL；Python 3.11+、Git 2.28+。Python 僅使用標準函式庫。Bash 用於部分 Git hook 關卡。 |
-| 自動化測試 | Python 3.11+、Node.js 24+、Git 2.28+；不需安裝 npm 套件。 |
+| Web | 支援 JavaScript、SVG、localStorage 的現代瀏覽器。 |
+| CLI | macOS、Linux 或 WSL；Python 3.11+、Git 2.28+。部分 hooks 需要 Bash。 |
+| SSH 簽章選修 48 | Git 2.34+、`ssh-keygen`。金鑰在練習沙盒內產生。 |
+| Git LFS 選修 47 | 另行安裝 `git-lfs`；缺少工具時會明確提示，不會模擬成功。 |
+| 測試 | Python 3.11+、Node.js 24+、Git；無需 npm 套件。 |
 
-`git-filter-repo` 是關卡 33 的選用工具；沒有安裝時，備援的 `git filter-branch` 路徑仍可練習與測試。
+`push.autoSetupRemote` 是 Git 2.37+ 的選用設定。關卡 33 優先使用 `git-filter-repo`；未安裝時保留僅供沙盒的 `filter-branch` 備援，真實專案建議安裝前者，並符合該工具自身的 Git 版本需求。
 
-### Web 模擬器範圍
+Web 只模擬課程支援的操作，不會啟動系統 Git、修改本機檔案或連線至 GitHub。連線診斷使用預先建立的錯誤案例；真正的 SSH／HTTPS 登入設定見 [LAB_GUIDE](./LAB_GUIDE.md)。CLI 選修使用真實工具，Web 會標示平台限制。
 
-Web 版只在瀏覽器內模擬本專案支援的 Git 指令與資料狀態，不會啟動系統終端機或 Git 程式、不會修改你的本機 repository，也不會連線到真實遠端 repository。CLI 版則呼叫系統 Git，在專案的 `workspace/` 練習目錄操作。
+## 課程地圖
 
----
+### 第 0 章：環境與版本庫
 
-## 📚 36 個實戰關卡課綱地圖（34 個核心關卡 + 2 個 CLI 專屬選修）
+設定提交作者，從零建立版本庫並認識 Git 快照
 
-### 第 0 章：環境就緒 (Environment Setup)
-*設定身分與連線，之後的每個 commit 都會記錄這些資訊*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **00** | ★ | 起點裝備：Git 身分、SSH 憑證與 Auto-Push | `user.name/email`, `push.autoSetupRemote`, SSH 免密配置 |
+| 00 | ★ | 入職設定：提交作者身分 | 作者姓名、信箱、設定來源；作者資訊與登入認證分開 |
+| 36 | ★ | 建立倉庫：Git Init 與三區模型 | git init -b main、.git、快照、HEAD 與三區模型 |
 
-### 第 1 章：單機日常循環 (Local Daily Cycle)
-*修改 ➜ 檢視 ➜ 暫存 ➜ 提交 ➜ 反悔*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 1 章：單機日常循環
+
+修改、檢視、精準暫存、提交與安全復原
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **01** | ★ | 工作區、暫存區與第一個 Commit | `git status`, `git add`, `git commit` |
-| **24** | ★ | 檢視變更：搞懂 diff 工作區、暫存區與歷史 | `git diff`, `git diff --staged`, `git show`, `git log -p` |
-| **13** | ★★ | 亡羊補牢：.gitignore 追蹤失效救援與 git rm --cached | `.gitignore` 生效原理、`git rm --cached` 索引除名保全本地檔案 |
-| **20** | ★★ | 乾淨俐落：git mv 檔案更名與 git clean -fd 清理雜物 | `git mv` 一步更名暫存、`git clean -fd` 徹底剷除未追蹤垃圾 |
-| **25** | ★★ | 現代復原四部曲：git restore 與 reset 三模式 | `git restore`, `git restore --staged`, `git reset (--soft/mixed/hard)` |
-| **18** | ★★ | 完美補完：git commit --amend 追補漏檔與修改最後提交 | `git commit --amend -m`、追加檔案免碎提交、保持乾淨歷史 |
+| 01 | ★ | 首次存檔：工作區、暫存區與提交 | status、add、commit 與提交後工作區 |
+| 37 | ★ | 提交快照：暫存後再修改 | add 後再次修改；commit 儲存 index 而非目前工作區 |
+| 24 | ★ | 接手專案：Status、Diff、Log 與 Show | 雙欄狀態、diff／--staged、log／show |
+| 12 | ★★ | 拆分變更：Patch 局部暫存 | add -p 選擇區塊、staged diff、原子提交 |
+| 41 | ★★ | 排除檔案：Ignore 模式與例外 | 目錄、萬用字元、例外規則與 check-ignore -v |
+| 13 | ★★ | 停止追蹤：Gitignore 與移除索引 | ignore 不影響已追蹤檔案、rm --cached、提交除名 |
+| 20 | ★★ | 整理檔案：更名與清理預覽 | git mv、先 clean -nd 預覽再 clean -fd |
+| 08 | ★★ | 誤刪提交：Reflog 救援 | 本機 reflog、建立救援參照、找回已提交快照與期限 |
+| 25 | ★★ | 撤銷操作：Restore 與三種 Reset | restore 預設來源 index；soft／mixed／hard 的三區差異 |
+| 38 | ★★ | 共享歷史：Revert 一般提交 | 一般提交 revert、新增反向提交並保留共享歷史 |
+| 18 | ★★ | 補上漏檔：Amend 最新提交 | 追加漏檔、修改訊息、amend 改變提交 ID |
 
-### 第 2 章：分支與整合 (Branching & Merging)
-*建立、合併、衝突處理與工作區暫存*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 2 章：分支與整合
+
+分支指標、合併、衝突、stash 與版本參照
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **02** | ★★ | 分支流動：建立、切換與 Fast-Forward 合併 | `git branch`, `git switch -c`, `git merge` (Fast-forward) |
-| **26** | ★★ | 合併策略三部曲：Fast-forward、--no-ff 與 --squash | `git merge --no-ff`, `git merge --squash`, `git branch -d/-D` |
-| **03** | ★★★ | 迎戰衝突：手動解決 Merge Conflict | 雙分支修改同一檔案、解讀衝突標記、完成合併 |
-| **19** | ★★ | 救急暫存：Git Stash 工作區暫存、彈出與清理 | `git stash -u`、`git stash list`、`git stash pop`、多任務切換神技 |
-| **27** | ★★ | 分離 HEAD：查看舊版本並救回在上面做的 commit | `git switch --detach`, 救回 orphan commit, `git switch -c` |
-| **22** | ★★ | 移花接木：錯在 main 提交的救星 (Branch & Reset 平移救援) | 原地開分支貼紙、`git reset --hard HEAD~2`、零損平移救援主線 |
+| 02 | ★★ | 功能開發：分支與快進合併 | 分支指標、switch、建立功能提交、快進合併 |
+| 26 | ★★ | 整合功能：Merge、Squash 與分支清理 | no-ff／squash、祖先關係與分支刪除 |
+| 03 | ★★★ | 同時修改：解決合併衝突 | 衝突標記、手動決定內容、add、commit；merge --abort |
+| 19 | ★★ | 切換任務：Stash 保留與衝突 | stash -u、apply --index、pop 衝突、保留與清理 |
+| 44 | ★★★ | 閱讀歷史：修訂參照與範圍 | HEAD^／HEAD~、A..B／A...B 的 log 與 diff 語意 |
+| 27 | ★★ | 維護舊版：Detached HEAD 與分支救援 | 分離 HEAD、舊版本修復與新分支保全 |
+| 22 | ★★★ | 移走誤提交：分支與 Reset | 先建立分支保存提交，再 reset 未共享的 main |
 
-### 第 3 章：遠端協作基礎 (Remote Collaboration)
-*同步遠端、追蹤分支與推送防護*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 3 章：遠端協作基礎
+
+區分作者與認證，理解追蹤分支並選擇同步方式
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **28** | ★★ | Clone、首次推送與追蹤分支 | `git clone`, `git push -u origin <branch>`, `git branch -vv` |
-| **21** | ★★★ | 遠端全貌：git remote 管理與 git fetch vs git pull 深度解密 | `git remote add upstream`、`git fetch` 先觀後合、Fork 協作工作流 |
-| **06** | ★★★ | 模擬協作：遠端衝突與 Non-Fast-Forward 推送被拒 | 本地 Mock Remote、體驗推送被拒、`git pull --rebase` |
+| 40 | ★★ | 連線排查：作者、驗證與權限 | 作者／認證／權限、SSH／HTTPS URL 與錯誤診斷 |
+| 28 | ★★ | 加入協作：Clone 與追蹤分支 | clone、首次 push -u、branch -vv |
+| 21 | ★★★ | 觀察遠端：Fetch 與 Pull | remote、fetch 更新追蹤參照、檢視後整合 |
+| 39 | ★★★ | 遠端分歧：FF-only 與整合策略 | FF-only 拒絕分歧；比較 merge／rebase 並同步遠端 |
+| 06 | ★★★ | 推送被拒：同步遠端並保留雙方提交 | non-fast-forward 拒絕、pull --rebase、保留雙方提交 |
 
-### 第 4 章：打造乾淨歷史 (Clean History & Rebase)
-*局部暫存、變基與修飾提交*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 4 章：整理提交歷史
+
+變基、衝突處理、互動整理與精準移植
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **12** | ★★★ | 精準原子暫存：git add -p 局部區塊暫存 (Patch Staging) | `git add -p` (hunk split, y/n), `git diff --staged` 實現 Atomic Commit |
-| **04** | ★★★ | 變基藝術：使用 git rebase 保持線性歷史 | 保持分支歷史整潔一條線，消除多餘 merge commit |
-| **29** | ★★★ | Rebase 中途衝突：continue / abort / skip | Rebase 狀態機、解讀暫停節點、手動解衝突後 `rebase --continue` |
-| **05** | ★★★ | 歷史整形：Interactive Rebase 整理零碎 Commit | `git rebase -i`、真正互動 Todo 視窗、`squash` 與 `fixup` |
-| **30** | ★★★ | 精準修補歷史中的某個 commit | `git commit --fixup <target-hash>`, `git rebase -i --autosquash` |
-| **07** | ★★★ | 精準挑選：跨分支 Cherry-pick 偷渡關鍵 Commit | `git cherry-pick` 單獨摘取特定修復 Commit |
+| 04 | ★★★ | 主線更新：Rebase 與線性歷史 | 重放提交、保留新主線內容與線性歷史 |
+| 29 | ★★★ | 變基中斷：Continue、Abort 與 Skip | 衝突續行、中止還原、略過可捨棄提交 |
+| 05 | ★★★ | 整理草稿：互動式 Rebase | 互動 todo、squash／fixup／reword 與內容保留 |
+| 30 | ★★★ | 修補舊提交：Fixup 與 Autosquash | fixup 指定提交、autosquash、內容放回正確歷史位置 |
+| 07 | ★★★ | 挑選修復：Cherry-pick 與衝突處理 | 單獨摘取修復、衝突處理、continue／abort |
 
-### 第 5 章：團隊工作流與發布 (Team Workflow & Releases)
-*PR 生命週期、標籤發布、緊急復原與鉤子防線*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 5 章：團隊工作流與發布
+
+更新 PR、合併後收尾、標籤、回滾與 hooks
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **31** | ★★★★ | 一個 PR 從開到收：變基最新主線與安全強推 | `git fetch origin`, `git rebase origin/main`, `git push --force-with-lease` |
-| **15** | ★★ | 版本里程碑：Git Tag 與語意化版號發布 (Semantic Versioning) | 輕量標籤 vs 附註標籤 (`git tag -a`), 歷史補簽, `git push --tags` |
-| **14** | ★★★★ | 線上緊急回滾：解救生產事故的 Revert Merge (git revert -m 1) | Merge Commit 雙親拓撲、`-m 1` 基準線指定、Re-revert 心法 |
-| **11** | ★★★ | 守門神器：Git Hooks 自動化品管與敏感金鑰攔截 | `pre-commit`, `commit-msg`, `core.hooksPath` 敏感詞防護 |
+| 31 | ★★★★ | PR 更新與合併後收尾：Rebase 與租約推送 | fetch、rebase、租約推送、模擬 PR 合併、同步與清理 |
+| 15 | ★★ | 版本標記：附註標籤 | 附註／輕量標籤、指定歷史提交、SemVer 與推送 |
+| 14 | ★★★★ | 撤銷合併：Revert 的主線選擇 | merge 雙親、-m 選擇主線、revert 後再次合併 |
+| 11 | ★★★ | 提交檢查：Hooks 攔截與修正 | pre-commit 攔截、修正後正常提交、hooks 安裝與限制 |
 
-### 第 6 章：救援與除錯 (Rescue & Debugging)
-*時光倒流、代碼考古與二分除錯*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 6 章：歷史調查與除錯
+
+追查字串與作者，找出引入問題的提交
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **08** | ★★★ | 起死回生：Git Reflog 拯救失蹤的 Commit | 救回 `git reset --hard` 誤刪的心血程式碼、`HEAD@{1}` |
-| **16** | ★★★ | 代碼考古學：git log -S 語意搜尋與 git blame 責任溯源 | `git log -S` (Pickaxe) 增減檢索、`git blame -w` 忽略格式排版 |
-| **10** | ★★★★ | 時光偵探：Git Bisect 二分搜尋秒殺神秘 Bug | `git bisect start/bad/good` 在 O(log N) 步內找出元凶 |
+| 16 | ★★★ | 追溯變更：Pickaxe 與 Blame | log -S／-G、blame -w、作者與變更背景 |
+| 10 | ★★★★ | 定位回歸：Bisect 二分搜尋 | 實際測試版本、縮小範圍、找出 first bad commit、reset |
 
-### 第 7 章：進階工程 (Advanced Engineering)
-*平行工作區、衝突記憶、進階變基與密鑰清除*
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### 第 7 章：進階工程
+
+平行工作區、衝突重用、分支搬移與敏感資料清除
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **09** | ★★★★ | 雙軌並行：Git Worktree 免 Stash 零干擾平行開發 | `git worktree add/list/remove` 享受多目錄並行檢出 |
-| **17** | ★★★★ | 重複衝突終結者：git rerere 記錄與自動重用解法 | `git config rerere.enabled true`, 自動記憶衝突解法、Rebase 省時黑魔法 |
-| **32** | ★★★★★ | Stacked PR：基底分支被 squash merge 之後 | `git rebase --onto main feature/api feature/ui` 精確搬移 |
-| **33** | ★★★★★ | 密鑰已經推上遠端的事故處理 | `git filter-repo --path .env --invert-paths`, `git push --force-with-lease` |
-| **23** | ★★★★ | 底層透視：.git 水管底層物件解密 (Plumbing: cat-file & SHA-1) | `git cat-file -t / -p`、解密 blob / tree / commit 四大內部物件 |
+| 09 | ★★★★ | 平行修復：Worktree 獨立工作區 | 獨立 HEAD／index／工作區、保留原草稿、修復與清理 |
+| 17 | ★★★★ | 重複衝突：Rerere 記錄與重用 | 第一次記錄、第二次重用、檢查內容後再暫存提交 |
+| 32 | ★★★★★ | 堆疊分支：Rebase Onto 搬移範圍 | --onto 精確搬移堆疊分支中的提交範圍 |
+| 33 | ★★★★★ | 憑證外洩：輪替與歷史清理 | 先撤銷輪替，再清歷史、明確租約、團隊與平台收尾 |
+| 23 | ★★★★ | 探索物件：Commit、Tree 與 Blob | cat-file、commit／tree／blob／tag、內容定址與物件 ID |
 
-### 選修主題 (Electives - 僅 CLI 專屬實戰)
-| ID | 難度 | 關卡名稱 | 實戰重點 |
+### CLI 選修
+
+| ID | 難度 | 關卡 | 學習範圍 |
 | :---: | :---: | :--- | :--- |
-| **34** | ★★★★ | 跨專案代碼復用：Git Submodule 子模組 | `git submodule add`, `git submodule update --init` |
-| **35** | ★★★★ | 超大型 Monorepo 救星：Sparse Checkout 局部檢出 | `git sparse-checkout init --cone`, `git sparse-checkout set` |
+| 34 | ★★★★ | 引用專案：Submodule 固定版本 | gitlink 固定版本、clone 後初始化、更新子模組 |
+| 35 | ★★★★ | 大型專案：Sparse Checkout 工作區範圍 | cone 局部檢出、工作區範圍與 partial clone 的區別 |
+| 42 | ★★★ | 跨平台協作：Attributes 與換行 | .gitattributes、LF／CRLF、check-attr 與正規化 |
+| 43 | ★★★★ | 調整提交：Split Commit 與 Range-diff | rebase -i edit、拆分提交、range-diff 檢查 |
+| 45 | ★★★★ | 自動定位：Bisect Run | bisect run、測試退出碼、skip、reset |
+| 46 | ★★★★ | 縮減複製：Partial Clone 與 Shallow Clone | partial／shallow／sparse 的分工與受限歷史 |
+| 47 | ★★★★ | 大型資產：Git LFS 指標與工具 | LFS 指標、大型二進位檔與獨立工具／物件儲存 |
+| 48 | ★★★★ | 驗證來源：SSH 提交與標籤簽章 | SSH 簽章、commit -S、tag -s、驗證信任設定 |
 
-關卡 **00–33** 共 34 個核心關卡可在 Web 與 CLI 練習；**34、35** 是 CLI 專屬選修，Web 課程地圖會略過。
+## 學習與驗收方式
 
----
+先看任務、操作並檢查結果，再閱讀補充解說。Web 可在檔案總管編輯並儲存工作區內容；`git add -p` 依序輸入 `y`、`n`，以 `q` 結束。Worktree 使用 `cd <path>` 進入獨立目錄，`cd ..` 返回主工作區。
 
-## 🛠️ 現代 Git 指令演進與更優替代方案
+驗收檢查提交內容、祖先關係、工作區與操作狀態。建立普通分支不等於完成 worktree；設定 bisect 邊界不等於找到問題；啟用 rerere 不等於已重用解法。初始狀態及破壞性捷徑必須被拒絕。
 
-現代 Git（2.23+）針對許多容易混淆或過載的舊指令進行了專門化升級：
+[LAB_GUIDE](./LAB_GUIDE.md) 說明操作選擇、Git 概念與限制。[PR 平台實作](./docs/PR_PLATFORM_GUIDE.md) 補充在 GitHub 建立 PR、處理 review 與檢查 CI 的完整流程；第 31 關練習本機更新及模擬合併後收尾。
 
-- **切換分支**：`git checkout` ➜ 推薦 **`git switch`**（安全專注切分支）
-- **放棄修改**：`git checkout -- <file>` ➜ 推薦 **`git restore <file>`**（直觀精確還原）
-- **移出暫存**：`git reset HEAD <file>` ➜ 推薦 **`git restore --staged <file>`**（無危險性取消暫存）
-- **查看舊版 / 游標脫離**：`git checkout <hash>` ➜ 推薦 **`git switch --detach <hash>`**（明確宣告游標分離）
-- **覆寫推送至遠端**：`git push --force` ➜ 推薦 **`git push --force-with-lease`**（安全租約比對，不蓋同事新代碼）
-- **微調修正歷史提交**：手動 `rebase -i` ➜ 推薦 **`git commit --fixup` + `--autosquash`**（全自動嫁接合併）
-- **跨分支平行開發**：`git stash` ➜ 推薦 **`git worktree`**（實體目錄隔離，避免編譯快取失效與 pop 衝突）
-- **新分支推送**：`--set-upstream` ➜ 推薦 **`push.autoSetupRemote true`**（一次配置，直接 `git push`）
-- **局部暫存 / 拆分**：盲目 `git add .` ➜ 推薦 **`git add -p`**（依代碼塊精準組織 Atomic Commit）
-- **停止追蹤敏感檔**：刪除本地檔 ➜ 推薦 **`git rm --cached`**（保全本地檔案同時自 Git 索引除名）
-- **緊急回滾 Merge PR**：暴力 force push ➜ 推薦 **`git revert -m 1`**（向前推進產生反轉提交，保留審計紀錄）
-- **重複衝突免解**：每次手動重解 ➜ 推薦 **`git config --global rerere.enabled true`**（自動記憶並重用解法）
-- **精準代碼考古**：盲翻提交訊息 ➜ 推薦 **`git log -S "<字串>" --oneline`**（鶴嘴鎬只看次數變動）
-- **拉取遠端最新**：預設 `git pull` ➜ 推薦 **`git pull --rebase`**（避免產生多餘菱形 Merge Commit）
-- **Hook 團隊共享**：手動貼 `.git/hooks` ➜ 推薦 **`core.hooksPath` / Husky / Lefthook**（納入版本控制自動同步）
-
-完整深入解說請參閱 [LAB_GUIDE.md](./LAB_GUIDE.md)。
-
----
-
-## 🧪 自動化測試與覆蓋範圍
-
-CI 會在 Pull Request 與 `main` 更新時執行下列檢查：
+## 本地驗證
 
 ```bash
-# Python CLI 驗收：36 關與 Python/JavaScript 課綱 manifest 一致性
 python3 tests/test_all_scenarios.py
-
-# Web 虛擬引擎驗收：所有可玩的關卡、導覽與捷徑防護
 node tests/web/run_scenarios.mjs
-
-# 所有 Web JavaScript 檔案語法檢查
 for file in docs/*.js; do node --check "$file"; done
+git diff --check
 ```
 
-Python 測試以真實 Git 驗證 36 個 CLI 關卡，並比對 Python、Web 與 `docs/curriculum.js` 的關卡 ID；測試在一次性暫存專案執行，不會清理 repository 的 `workspace/`。Web 測試驗證 34 個核心可玩關卡，並確認 CLI 選修不會進入 Web 導覽。關卡 33 的 `git-filter-repo` 路徑會在安裝選用工具時測試；`filter-branch` 備援路徑一律測試。
+CLI 測試在一次性暫存專案執行，隔離 Git 設定，不清理你的 `workspace/`。選修工具確實不存在時才跳過對應工具測試，並回報原因。Web 測試覆蓋核心關卡、錯誤捷徑、導覽與 Python／JavaScript 課綱一致性。
 
----
+## 版本、發布與貢獻
 
-## 版本、變更紀錄與發布
+目前沒有已發布的版本化 release；[CHANGELOG](./CHANGELOG.md) 記錄尚未發布變更。發布時依 SemVer 使用 `vMAJOR.MINOR.PATCH` 附註標籤。CI 通過後更新變更紀錄、建立並推送標籤，再建立 GitHub Release。推送 tag 本身不會自動建立 Release；自動建置需要設定相應 workflow。
 
-本專案沒有套件版號或已發布的版本化 release。使用 [`CHANGELOG.md`](./CHANGELOG.md) 記錄尚未發布的變更；首次及後續版本以 `vMAJOR.MINOR.PATCH` 標籤發布，並依語意化版號區分不相容變更、新功能與修正。
+GitHub Pages 從 `main/docs` 發布；合併到 main 會更新網站，標籤不會建立舊版網站。
 
-發布時先確認 `main` 的 CI 通過，再將已發布項目從 `Unreleased` 移到對應版號與日期，合併變更紀錄後，在 `main` 的 release commit 建立 annotated tag，推送標籤並從該標籤建立 GitHub Release。GitHub Pages 目前直接從 `main/docs` 發布；合併到 `main` 會更新網站，版本標籤不會建立舊版網站。
+- 回報問題：[GitHub Issues](https://github.com/Hsing24/learn-git/issues/new/choose)。
+- 開發與提交 PR：[貢獻指南](./CONTRIBUTING.md)。
+- 安全問題：[安全回報政策](./SECURITY.md)。
+- 社群互動：[行為準則](./CODE_OF_CONDUCT.md)。
+- 私人聯絡：[twrandy24@gmail.com](mailto:twrandy24@gmail.com)。
 
-## 📄 License
-[MIT License](./LICENSE) 適用於本專案原創程式碼與文件內容，除非個別檔案另有標示。第三方字型、商標、引用素材或外部連結內容仍依其原有授權與使用條款；本專案的 MIT 授權不會重新授權這些內容。
-
-## 🤝 貢獻與聯絡
-
-- Bug、功能與教學建議：使用 [GitHub Issues 模板](https://github.com/Hsing24/learn-git/issues/new/choose)。
-- 開發與提交 PR：參閱 [貢獻指南](./CONTRIBUTING.md)。
-- 安全漏洞：依 [安全回報政策](./SECURITY.md) 透過 email 私下回報。
-- 社群互動：遵守 [行為準則](./CODE_OF_CONDUCT.md)。
-- 合作或其他私人事項：[twrandy24@gmail.com](mailto:twrandy24@gmail.com)。
+[MIT License](./LICENSE) 適用於本專案原創內容。第三方字型、商標、素材及外部資源依各自授權。

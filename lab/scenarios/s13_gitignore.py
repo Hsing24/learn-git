@@ -7,13 +7,12 @@ from lab.engine import GitEngine
 
 class Scenario13(BaseScenario):
     id = "13"
-    title = "亡羊補牢：.gitignore 追蹤失效救援與 git rm --cached"
+    title = '停止追蹤：Gitignore 與移除索引'
     difficulty = "初階 ⭐⭐"
     story = (
-        "全宇宙工程師最常踩的坑之一：不小心把 `.env`（內含資料庫密碼或 API 金鑰）或 `build/` 目錄 commit 進了版本庫。\n"
-        "事後雖然在 `.gitignore` 補寫上了 `.env`，卻發現每次修改檔案，Git 依然緊追不捨！\n"
-        "這是因為：**『已被版本庫追蹤的檔案，不受 .gitignore 規則約束』**！\n"
-        "要解決這個問題，必須使用 `git rm --cached` 將檔案從 Git 暫存區與索引中除名，同時確保本地硬碟上的實體檔案安然無恙！"
+        "你昨天不小心把本地臨時記錄檔與密鑰誤加入了版本庫，今天雖然事後補上了 .gitignore，Git 卻完全無視！\n"
+        "小明前輩笑著說：「已經被追蹤的檔案，gitignore 救不了你啦。」\n"
+        "請用 git rm --cached 從索引除名並保全本地檔案！"
     )
     goals = [
         "確認 .env 檔案已被 Git 錯誤納入版本控管 (使用 git ls-files)",
@@ -118,6 +117,10 @@ class Scenario13(BaseScenario):
         if dirty:
             return False, "工作區還有未提交的修改，請使用 `git commit` 將 `.gitignore` 與除名改動寫入提交。"
 
+        code, _, _ = engine.run_git("cat-file", "-e", "HEAD:.env", check=False)
+        code2, ignore, _ = engine.run_git("show", "HEAD:.gitignore", check=False)
+        if code == 0 or code2 != 0 or engine.run_git("check-ignore", "-q", ".env", check=False)[0] != 0:
+            return False, "最新提交必須停止追蹤 .env 並包含生效的 ignore 規則；歷史中的機密仍須另行清洗。"
         return True, (
             "🎉 完美通關！你成功掌握了 `git rm --cached` 與 `.gitignore` 的核心聯動機制！\n"
             "記住：『已追蹤的檔案不受 .gitignore 約束』。\n"

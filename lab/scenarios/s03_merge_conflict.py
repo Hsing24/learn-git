@@ -27,13 +27,14 @@ FEATURE_ORDER_CODE = '''def calculate_total(items):
 
 class Scenario03(BaseScenario):
     id = "03"
-    title = "迎戰衝突：手動解決 Merge Conflict"
+    title = '同時修改：解決合併衝突'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "真實的團隊車禍現場！\n"
-        "同事小明在 main 分支修改了 order.py 的折扣邏輯（採用滿千折百）。\n"
-        "與此同時，你在 feature-promo 分支上也修改了 order.py 的同一行（採用八折優惠）。\n"
-        "當你嘗試將 feature-promo 合併進 main 時，Git 無法自行判斷該聽誰的，爆發了衝突 (CONFLICT)！"
+        "真實的辦公室車禍現場！\n"
+        "同事小明前輩在 main 分支修改了 order.py 的折扣邏輯（採用滿千折百）。\n"
+        "與此同時，你在 feature-promo 分支上也修改了同一行（採用八折優惠）。\n"
+        "當你嘗試將分支合進 main 時，終端機噴出刺眼紅字 CONFLICT！\n"
+        "眼前出現 <<<<<<< HEAD 如拆彈剪線，全辦公室都在看你，請冷靜手動拆除標記並完成合併！"
     )
     goals = [
         "使用 git status 檢視處於衝突 (both modified) 的 order.py",
@@ -92,4 +93,7 @@ class Scenario03(BaseScenario):
         if code != 0:
             return False, "當前的最新 Commit 不是 Merge Commit。請確認是透過完成 git merge 提交，而非 git merge --abort 或 reset。"
 
+        code, committed, _ = engine.run_git("show", "HEAD:order.py", check=False)
+        if code != 0 or committed != content or not all(rule in committed for rule in ("1000", "100", "0.2")):
+            return False, "請提交解決結果，保留滿千折百與其他訂單八折的雙方規則。"
         return True, "太厲害了！你成功馴服了初學者最害怕的 Merge Conflict！掌握了解決衝突的標準 SOP！"

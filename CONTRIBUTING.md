@@ -27,8 +27,8 @@ python3 -m http.server 8000 --directory docs
 - 課程順序以 `docs/curriculum.js` 為單一來源；內容需保持可由 Python 解析的 JSON 字面值。
 - 保留既有關卡 ID，避免破壞使用者進度；新增關卡使用未使用的 ID。
 - 新關卡需同時交付 Python CLI 情境、Web 情境、`docs/curriculum.js` manifest 項目、關卡指引與對應測試；若屬 CLI 專屬選修，需在 manifest 標示並於 Web 停用。
-- 遵守課綱的舊文字保護限制。既有 `scenarios-data.js` 的 title、story、goals、hints、difficulty、category 由作者維護；04 / 05 / 06 的 setup、checkGoal 修正已獲准。其他超出規格的修改請先在 issue 說明。
-- Web 測試會將 00–23 關的六個受保護欄位與 `tests/fixtures/protected-scenario-text.json` 的歷史基準比較；經核准的文案變更需在獨立提案中更新基準。
+- 教學文案與任務應符合實際練習及驗收。本次課綱 v3 已依作者授權更新 00–23 關的受保護文案；後續變更同步說明教學目的並更新基準，避免無意的文案漂移。
+- Web 測試將 00–23 關的六個教學欄位與 `tests/fixtures/protected-scenario-text.json` 的授權基準比較。新增 Web 核心關卡可放在 `scenarios-foundations.js`／`command-guides-foundations.js`，並更新載入順序與一致性測試。
 - 驗收需涵蓋初始狀態不通過、標準解法通過，以及適用的破壞性捷徑不通過；檢查提交歷史、檔案內容與 refs，避免只檢查指令是否出現。
 - 介面修改遵守 [DESIGN.md](./DESIGN.md)；修改 JS 時同步更新 `docs/index.html` 的快取版本參數。
 
@@ -43,7 +43,7 @@ for file in docs/*.js; do node --check "$file"; done
 git diff --check
 ```
 
-Python 測試會在一次性暫存專案中執行全部 36 個 CLI 關卡，並使用空白全域 Git 設定、停用系統設定與固定的測試身分；不會刪除專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑需要選用工具，備援的 `filter-branch` 路徑則會固定測試。
+Python 測試會在一次性暫存專案中執行全部 49 個 CLI 關卡，並使用空白全域 Git 設定、停用系統設定與固定的測試身分；不會刪除專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑需要選用工具，備援的 `filter-branch` 路徑則會固定測試。
 
 ## 提交 Pull Request
 

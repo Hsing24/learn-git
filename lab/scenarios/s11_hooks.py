@@ -1,6 +1,8 @@
 """Scenario 11: Git Hooks automation and security guardrails."""
 
 import os
+import tempfile
+import subprocess
 from pathlib import Path
 from typing import Tuple
 from lab.base import BaseScenario
@@ -12,7 +14,7 @@ PRE_COMMIT_TEMPLATE = """#!/usr/bin/env bash
 echo "🔍 正在執行 pre-commit 程式碼安全檢查..."
 
 # 檢查暫存區 (Staged) 的檔案是否包含敏感詞彙
-if git diff --cached | grep -E "PRIVATE_KEY|AWS_SECRET|API_TOKEN" > /dev/null; then
+if git diff --cached --no-ext-diff --unified=0 | grep -E "^[+][^+].*(PRIVATE_KEY|AWS_SECRET|API_TOKEN)" > /dev/null; then
     echo "❌ [安全警報] 檢測到代碼中包含敏感金鑰 (PRIVATE_KEY / AWS_SECRET / API_TOKEN)！"
     echo "🚨 Git 已攔截此次提交，請將敏感資訊移至環境變數 (.env) 後再試。"
     exit 1
@@ -24,27 +26,28 @@ exit 0
 
 class Scenario11(BaseScenario):
     id = "11"
-    title = "守門神器：Git Hooks 自動化品管與敏感金鑰攔截"
+    title = '提交檢查：Hooks 攔截與修正'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "軟體開發團隊最常面臨的兩大痛點：\n"
-        "1. 資安慘劇：工程師手滑把 API Token、AWS 密鑰或資料庫密碼 commit 進版本庫（推上 GitHub 秒被黑客爬取！）。\n"
-        "2. 規範失控：有人沒跑 Linter 就提交代碼，或 commit 訊息亂打一通（如 'wip', 'asdf'）。\n"
-        "Git 內建的自動化守門員就是「Git Hooks」！\n"
-        "它可以在 commit、push 等動作觸發前後自動執行腳本。若腳本回傳非 0，Git 就會立即中止操作，防患於未然！"
+        "昨天你差點把包含敏感金鑰的設定檔推上遠端，嚇得資安前輩阿威差點拔網路線。\n"
+        "為了保護全組生命安全，阿威要求你在本地配置 pre-commit hook 守門腳本，\n"
+        "在 commit 前自動攔截違規與敏感字眼！"
     )
     goals = [
         "觀察 Git 內部預設存放 Hooks 的位置 (.git/hooks/)",
         "建立一個 pre-commit 鉤子腳本並賦予執行權限 (chmod +x)",
         "在 pre-commit 中加入檢查邏輯：若發現 PRIVATE_KEY 或 API_TOKEN 則阻止提交",
         "故意在檔案寫入金鑰並嘗試 commit，親自體驗被 Git 守門員擋下的安全機制",
-        "理解團隊如何透過 git config core.hooksPath .githooks 實現跨成員共享 Hooks"
+        "清除金鑰後正常 commit，不需 --no-verify；共享 .githooks 後每位 clone 者須執行安裝 bootstrap 設定 hooksPath"
     ]
     next_steps = [
         "查看範本指引：cat HOOKS_GUIDE.md",
         "建立 hook 檔案：在 .git/hooks/pre-commit (或 .githooks/pre-commit) 寫入檢查腳本",
         "賦予執行權限：chmod +x .git/hooks/pre-commit (或 chmod +x .githooks/pre-commit)",
         "若使用 .githooks 目錄，需設定：git config core.hooksPath .githooks",
+        "git add settings.py，再 git commit -m 'test secret'，確認 hook 拒絕",
+        "將 settings.py 改為 import os 與 TOKEN = os.environ.get('SERVICE_TOKEN') 兩行",
+        "git add settings.py，再 git commit -m 'feat: safe settings'；正常提交，不要 --no-verify",
         "驗收成果：./git-lab verify"
     ]
     hints = [
@@ -78,7 +81,7 @@ Git Hooks 是存放在 Git 儲存庫中的事件腳本。常見鉤子包括：
 ```bash
 cat << 'EOF' > .git/hooks/pre-commit
 #!/usr/bin/env bash
-if git diff --cached | grep -E "PRIVATE_KEY|AWS_SECRET|API_TOKEN" > /dev/null; then
+if git diff --cached --no-ext-diff --unified=0 | grep -E "^[+][^+].*(PRIVATE_KEY|AWS_SECRET|API_TOKEN)" > /dev/null; then
     echo "❌ 偵測到敏感資訊！拒絕 Commit。"
     exit 1
 fi
@@ -89,7 +92,7 @@ chmod +x .git/hooks/pre-commit
 ```
 
 ### 做法 B（團隊最佳實踐）：使用 `.githooks` 並納入版本控制
-因為 `.git/hooks/` 預設不會被 Git 追蹤，團隊成員無法共享。現代做法是：
+`.git/hooks/` 不會被 clone；版本控制 `.githooks` 後，每位使用者仍須自行執行 bootstrap 或 hooksPath 安裝。clone 不會自動啟用腳本：
 ```bash
 mkdir -p .githooks
 # 將 pre-commit 寫在 .githooks/pre-commit
@@ -98,6 +101,7 @@ chmod +x .githooks/pre-commit
 ```
 """
         engine.create_file("HOOKS_GUIDE.md", guide)
+        engine.create_file("settings.py", "API_TOKEN = 'sandbox-secret'\n")
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
         # Check if hook exists either in .git/hooks/pre-commit or core.hooksPath
@@ -122,22 +126,24 @@ chmod +x .githooks/pre-commit
         if not os.access(hook_path, os.X_OK):
             return False, f"腳本 '{hook_path.name}' 缺少執行權限！請執行：chmod +x {hook_path}"
 
-        # Test the hook functionality: try to commit a file with PRIVATE_KEY
-        test_leak_file = "secret_leak.txt"
-        engine.create_file(test_leak_file, "API_TOKEN = 'secret-xyz-123456'\n")
-        engine.run_git("add", test_leak_file)
-
-        # Attempt commit - should FAIL because hook intercepts it
-        code, out, err = engine.run_git("commit", "-m", "test leak", check=False)
-
-        # Cleanup test file
-        engine.run_git("reset", "HEAD", test_leak_file, check=False)
-        try:
-            (engine.repo_dir / test_leak_file).unlink()
-        except Exception:
-            pass
-
-        if code == 0:
-            return False, "pre-commit 鉤子未能攔截含有 API_TOKEN 的提交！請確保腳本在發現敏感詞時以 exit 1 退出。"
-
-        return True, "太棒了！你的 Git Hook 守門員成功攔截了潛在的資安洩漏！從此為專案裝上了堅不可摧的安全氣囊！"
+        # A temporary index keeps verify read-only for the learner's staged changes/history.
+        with tempfile.TemporaryDirectory(prefix="git-lab-hook-") as tmp:
+            index = str(Path(tmp) / "index")
+            env = {"GIT_INDEX_FILE": index}
+            engine.run_git("read-tree", "HEAD", env=env)
+            def probe(content):
+                hashed = subprocess.run(["git", "hash-object", "-w", "--stdin"], input=content,
+                    cwd=engine.workspace, capture_output=True, text=True, check=True).stdout.strip()
+                engine.run_git("update-index", "--add", "--cacheinfo", "100644", hashed, "hook-probe.txt", env=env)
+                process_env = os.environ.copy()
+                process_env.update(env)
+                return subprocess.run([str(hook_path.resolve())], cwd=engine.workspace,
+                    env=process_env, capture_output=True, text=True).returncode
+            if probe("API_TOKEN = 'sandbox-secret'\n") == 0:
+                return False, "pre-commit 必須攔截含 API_TOKEN 的暫存內容。"
+            if probe("SAFE_SETTING = True\n") != 0:
+                return False, "移除金鑰後 hook 必須允許正常提交，不能只一律拒絕。"
+        code, settings, _ = engine.run_git("show", "HEAD:settings.py", check=False)
+        if code != 0 or settings != "import os\nTOKEN = os.environ.get('SERVICE_TOKEN')\n":
+            return False, "請在 hook 阻擋後移除 settings.py 的金鑰，改讀環境變數並正常提交。"
+        return True, "Hook 會攔截金鑰並允許清除後的正常提交；clone 者需自行安裝共享 hooks。"

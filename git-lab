@@ -22,6 +22,38 @@ from lab.visualizer import (
 from lab.colors import bold, green, red, yellow, cyan, blue, magenta, dim
 from lab.scenarios import SCENARIOS, SCENARIO_MAP, get_scenario
 from lab.curriculum import get_ordered_level_items
+import subprocess
+
+def get_user_display_name(engine: GitEngine) -> str:
+    """Get configured Git user name from local repo or global config."""
+    code, out, _ = engine.run_git("config", "user.name", check=False)
+    if code == 0 and out.strip() and out.strip() != "User":
+        return out.strip()
+    try:
+        res = subprocess.run(["git", "config", "--global", "user.name"], capture_output=True, text=True, check=False)
+        if res.returncode == 0 and res.stdout.strip() and res.stdout.strip() != "User":
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+def personalize_story(story_text: str, user_name: str) -> str:
+    if not user_name or not story_text:
+        return story_text
+    return (
+        story_text
+        .replace("「菜鳥，", f"「{user_name}，")
+        .replace("「菜鳥……", f"「{user_name}……")
+        .replace("「欸菜鳥，", f"「欸 {user_name}，")
+        .replace("「菜鳥！", f"「{user_name}！")
+        .replace("從小菜鳥的角度", f"從新人 {user_name} 的角度")
+        .replace("身為剛入職的新人", f"身為剛入職的新人 {user_name}")
+        .replace("身為最沒包袱的新人", f"身為最沒包袱的新人 {user_name}")
+        .replace("身為新人", f"身為新人 {user_name}")
+        .replace("身為菜鳥", f"身為新人 {user_name}")
+        .replace("強哥交給你第一份", f"強哥交給 {user_name} 第一份")
+        .replace("展開職場生存記！", f"{user_name} 的職場生存記正式開演！")
+    )
 
 def cmd_list(engine: GitEngine):
     state = engine.get_state()
@@ -67,11 +99,12 @@ def cmd_start(engine: GitEngine, target: str):
         print(f"{red('❌ 建立情境時發生錯誤：')} {e}")
         return
 
+    user_name = get_user_display_name(engine)
     print_scenario_briefing(
         sc.id,
         sc.title,
         sc.difficulty,
-        sc.story,
+        personalize_story(sc.story, user_name),
         sc.goals,
         sc.next_steps
     )
@@ -93,11 +126,12 @@ def cmd_status(engine: GitEngine):
         print(f"{red('❌ 關卡資料異常，請重新 start。')}")
         return
 
+    user_name = get_user_display_name(engine)
     print_scenario_briefing(
         sc.id,
         sc.title,
         sc.difficulty,
-        sc.story,
+        personalize_story(sc.story, user_name),
         sc.goals,
         sc.next_steps
     )
@@ -177,11 +211,12 @@ def cmd_reset(engine: GitEngine):
         print(f"{red('❌ 重設時發生錯誤：')} {e}")
         return
 
+    user_name = get_user_display_name(engine)
     print_scenario_briefing(
         sc.id,
         sc.title,
         sc.difficulty,
-        sc.story,
+        personalize_story(sc.story, user_name),
         sc.goals,
         sc.next_steps
     )
@@ -273,7 +308,9 @@ def print_help():
 
 def main():
     engine = GitEngine(REPO_ROOT)
-    engine.init_repo_if_needed()
+    # Level 36 deliberately starts before git init; status/verify must not initialize it.
+    if engine.get_state().get("active_scenario") != "36":
+        engine.init_repo_if_needed()
 
     args = sys.argv[1:]
     if not args:

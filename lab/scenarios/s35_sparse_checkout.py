@@ -6,13 +6,14 @@ from lab.engine import GitEngine
 
 class Scenario35(BaseScenario):
     id = "35"
-    title = "超大型 Monorepo 救星：Sparse Checkout 局部檢出"
+    title = '大型專案：Sparse Checkout 工作區範圍'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "公司大型 Monorepo 體積龐大，內含數十個模組。\n"
-        "你只需要開發 packages/web，請使用 git sparse-checkout 局部檢出指定目錄！"
+        "公司的老古董 Monorepo 歷史龐大動輒幾十 GB，你的小筆電硬碟快被塞爆了。\n"
+        "在只要開發前端模組的情況下，請開啟 sparse-checkout 稀疏檢出，只在工作目錄檢出需要的目錄；物件下載量另由 partial clone 控制！"
     )
     goals = [
+        "Sparse checkout 限制工作目錄呈現，並不限制下載物件；partial clone 另於選修 46",
         "初始化局部檢出：git sparse-checkout init --cone",
         "設定指定檢出目錄：git sparse-checkout set packages/web",
         "確認工作區只檢出指定目錄"

@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import './engine_curriculum.mjs';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -48,6 +49,7 @@ function runFile(relPath) {
 runFile('git-engine.js');
 runFile('scenarios-data.js');
 runFile('scenarios-extra.js');
+runFile('scenarios-foundations.js');
 runFile('curriculum.js');
 runFile('curriculum-navigation.js');
 
@@ -87,7 +89,7 @@ function test(name, fn) {
   }
 }
 
-test('Protected text for scenarios 00-23 matches the original baseline', () => {
+test('Protected text for scenarios 00-23 matches the approved curriculum baseline', () => {
   const fixturePath = path.resolve(__dirname, '../fixtures/protected-scenario-text.json');
   const baseline = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
   const scenariosById = new Map(SCENARIOS.map((scenario) => [scenario.id, scenario]));
@@ -123,7 +125,7 @@ test('Web navigation skips CLI-only optionals and counts playable levels', () =>
   const lastCoreIndex = ordered.findIndex((scenario) => scenario.id === '23');
   const previousCoreIndex = ordered.findIndex((scenario) => scenario.id === '33');
 
-  assert(navigation.countWebPlayable(ordered) === 34, 'The two CLI-only optionals must not count toward Web completion');
+  assert(navigation.countWebPlayable(ordered) === 41, 'The eight CLI-only optionals must not count toward Web completion');
   assert(navigation.nextWebPlayableIndex(ordered, previousCoreIndex) === lastCoreIndex, 'The final playable core level should follow id 33');
   assert(navigation.nextWebPlayableIndex(ordered, lastCoreIndex) === -1, 'No Web next level should follow id 23');
   assert(navigation.nextWebPlayableIndex(ordered, lastCoreIndex, scenario => scenario.chapterIndex > ordered[lastCoreIndex].chapterIndex) === -1,
@@ -386,23 +388,16 @@ test('00: Identity setup solution', () => {
 });
 
 test('01: First commit solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '01');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.add(['index.html']);
-  git.commit(['-m', 'feat: initial page structure']);
-  assert(sc.checkGoal(git).passed === true, '01 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '01'); const git = new VirtualGit(); sc.setup(git);
+  git.add(['.']); git.commit(['-m', 'feat: initial page structure']);
+  assert(sc.checkGoal(git).passed, '01 solution should pass');
 });
 
 test('02: Branch fast-forward merge solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '02');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.checkoutOrSwitch('feature/login', true);
-  git.commit(['-m', 'feat: add login']);
-  git.checkoutOrSwitch('main');
-  git.merge('feature/login');
-  assert(sc.checkGoal(git).passed === true, '02 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '02'); const git = new VirtualGit(); sc.setup(git);
+  git.branch(['feature/login']); assert(!sc.checkGoal(git).passed, 'An unchanged branch must not pass');
+  git.checkoutOrSwitch('feature/login'); git.workingTree.set('app.js', 'login();\n'); git.add(['app.js']); git.commit(['-m', 'feat: add login']);
+  git.checkoutOrSwitch('main'); git.merge('feature/login'); assert(sc.checkGoal(git).passed, '02 solution should pass');
 });
 
 test('03: Merge conflict manual resolution solution', () => {
@@ -418,12 +413,12 @@ test('03: Merge conflict manual resolution solution', () => {
 });
 
 test('07: Cherry-pick solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '07');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.checkoutOrSwitch('main');
-  git.cherryPick('sec001');
-  assert(sc.checkGoal(git).passed === true, '07 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '07'); const git = new VirtualGit(); sc.setup(git);
+  assert(git.cherryPick('sec001').code === 1, 'A competing change should conflict');
+  assert(git.cherryPick('--abort').code === 0, 'Abort restores the original branch');
+  git.cherryPick('sec001'); git.workingTree.set('auth.js', git.scenarioMeta.resolved); git.add(['auth.js']);
+  assert(git.cherryPick('--continue').code === 0, 'Staged resolution should continue');
+  assert(sc.checkGoal(git).passed, '07 solution should pass');
 });
 
 test('08: Reset to recovered commit via reflog solution', () => {
@@ -434,46 +429,45 @@ test('08: Reset to recovered commit via reflog solution', () => {
   assert(sc.checkGoal(git).passed === true, '08 solution should pass');
 });
 
-test('09: Worktree add solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '09');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.worktree(['add', 'hotfix-dir', '-b', 'hotfix-p0']);
-  assert(sc.checkGoal(git).passed === true, '09 solution should pass');
+test('09: Independent worktree repair and cleanup solution', () => {
+const sc = SCENARIOS.find(s => s.id === '09'); const git = new VirtualGit(); sc.setup(git);
+  git.branch(['hotfix-p0']); assert(!sc.checkGoal(git).passed, 'A plain branch is not a worktree'); git.branch(['-D','hotfix-p0']);
+  assert(git.worktree(['add','-b','hotfix-p0','../hotfix','main']).code === 0, 'Create linked worktree');
+  git.changeDirectory('../hotfix'); git.workingTree.set('app.js','runFixed();\n'); git.add(['app.js']); git.commit(['-m','fix: hotfix']);
+  git.checkoutOrSwitch('main'); git.merge('hotfix-p0'); git.changeDirectory('..'); git.worktree(['remove','../hotfix']);
+  const result = sc.checkGoal(git); assert(result.passed, result.message);
 });
 
 test('10: Bisect solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '10');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.bisect(['start']);
-  git.bisect(['bad']);
-  git.bisect(['good', 'c1000']);
-  assert(sc.checkGoal(git).passed === true, '10 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '10'); const git = new VirtualGit(); sc.setup(git);
+  git.bisect(['start']); git.bisect(['bad']); git.bisect(['good','c1000']);
+  assert(!sc.checkGoal(git).passed, 'Only marking boundaries must not pass');
+  for(let i=0; !git.bisectFoundId && i<10; i++) git.bisect([git.workingTree.get('calc.js').includes('3')?'bad':'good']);
+  assert(git.bisectFoundId === 'bug004', 'Find the first bad commit'); assert(!sc.checkGoal(git).passed, 'Must reset after finding culprit');
+  git.bisect(['reset']); assert(sc.checkGoal(git).passed, '10 solution should pass');
 });
 
-test('11: Hooks bypass solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '11');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.commit(['-m', 'feat: emergency bypass', '--no-verify']);
-  assert(sc.checkGoal(git).passed === true, '11 solution should pass');
+test('11: Hooks block then allow a corrected normal commit', () => {
+const sc = SCENARIOS.find(s => s.id === '11'); const git = new VirtualGit(); sc.setup(git);
+  git.configCmd(['core.hooksPath','.githooks']); git.executableFiles = new Set(['.githooks/pre-commit']);
+  assert(git.commit(['-m','test: blocked secret']).code === 1, 'Secret is blocked');
+  git.workingTree.set('config.env','AWS_KEY=""\n'); git.add(['config.env']);
+  assert(git.commit(['-m','chore: remove secret']).code === 0, 'Clean commit is allowed'); assert(sc.checkGoal(git).passed, '11 solution should pass');
+  const bypass = new VirtualGit(); sc.setup(bypass); bypass.commit(['--no-verify','-m','bypass']);
+  assert(!sc.checkGoal(bypass).passed, 'Bypassing a hook must not be course completion');
 });
 
 test('12: Add patch solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '12');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.commit(['-m', 'fix: apply discount in total calculation']);
-  assert(sc.checkGoal(git).passed === true, '12 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '12'); const git = new VirtualGit(); sc.setup(git);
+  const patch = git.add(['-p','shopping.py']); assert(patch.patch.hunks.length === 2, 'Two independent changes');
+  git.addPatch('shopping.py',[0]); git.commit(['-m','fix: discount']); assert(sc.checkGoal(git).passed, '12 solution should pass');
+  const all = new VirtualGit(); sc.setup(all); all.add(['shopping.py']); all.commit(['-m','fix: discount']); assert(!sc.checkGoal(all).passed, 'Bundling both changes must fail');
 });
 
 test('13: Untrack cached solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '13');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.rm(['--cached', '.env']);
-  assert(sc.checkGoal(git).passed === true, '13 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '13'); const git = new VirtualGit(); sc.setup(git);
+  git.rm(['--cached','.env']); assert(!sc.checkGoal(git).passed, 'Uncommitted index removal must fail');
+  git.add(['.gitignore']); git.commit(['-m','chore: untrack .env']); assert(sc.checkGoal(git).passed, '13 solution should pass');
 });
 
 test('14: Revert merge solution', () => {
@@ -502,11 +496,12 @@ test('16: Code archaeology solution', () => {
 });
 
 test('17: Rerere solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '17');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.configCmd(['rerere.enabled', 'true']);
-  assert(sc.checkGoal(git).passed === true, '17 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '17'); const git = new VirtualGit(); sc.setup(git);
+  git.configCmd(['rerere.enabled','true']); assert(!sc.checkGoal(git).passed, 'Configuration alone must fail');
+  git.merge('feature/api'); git.workingTree.set('server.js',git.scenarioMeta.resolved); git.add(['server.js']); git.commit(['-m','merge: first resolution']);
+  assert(!sc.checkGoal(git).passed, 'Recording without reuse must fail');
+  git.reset('main-before','--hard'); git.merge('feature/api'); assert(git.workingTree.get('server.js')===git.scenarioMeta.resolved, 'Actual recorded solution reused');
+  git.add(['server.js']); git.commit(['-m','merge: reused resolution']); assert(sc.checkGoal(git).passed, '17 solution should pass');
 });
 
 test('18: Commit amend solution', () => {
@@ -519,15 +514,15 @@ test('18: Commit amend solution', () => {
 });
 
 test('19: Stash solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '19');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.stashCmd(['push', '-u']);
-  git.checkoutOrSwitch('main');
-  git.commit(['-m', 'fix: emergency hotfix']);
-  git.checkoutOrSwitch('feature/cart');
-  git.stashCmd(['pop']);
-  assert(sc.checkGoal(git).passed === true, '19 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '19'); const git = new VirtualGit(); sc.setup(git);
+  git.stashCmd(['push','-u']);
+  git.stashCmd(['apply','--index']); assert(git.index.get('cart.py')==='cartWithDiscount();\n','Index is restored');
+  git.reset('HEAD','--hard'); git.workingTree.delete('coupon.py');
+  git.checkoutOrSwitch('main'); git.workingTree.set('app.py','runFixed();\n'); git.add(['app.py']); git.commit(['-m','fix: emergency hotfix']);
+  git.checkoutOrSwitch('feature/cart'); git.workingTree.set('cart.py','cartWithTax();\n'); git.add(['cart.py']); git.commit(['-m','feat: tax']);
+  assert(git.stashCmd(['pop','--index']).code===1,'Pop conflicts'); assert(git.stash.length===1,'Conflict preserves stash');
+  git.workingTree.set('cart.py',git.scenarioMeta.resolved); git.add(['cart.py','coupon.py']); git.commit(['-m','feat: combine tax and discount']); git.stashCmd(['drop']);
+  const result=sc.checkGoal(git); assert(result.passed,result.message);
 });
 
 test('20: Clean solution', () => {
@@ -535,6 +530,7 @@ test('20: Clean solution', () => {
   const git = new VirtualGit();
   sc.setup(git);
   git.mvCmd(['utils.py', 'helpers.py']);
+  git.cleanCmd(['-nd']);
   git.cleanCmd(['-fd']);
   git.commit(['-m', 'refactor: rename utils to helpers']);
   assert(sc.checkGoal(git).passed === true, '20 solution should pass');
@@ -611,14 +607,14 @@ test('24: Invalid show and out-of-order inspections must fail', () => {
 });
 
 test('25: Undo matrix solution', () => {
-  const sc = SCENARIOS.find(s => s.id === '25');
-  const git = new VirtualGit();
-  sc.setup(git);
-  git.restore(['config.js']);
-  git.restore(['--staged', 'debug.log']);
-  git.reset('HEAD~1', '--soft');
-  git.commit(['-m', 'feat: complete payment setup']);
-  assert(sc.checkGoal(git).passed === true, '25 solution should pass');
+const sc = SCENARIOS.find(s => s.id === '25'); const git = new VirtualGit(); sc.setup(git);
+  git.restore(['config.js']); git.restore(['--staged','debug.log']);
+  git.checkoutOrSwitch('mixed-demo'); git.reset('HEAD~1','--mixed');
+  assert(git.workingTree.get('payment.js')==='function pay() { process(); }\n', 'Mixed keeps worktree');
+  git.restore(['payment.js']); git.checkoutOrSwitch('hard-demo'); git.reset('HEAD~1','--hard');
+  assert(git.workingTree.get('payment.js')==='function pay() {}\n','Hard resets worktree');
+  git.checkoutOrSwitch('main'); git.reset('HEAD~1','--soft'); git.commit(['-m','feat: complete payment setup']);
+  const result=sc.checkGoal(git); assert(result.passed,result.message);
 });
 
 test('26: Merge strategies solution', () => {
@@ -703,6 +699,9 @@ test('29: Rebase conflict and continue solution', () => {
   const sc = SCENARIOS.find(s => s.id === '29');
   const git = new VirtualGit();
   sc.setup(git);
+  git.checkoutOrSwitch('abort-demo'); git.rebase('main'); git.rebase('--abort');
+  git.checkoutOrSwitch('skip-demo'); git.rebase('main'); git.rebase('--skip');
+  git.checkoutOrSwitch('feature');
 
   // Advance main after setup so the replay must keep unrelated upstream work.
   git.checkoutOrSwitch('main');
@@ -762,6 +761,10 @@ test('29: Every path in a multi-file conflict must be staged', () => {
   main.tree.set('settings.js', 'setting = "main";\n');
   step2.tree.set('settings.js', 'setting = "feature";\n');
   featureTip.tree.set('settings.js', 'setting = "feature";\n');
+  git.index = new Map(featureTip.tree); git.workingTree = new Map(featureTip.tree);
+  git.checkoutOrSwitch('abort-demo'); git.rebase('main'); git.rebase('--abort');
+  git.checkoutOrSwitch('skip-demo'); git.rebase('main'); git.rebase('--skip');
+  git.checkoutOrSwitch('feature');
 
   const rebaseRes = git.rebase('main');
   assert(rebaseRes.code === 1, 'Rebase should pause on the second feature commit');
@@ -842,6 +845,7 @@ test('31: PR lifecycle solution', () => {
   assert(rejectedPush.code === 1, 'Plain push must be rejected');
   const leasedPush = git.push(['--force-with-lease', 'origin', 'feature/cart']);
   assert(leasedPush.code === 0, 'Force with lease push must succeed');
+  assert(git.labCmd(['pr','merge','feature/cart']).code===0,'Explicit platform merge must succeed');
   git.checkoutOrSwitch('main');
   git.pull(['origin', 'main']);
   git.branch(['-d', 'feature/cart']);
@@ -929,6 +933,45 @@ test('33: Secret purge filter-repo solution', () => {
   const forcePush = unsafe.push(['--force', 'origin', 'main']);
   assert(forcePush.code === 0, 'The unsafe force-push example should update the remote');
   assert(sc.checkGoal(unsafe).passed === false, 'Scenario 33 must reject a rewrite pushed without a lease');
+});
+
+// Foundations: meaningful state changes and failure cases.
+function foundation(id, solution) {
+  const sc = SCENARIOS.find(s => s.id === id), git = new VirtualGit(); sc.setup(git);
+  assert(!sc.checkGoal(git).passed, `${id}: fresh must fail`);
+  solution(git);
+  const result = sc.checkGoal(git); assert(result.passed, `${id}: ${result.message}`);
+}
+test('36: Initialize an uninitialized repository and commit only the chosen snapshot', () => {
+  foundation('36', git => { assert(git.add(['README.md']).code !== 0, 'Cannot stage before init'); git.init(['-b','main']); git.add(['README.md']); git.commit(['-m','docs: first snapshot']); });
+});
+test('37: Commit the index snapshot and keep the later working edit', () => {
+  foundation('37', git => { git.add(['report.txt']); git.workingTree.set('report.txt',git.scenarioMeta.working); git.diffCmd([]); git.diffCmd(['--staged']); git.commit(['-m','docs: ready report']); });
+  const sc=SCENARIOS.find(s=>s.id==='37'), git=new VirtualGit(); sc.setup(git); git.add(['report.txt']); git.workingTree.set('report.txt',git.scenarioMeta.working); git.commit(['-am','docs: accidentally update snapshot']); assert(!sc.checkGoal(git).passed,'commit -a must not hide the staging mistake');
+});
+test('38: Revert an ordinary shared commit without losing later updates', () => {
+  foundation('38', git => git.revert('bad-config'));
+  const sc=SCENARIOS.find(s=>s.id==='38'), git=new VirtualGit(); sc.setup(git); git.reset('HEAD~2','--hard'); assert(!sc.checkGoal(git).passed,'Reset must not replace shared-history reversal');
+});
+for(const strategy of ['--rebase','--no-rebase']) test(`39: Observe ff-only rejection then integrate with ${strategy}`,()=>{
+  foundation('39', git=>{ git.fetchCmd(['origin']); const before=git.getHeadCommitId(); assert(git.pull(['--ff-only']).code!==0,'Divergence must be rejected'); assert(git.getHeadCommitId()===before,'Rejection leaves local HEAD unchanged'); git.pull([strategy]); git.push(['origin','main']); });
+});
+test('40: Correct the remote URL and diagnose authentication without changing author identity',()=>{
+  foundation('40',git=>{git.remoteCmd(['-v']);git.remoteCmd(['set-url','origin',git.scenarioMeta.expectedUrl]);git.configCmd(['lab.auth-diagnosis','ssh-key']);git.configCmd(['lab.permission-check','required']);});
+  const sc=SCENARIOS.find(s=>s.id==='40'),git=new VirtualGit();sc.setup(git);git.configCmd(['user.email','new@example.com']);assert(!sc.checkGoal(git).passed,'Author changes cannot repair authentication');
+});
+test('41: Commit ignore patterns and an exception while excluding generated artifacts',()=>{
+  foundation('41',git=>{git.workingTree.set('.gitignore','build/\n*.log\n!logs/keep.log\n');git.checkIgnore(['-v','build/output.js','debug.log']);git.checkIgnore(['-v','logs/keep.log']);git.add(['.']);git.commit(['-m','chore: ignore artifacts']);});
+});
+test('44: Inspect revision ranges and tag the actual merge parents',()=>{
+  foundation('44',git=>{git.revParse(['HEAD^','HEAD^2','HEAD~2']);git.logCmd(['--oneline','A..B']);git.logCmd(['--oneline','A...B']);git.diffCmd(['A..B']);git.diffCmd(['A...B']);git.tag(['first-parent','HEAD^']);git.tag(['second-parent','HEAD^2']);git.tag(['ancestor','HEAD~2']);});
+});
+test('All curriculum entries have one definition, a guide, and the declared platform',()=>{
+  runFile('command-guides.js');runFile('command-guides-extra.js');runFile('command-guides-foundations.js');
+  const guides=sandbox.COMMAND_GUIDES; const manifest=[...CURRICULUM.chapters.flatMap(ch=>ch.levels),...CURRICULUM.optional];
+  assert(manifest.length===49 && new Set(manifest.map(l=>l.id)).size===49,'49 unique manifest IDs');
+  assert(SCENARIOS.length===49 && new Set(SCENARIOS.map(l=>l.id)).size===49,'49 unique definitions');
+  for(const level of manifest){const sc=SCENARIOS.find(s=>s.id===level.id);assert(sc && guides[level.id],`Missing lesson or guide ${level.id}`);assert(Boolean(sc.cliOnly)===Boolean(level.cliOnly),`Platform mismatch ${level.id}`);}
 });
 
 // Summary

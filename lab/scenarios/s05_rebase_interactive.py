@@ -13,15 +13,12 @@ def login(username, password):
 
 class Scenario05(BaseScenario):
     id = "05"
-    title = "歷史整形：Interactive Rebase 整理零碎 Commit"
+    title = '整理草稿：互動式 Rebase'
     difficulty = "進階 ⭐⭐⭐"
     story = (
-        "你在本地開發「使用者驗證」功能時，手忙腳亂留下了 3 個零碎且命名混亂的 commit：\n"
-        "1. wip auth logic\n"
-        "2. fix typo in auth\n"
-        "3. really fix typo\n"
-        "發送 Pull Request 審查前，技術主管要求你將這 3 個碎 commit 整理 (squash) 成\n"
-        "單一、乾淨且有意義的 Commit：「feat: implement user authentication」。"
+        "昨晚你為了解一個 Bug，本地狂敲了一堆「wip」、「fix again」、「真的最後一次」零碎提交。\n"
+        "發送 Pull Request 審查前，技術主管端著咖啡朝你走來，要求歷史乾淨俐落。\n"
+        "趁主管點開 GitHub 之前，快用 git rebase -i 啟動歷史整形手術，把碎提交 squash 成專業體面的完美節點！"
     )
     goals = [
         "使用 git log --oneline -4 查看最近的 3 個零碎 Commit",
@@ -50,6 +47,8 @@ class Scenario05(BaseScenario):
         # Base commit
         engine.commit_file("app.py", "print('App running')\n", "feat: base project setup")
 
+        engine.run_git("config", "lab.scenario05.base", engine.get_head_hash())
+
         # 3 messy commits
         engine.commit_file("auth.py", "# auth wip\ndef logn(): pass\n", "wip auth logic")
         engine.commit_file("auth.py", "# auth wip\ndef login(): pass\n", "fix typo in auth")
@@ -60,8 +59,14 @@ class Scenario05(BaseScenario):
             return False, "Interactive Rebase 尚未完成！請完成編輯器存檔或輸入 git rebase --continue。"
 
         count = engine.get_commit_count()
-        if count > 2:
+        if count != 2:
             return False, f"目前歷史中仍有 {count} 個 Commit，表示尚未成功將 3 個零碎 commit 合併為 1 個（應該剩下 2 個 commit：base + auth）。"
+
+        _, base, _ = engine.run_git("config", "--get", "lab.scenario05.base", check=False)
+        _, parent, _ = engine.run_git("rev-parse", "HEAD^", check=False)
+        _, committed, _ = engine.run_git("show", "HEAD:auth.py", check=False)
+        if parent.strip() != base.strip() or committed != AUTH_FINAL_CODE:
+            return False, "請保留原本 base 與完整 auth 提交內容。"
 
         code, out, _ = engine.run_git("log", "-1", "--pretty=%B", check=False)
         msg = out.strip().lower()

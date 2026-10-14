@@ -9,11 +9,12 @@ from lab.engine import GitEngine
 
 class Scenario31(BaseScenario):
     id = "31"
-    title = "一個 PR 從開到收：變基最新主線與安全強推"
+    title = 'PR 更新與合併後收尾：Rebase 與租約推送'
     difficulty = "實戰 ⭐⭐⭐⭐"
     story = (
-        "你的 PR 等待 Review 時主線被合併了新功能。\n"
-        "主管要求先 rebase 最新 main 再推，且必須使用最安全的 --force-with-lease，最後清理分支！"
+        "你的 PR 等待 Review 時主線又被合了 2 個新功能。\n"
+        "主管要求你 rebase 最新 main 再推，並要求用明確 expected OID 的 --force-with-lease 保護推送！\n"
+        "本關以本地裸倉庫模擬更新與收尾；真實 PR 的建立、Review 與 CI 請依平台選做指南操作。"
     )
     goals = [
         "抓取遠端最新變更：git fetch origin",
@@ -26,7 +27,8 @@ class Scenario31(BaseScenario):
     next_steps = [
         "抓取遠端：git fetch origin",
         "變基最新主線：git rebase origin/main",
-        "安全強推：git push --force-with-lease origin feature/cart",
+        "讀取預期遠端 OID：git rev-parse origin/feature/cart，記下 <expected-oid>",
+        "推送：git push --force-with-lease=refs/heads/feature/cart:<expected-oid> origin feature/cart",
         "模擬 PR 合併：./git-lab pr merge feature/cart",
         "切回主線並同步合併結果：git switch main && git pull --ff-only",
         "刪除特徵分支：git branch -d feature/cart",
@@ -36,7 +38,7 @@ class Scenario31(BaseScenario):
     hints = [
         "執行 git fetch origin 取得遠端 main 最新更新。",
         "在 feature/cart 上執行 git rebase origin/main 完成歷史嫁接。",
-        "執行 git push --force-with-lease origin feature/cart 安全推送。",
+        "未指定 OID 的 lease 依賴 tracking ref；背景 fetch 可能更新它而削弱保護。先檢查遠端基線，再固定 --force-with-lease=refs/heads/feature/cart:<expected-oid>。",
         "推送後執行 ./git-lab pr merge feature/cart 模擬 GitHub 合併，再同步 main 並清理分支。"
     ]
 
@@ -113,4 +115,4 @@ class Scenario31(BaseScenario):
         if code == 0:
             return False, "origin/feature/cart 追蹤參照仍存在；請執行 git fetch --prune。"
 
-        return True, "太專業了！你走完了完整現代 PR 生命週期，安全強推且完美收尾！"
+        return True, "太專業了！你完成本地模擬的 PR 更新與合併後收尾；實際平台 Review/CI 另依指南練習。"

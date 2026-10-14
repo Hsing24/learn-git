@@ -7,15 +7,12 @@ from lab.engine import GitEngine
 
 class Scenario22(BaseScenario):
     id = "22"
-    title = "移花接木：錯在 main 提交的救星 (Branch & Reset 平移救援)"
+    title = '移走誤提交：分支與 Reset'
     difficulty = "初階 ⭐⭐"
     story = (
-        "高見龍老師《為你自己學 Git》神級救援題：『啊！我還沒開分支就直接 Commit 下去了！』\n"
-        "本來預定要開新分支進行 OAuth 第三方登入功能開發，\n"
-        "但你一時大意，忘了切分支，直接在穩定主線 `main` 上連續做了 2 個 commits (`oauth step 1` 與 `oauth step 2`)！\n"
-        "如果直接把這兩個實驗性質的提交留在 main，會破壞團隊主線的穩定性；\n"
-        "但如果直接 reset 掉，辛苦寫的心血程式碼又會付之一炬！\n"
-        "這時候正是展現 Git 指針精髓的時刻——利用『原地開分支，再把主線退回去』的神級兩步，零損平移拯救歷史！"
+        "菜鳥最大禁忌：你埋頭苦幹了兩個小時，猛然抬頭看終端機——天啊！當前分支居然是 main！\n"
+        "強哥正拿著咖啡從走廊走過來，請用「開新分支貼標籤 + 把 main reset 退回」的移花接木大法，\n"
+        "在神不知鬼不覺間拯救主線！"
     )
     goals = [
         "原地開出新分支 feature/oauth 承接當前進度：git branch feature/oauth",
@@ -58,6 +55,10 @@ class Scenario22(BaseScenario):
         engine.run_git("add", "oauth.py")
         engine.run_git("commit", "-m", "feat: oauth step 2 - implement redirect login")
 
+        engine.run_git("config", "lab.scenario22.saved", engine.get_head_hash())
+        _, base, _ = engine.run_git("rev-parse", "HEAD~2")
+        engine.run_git("config", "lab.scenario22.base", base.strip())
+
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
         # 1. 檢查是否存在 feature/oauth 分支
         _, branches_out, _ = engine.run_git("branch")
@@ -78,4 +79,10 @@ class Scenario22(BaseScenario):
         if "oauth" in main_log:
             return False, "main 分支中依然殘留 oauth 提交！請確認是否已將 main 回退。"
 
+        _, saved, _ = engine.run_git("config", "--get", "lab.scenario22.saved", check=False)
+        _, base, _ = engine.run_git("config", "--get", "lab.scenario22.base", check=False)
+        _, feature, _ = engine.run_git("rev-parse", "feature/oauth", check=False)
+        _, main, _ = engine.run_git("rev-parse", "main", check=False)
+        if main.strip() != base.strip() or feature.strip() != saved.strip():
+            return False, "請保留原本 OAuth 的完整提交與主線 base，不能只用同名訊息替代。"
         return True, "🎉 神級平移！你完全掌握了 Git 分支指針貼紙的本質，一秒化解了誤在主線開發的大災難，程式碼零丟失、主線零污染！"

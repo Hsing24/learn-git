@@ -6,12 +6,12 @@ from lab.engine import GitEngine
 
 class Scenario32(BaseScenario):
     id = "32"
-    title = "Stacked PR：基底分支被 squash merge 之後"
+    title = '堆疊分支：Rebase Onto 搬移範圍'
     difficulty = "進階 ⭐⭐⭐⭐⭐"
     story = (
-        "你在 feature/api 上開出 feature/ui 繼續開發。\n"
-        "後來 feature/api 被 squash merge 進 main，導致 feature/ui 一 rebase main 就產生重複衝突。\n"
-        "請使用 git rebase --onto main feature/api feature/ui 精準截枝嫁接！"
+        "你在 feature/api 上開出 feature/ui 疊疊樂開發。\n"
+        "沒想到主管直接將 api 分支 squash merge 進 main，導致 ui 分支一 rebase 就滿地衝突！\n"
+        "這時唯有手術刀級的 git rebase --onto 能幫你完美截枝，乾淨嫁接回主線！"
     )
     goals = [
         "使用 git rebase --onto main feature/api feature/ui 搬移分支",
@@ -65,4 +65,11 @@ class Scenario32(BaseScenario):
         if len(lines) != 2:
             return False, f"feature/ui 上應該只保留 2 個 ui 提交，目前有 {len(lines)} 個（可能包含了重複的 api 提交）。"
 
+        from lab.scenarios.expanded import ended
+        _, base, _ = engine.run_git("rev-parse", "feature/ui~2", check=False)
+        _, main, _ = engine.run_git("rev-parse", "main", check=False)
+        _, ui, _ = engine.run_git("show", "feature/ui:ui.py", check=False)
+        _, api, _ = engine.run_git("show", "feature/ui:api.py", check=False)
+        if not ended(engine) or base != main or ui != "button = True\nform = True\n" or api != "def api_1(): pass\ndef api_2(): pass\n":
+            return False, "請完成 onto 的兩筆 UI 線性提交並保留 API 與 UI 內容。"
         return True, "太不可思議了！你掌握了高階 --onto 截枝神技，輕鬆化解了 Stacked PR 歷史重疊難題！"

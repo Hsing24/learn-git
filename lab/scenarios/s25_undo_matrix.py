@@ -6,16 +6,14 @@ from lab.engine import GitEngine
 
 class Scenario25(BaseScenario):
     id = "25"
-    title = "後悔藥對照：restore / reset 三種模式"
+    title = '撤銷操作：Restore 與三種 Reset'
     difficulty = "初階 ⭐⭐"
     story = (
-        "一個下午同時犯了三個錯：改壞了檔案、把不該暫存的 debug 檔加進暫存區、太早 commit 了半成品。\n"
-        "請使用現代 Git 後悔藥：\n"
-        "1. git restore 放棄工作區修改\n"
-        "2. git restore --staged 移出暫存區\n"
-        "3. git reset --soft HEAD~1 撤銷提交但保留暫存區，重新整裝出發！"
+        "今天下午衰神附體，接連犯了三個錯：手滑改壞 config.py（未暫存）、不小心把 debug.log 暫存進去了、\n"
+        "還手抖提前 commit 了半成品 wip。別慌！拿出現代 Git 後悔藥對照表，精準對症下藥，逐一復原案發現場！"
     )
     goals = [
+        "在 reset-soft/reset-mixed/reset-hard 三個沙盒各執行 git reset --soft/--mixed/--hard HEAD^，比較 HEAD、index、工作目錄",
         "使用 git restore config.py 放棄工作區未暫存的修改",
         "使用 git restore --staged debug.log 取消暫存（檔案保留在硬碟）",
         "使用 git reset --soft HEAD~1 撤銷半成品 commit",
@@ -26,7 +24,10 @@ class Scenario25(BaseScenario):
         "取消暫存：git restore --staged debug.log",
         "軟撤銷提交：git reset --soft HEAD~1",
         "重新提交：git commit -m \"feat: complete payment feature\"",
-        "驗收成果：./git-lab verify"
+        "git -C reset-soft reset --soft HEAD^",
+        "git -C reset-mixed reset --mixed HEAD^",
+        "git -C reset-hard reset --hard HEAD^（只在可丟棄的 reset-hard 沙盒）",
+        "各用 git -C <目錄> status 與 diff --cached 比較，再 ./git-lab verify"
     ]
     hints = [
         "執行 git restore config.py 可以直接捨棄工作區修改。",
@@ -52,6 +53,19 @@ class Scenario25(BaseScenario):
         # 2. Accidental debug.log staged
         engine.create_file("debug.log", "debug secret\n")
         engine.run_git("add", "debug.log")
+
+        for mode in ("soft", "mixed", "hard"):
+            directory = engine.workspace / f"reset-{mode}"
+            directory.mkdir()
+            engine.run_git("init", "-b", "main", cwd=directory)
+            (directory / "demo.txt").write_text("base\n")
+            engine.run_git("add", "demo.txt", cwd=directory)
+            engine.run_git("commit", "-m", "base", cwd=directory)
+            _, base, _ = engine.run_git("rev-parse", "HEAD", cwd=directory)
+            engine.run_git("config", "lab.resetbase", base.strip(), cwd=directory)
+            (directory / "demo.txt").write_text("change\n")
+            engine.run_git("add", "demo.txt", cwd=directory)
+            engine.run_git("commit", "-m", "change", cwd=directory)
 
     def verify(self, engine: GitEngine) -> Tuple[bool, str]:
         if engine.get_current_branch() != "main":
@@ -96,5 +110,17 @@ class Scenario25(BaseScenario):
         count = engine.get_commit_count()
         if count != 2:
             return False, f"預期倉庫內應有 2 個 commit（base + 重新提交的 feature），目前有 {count} 個。"
+
+        for mode in ("soft", "mixed", "hard"):
+            directory = engine.workspace / f"reset-{mode}"
+            if not (directory / ".git").is_dir() or not (directory / "demo.txt").is_file():
+                return False, f"請保留 reset-{mode} 的練習儲存庫與檔案。"
+            _, base, _ = engine.run_git("config", "--get", "lab.resetbase", cwd=directory, check=False)
+            _, head, _ = engine.run_git("rev-parse", "HEAD", cwd=directory, check=False)
+            _, index, _ = engine.run_git("show", ":demo.txt", cwd=directory, check=False)
+            expected_index = "change\n" if mode == "soft" else "base\n"
+            expected_work = "base\n" if mode == "hard" else "change\n"
+            if not base.strip() or head != base or index != expected_index or (directory / "demo.txt").read_text() != expected_work:
+                return False, f"reset-{mode} 尚未呈現正確 HEAD/index/工作目錄結果，請依模式練習 reset。"
 
         return True, "太棒了！你完美駕馭了 restore、restore --staged 與 reset --soft 的現代後悔藥組合！"
