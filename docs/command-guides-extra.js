@@ -5,14 +5,14 @@
 const COMMAND_GUIDES_EXTRA = {
   '24': {
     targetCommand: 'git status -s && git diff && git diff --staged && git log --oneline --graph && git show HEAD~1',
-    summary: '看懂工作區、暫存區與版本歷史的全貌，掌握 status -s 雙欄代碼與 HEAD 相對參照。',
+    summary: '看懂工作區、暫存區與版本歷史的全貌，掌握 status -s 雙欄符號與 HEAD 相對參照。',
     scenarioContext: {
       role: '接手前輩半成品的菜鳥工程師',
       situation: '小明前輩下班前把未完成的半成品丟給你。在急著寫新程式碼之前，菜鳥必須用偵探四部曲精準看清「前輩改了什麼、暫存了什麼、歷史進度在哪裡」。'
     },
     guidedSteps: [
       { step: 1, cmd: 'git status -s', category: 'required', why: '以簡短模式檢視狀態，第一欄為暫存區狀態，第二欄為工作目錄狀態。' },
-      { step: 2, cmd: 'git diff', category: 'required', why: '比對工作區與暫存區之間的代碼差異。' },
+      { step: 2, cmd: 'git diff', category: 'required', why: '比對工作區與暫存區之間的程式碼差異。' },
       { step: 3, cmd: 'git diff --staged', category: 'required', why: '比對暫存區與 HEAD（最新提交）之間的差異，確認即將 commit 的變更。' },
       { step: 4, cmd: 'git log --oneline --graph', category: 'required', why: '以單行圖表檢視提交歷史拓撲。' },
       { step: 5, cmd: 'git show HEAD~1', category: 'required', why: '檢視前一個提交的詳細改動，掌握相對參照 HEAD~n 語法。' },

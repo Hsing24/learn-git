@@ -140,7 +140,7 @@ class Scenario40(BaseScenario):
     id = "40"
     title = '連線排查：作者、驗證與權限'
     difficulty = "初階 ⭐⭐"
-    story = "姓名信箱設定正確仍推送失敗。閱讀模擬 SSH/HTTPS 錯誤，区分作者資料、認證、URL 與倉庫權限；不連外。"
+    story = "姓名信箱設定正確仍推送失敗。閱讀模擬 SSH/HTTPS 錯誤，區分作者資料、認證、URL 與倉庫權限；不連外。"
     goals = ["git remote -v 與 git config --show-origin --get user.email", "閱讀 AUTH_CASES.md", "在 diagnosis.json 分別填寫 author/authentication/url/permission"]
     next_steps = ["git remote -v", "cat AUTH_CASES.md", 'printf \'{"case1":"authentication","case2":"url","case3":"permission","case4":"author"}\\n\' > diagnosis.json', "./git-lab verify"]
     hints = ["user.email 只寫入 commit；不授予 GitHub 登入或寫入權限。", "Permission denied (publickey) 檢查 SSH key；repository URL 與帳戶寫入權限分別檢查。"]
@@ -148,7 +148,7 @@ class Scenario40(BaseScenario):
     def setup(self, e):
         e.clean_workspace()
         e.run_git("remote", "add", "origin", "git@example.invalid:team/wrong-repo.git")
-        e.create_file("AUTH_CASES.md", "# 離線錯誤案例\ncase1: SSH Permission denied (publickey)，未提供授權的 key。\ncase2: HTTPS URL 的 owner/repo 拼错，Repository not found。\ncase3: 已認證但帳戶僅有 read 權限，write access denied。\ncase4: commit 作者 email 拼错。\n\nSSH 與 HTTPS 是不同認證路徑；HTTPS 使用平台支援的 token/credential helper。\nRepository not found 也可能隱藏私有倉庫權限，真實情況需同時查 URL 與權限。\n本關只讀本地案例，勿執行遠端連線；不儲存密碼或 token。\n")
+        e.create_file("AUTH_CASES.md", "# 離線錯誤案例\ncase1: SSH Permission denied (publickey)，未提供授權的 key。\ncase2: HTTPS URL 的 owner/repo 拼錯，Repository not found。\ncase3: 已認證但帳戶僅有 read 權限，write access denied。\ncase4: commit 作者 email 拼錯。\n\nSSH 與 HTTPS 是不同認證路徑；HTTPS 使用平台支援的 token/credential helper。\nRepository not found 也可能隱藏私有倉庫權限，真實情況需同時查 URL 與權限。\n本關只讀本地案例，勿執行遠端連線；不儲存密碼或 token。\n")
 
     def verify(self, e):
         try:
@@ -247,7 +247,7 @@ class Scenario44(BaseScenario):
     id = "44"
     title = '閱讀歷史：修訂參照與範圍'
     difficulty = "進階 ⭐⭐⭐"
-    story = "分支圖有 merge；分清第一 parent、祖先步数，以及兩點與三點的提交集合和 diff 差異。"
+    story = "分支圖有 merge；分清第一 parent、祖先步數，以及兩點與三點的提交集合和 diff 差異。"
     goals = ["讀 git log --graph --all", "比較 HEAD^、HEAD~2 與 HEAD^2", "將 git rev-list 的 A..B 與 A...B 結果寫入 ranges.json"]
     next_steps = ["git log --graph --oneline --all", "git rev-parse HEAD^ HEAD~2 HEAD^2", "git rev-list --reverse A..B", "git rev-list --reverse A...B", "依 RANGES_GUIDE.md 填 ranges.json", "./git-lab verify"]
     hints = ["A..B 是 B 可達但 A 不可達；A...B 是兩方獨有的對稱差。", "git diff A...B 是 merge-base 到 B 的差；不是 log 的對稱差集合。"]

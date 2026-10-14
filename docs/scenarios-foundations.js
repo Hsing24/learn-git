@@ -82,7 +82,7 @@ const SCENARIOS_FOUNDATIONS = [
       const history = git.operationHistory || [], m = git.scenarioMeta;
       if (!history.some(o => o.command === 'remote' && (o.args.includes('-v') || o.args.includes('get-url')))) return { passed: false, message: '先查看實際 origin URL，再對照 repo-info.txt。' };
       if (git.remotes.origin.url !== m.expectedUrl || git.config['user.name'] !== m.author || git.config['user.email'] !== m.email || git.config['lab.auth-diagnosis'] !== 'ssh-key' || git.config['lab.permission-check'] !== 'required') return { passed: false, message: '修正 SSH URL、保留作者資訊，並區分 SSH 驗證與倉庫權限。' };
-      return { passed: true, message: '本機 URL 與診斷已確認；實際金鑰與服務端權限需在真實環境檢查。' };
+      return { passed: true, message: '本機 URL 與診斷已確認；實際金鑰與伺服端權限需在真實環境檢查。' };
     }
   },
   {
