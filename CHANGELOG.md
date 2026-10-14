@@ -11,6 +11,8 @@
 - 加入完整 PR 平台選修指南、跨平台換行、拆分提交、bisect run、partial／shallow clone、LFS 與 SSH 簽章練習。
 
 - 加入 Python CLI、Web 情境與 JavaScript 語法的 GitHub Actions 驗證。
+- CI 安裝 LFS、歷史清理及 SSH 簽章工具，禁止略過測試；新增桌面／手機瀏覽器驗收與失敗 trace、截圖。
+- Pages 改由 GitHub Actions 部署，等待全部驗收通過後發布 main 的 docs，並支援手動重新部署。
 - 加入 Pull Request 範本、社群行為準則與版本發布流程。
 
 ### Fixed

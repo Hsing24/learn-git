@@ -12,7 +12,7 @@
 
 ## 本地開發
 
-支援環境為 macOS、Linux 與 WSL。CLI 需要 Python 3.11+、Git 2.28+；Git 2.28 起支援本專案使用的 `git init -b`，其餘 Python 依賴皆為標準函式庫。執行 Web 引擎測試和 JavaScript 語法檢查另需 Node.js 24+。不需安裝 npm 套件；部分 hook 關卡需要 Bash。
+支援環境為 macOS、Linux 與 WSL。CLI 需要 Python 3.11+、Git 2.28+；Git 2.28 起支援本專案使用的 `git init -b`，其餘 Python 依賴皆為標準函式庫。執行 Web 引擎測試和 JavaScript 語法檢查另需 Node.js 24+；瀏覽器驗收需透過 npm 安裝 Playwright。部分 hook 關卡需要 Bash。
 
 從你的 fork 複製專案，建立工作分支。在專案根目錄啟動教學網站：
 
@@ -39,11 +39,22 @@ python3 -m http.server 8000 --directory docs
 ```bash
 python3 tests/test_all_scenarios.py
 node tests/web/run_scenarios.mjs
-for file in docs/*.js; do node --check "$file"; done
+npm ci
+npx playwright install chromium
+npm run test:browser
+for file in docs/*.js tests/web/*.js tests/web/*.mjs playwright.config.mjs; do node --check "$file"; done
 git diff --check
 ```
 
-Python 測試會在一次性暫存專案中執行全部 49 個 CLI 關卡，並使用空白全域 Git 設定、停用系統設定與固定的測試身分；不會刪除專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑需要選用工具，備援的 `filter-branch` 路徑則會固定測試。
+Python 測試會在一次性暫存專案中執行全部 49 個 CLI 關卡，並使用空白全域 Git 設定、停用系統設定與固定的測試身分；不會刪除專案內的 `workspace/`。Scenario 33 的 `git-filter-repo` 路徑需要選用工具，備援的 `filter-branch` 路徑則會固定測試。完整驗收另需 `git-lfs`、`git-filter-repo` 與支援 SSH signing 的 Git／`ssh-keygen`；`python3 tests/run_cli_ci.py` 將任何略過的測試視為失敗。
+
+Playwright 會自動啟動本機靜態伺服器，以桌面與手機尺寸跑 10 個實際介面關卡流程、終端機鍵盤輸入及版面檢查；本地 JS／CSS 載入失敗或未處理的 JavaScript 錯誤會使測試失敗。Linux 需先執行 `npx playwright install --with-deps chromium` 安裝瀏覽器系統依賴。可設定 `PLAYWRIGHT_BASE_URL=https://hsing24.github.io/learn-git/`，使用相同測試驗證已部署網站。
+
+## CI 與網站部署
+
+[CI workflow](./.github/workflows/ci.yml) 在 PR、推送任一分支或手動執行時驗證：安裝選修工具並跑完整 CLI 驗收、JavaScript 語法、Web 引擎及桌面／手機瀏覽器驗收。保留 `Python CLI acceptance` 與 `Web syntax and scenarios` 的必要檢查名稱；瀏覽器失敗時上傳 trace 與截圖。main 有必要檢查保護，直接推送前需先在工作分支讓同一份 commit 通過 CI。
+
+Pages 使用 GitHub Actions 發布，只有 main 的所有測試通過後才上傳並部署 `docs/`。PR 只驗證；需要重新部署時可在 Actions 手動執行 CI，選擇 main。GitHub 的 Settings → Pages → Source 應設為 GitHub Actions。
 
 ## 提交 Pull Request
 

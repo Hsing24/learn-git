@@ -170,7 +170,7 @@ CLI 測試在一次性暫存專案執行，隔離 Git 設定，不清理你的 `
 
 目前沒有已發布的版本化 release；[CHANGELOG](./CHANGELOG.md) 記錄尚未發布變更。發布時依 SemVer 使用 `vMAJOR.MINOR.PATCH` 附註標籤。CI 通過後更新變更紀錄、建立並推送標籤，再建立 GitHub Release。推送 tag 本身不會自動建立 Release；自動建置需要設定相應 workflow。
 
-GitHub Pages 從 `main/docs` 發布；合併到 main 會更新網站，標籤不會建立舊版網站。
+GitHub Pages 由 [CI workflow](./.github/workflows/ci.yml) 發布 `main` 的 `docs/`：CLI、Web 引擎、語法與桌面／手機瀏覽器驗收全部通過後才更新網站。可在 Actions 手動執行 CI 重新部署 main；標籤不會建立舊版網站。測試工具與本機驗證方式見 [CONTRIBUTING](./CONTRIBUTING.md)。
 
 - 回報問題：[GitHub Issues](https://github.com/Hsing24/learn-git/issues/new/choose)。
 - 開發與提交 PR：[貢獻指南](./CONTRIBUTING.md)。

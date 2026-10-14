@@ -12,6 +12,11 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Browser test dependencies and evidence
+/node_modules/
+/test-results/
+/playwright-report/
+
 # System files
 .DS_Store
 Thumbs.db

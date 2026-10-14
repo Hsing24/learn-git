@@ -4,7 +4,12 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - '**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -21,8 +26,15 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      - name: Install elective tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes git-lfs openssh-client
+          python3 -m pip install git-filter-repo==2.47.0
+          git lfs version
+          git filter-repo --version
       - name: Run CLI acceptance and curriculum consistency tests
-        run: python3 -u tests/test_all_scenarios.py -v
+        run: python3 -u tests/run_cli_ci.py
 
   web:
     name: Web syntax and scenarios
@@ -37,8 +49,50 @@ jobs:
           node-version: "24"
       - name: Check JavaScript syntax
         run: |
-          for file in docs/*.js; do
+          for file in docs/*.js tests/web/*.js tests/web/*.mjs playwright.config.mjs; do
             node --check "$file"
           done
       - name: Run Web scenario acceptance tests
-        run: node tests/web/run_scenarios.mjs
+        run: npm run test:web
+      - name: Install browser test dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run desktop and mobile browser acceptance tests
+        run: npm run test:browser
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-evidence
+          path: test-results/
+          retention-days: 7
+
+  deploy:
+    name: Deploy GitHub Pages
+    needs: [python, web]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out tested commit
+        uses: actions/checkout@v7
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: Upload tested site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
