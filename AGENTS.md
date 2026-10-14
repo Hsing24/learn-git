@@ -1,44 +1,37 @@
-# Agent Operational Guidelines (AGENTS.md)
+# Repository Guidelines
 
-本檔案為 AI Agent、協作者與開發工具在本專案（learn-git / git-lab）中運作時必須嚴格遵守的語言與術語標準。
+## Language and Terminology
 
-## 語言與用語準則 (Language & Terminology Policy)
+Write Chinese in Traditional Chinese using Taiwan usage. Keep Git terms in English, including `commit`, `branch`, `merge`, `rebase`, `cherry-pick`, `stage`, `stash`, `remote`, `push`, `tag`, and `pull request`. Follow [`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md) when editing Markdown, Web scripts, CLI code, or lessons.
 
-1. **正體中文（台灣繁體，zh-TW）**
-   - 所有繁體中文文本必須符合台灣用語習慣。
-   - 嚴格禁止使用簡體中文（如：`检`, `错`, `独`, `区`, `数` 等皆須修正為 `檢`, `錯`, `獨`, `區`, `數`）。
-   - 禁止使用中國大陸 IT 用語：
-     - 代碼 ➔ **程式碼** / **code**
-     - 項目 ➔ **專案**
-     - 服務器 / 服務端 ➔ **伺服器** / **伺服端** / **server**
-     - 終端 ➔ **終端機**
-     - 默認 ➔ **預設**
-     - 支持 ➔ **支援**
-     - 數據 ➔ **資料**
-     - 數據庫 ➔ **資料庫**
-     - 保存 ➔ **儲存**
-     - 文件 (file) ➔ **檔案**
-     - 網絡 ➔ **網路**
-     - 鏈接 ➔ **連結**
+## Project Structure & Module Organization
 
-2. **專業名詞與技術用語維持英文 (Technical & Git Terms in English)**
-   - 版本控制與 Git 領域之專業術語**禁止中文化**，一律維持英文原文（如行內格式或代碼風格）：
-     - commit（禁止寫成「提交」）
-     - branch（禁止寫成「分支」）
-     - merge（禁止寫成「合併」）
-     - rebase（禁止寫成「變基」、「衍合」）
-     - cherry-pick（禁止寫成「挑選」、「挑揀」）
-     - staging area / stage（禁止寫成「暫存區」、「暫存」）
-     - stash（禁止寫成「貯藏」；指 `git stash` 操作時一律稱 stash）
-     - repository / repo（禁止寫成「倉庫」或「儲存庫」）
-     - remote（禁止寫成「遠端」、「遠程」）
-     - push（禁止寫成「推送」）
-     - fetch / pull（禁止寫成「拉取」）
-     - pull request / PR（禁止寫成「拉取請求」）
-     - tag（禁止寫成「標籤」）
-     - checkout / switch / restore
-     - diff, HEAD, conflict, submodule, worktree, hook
+This project pairs a Python CLI with a static JavaScript simulator. `git-lab` is the CLI entry point; `lab/` holds its engine and lessons. `docs/` contains the deployable site and guides. `tests/` contains Python, Node.js, and browser tests plus fixtures. `plan/CURRICULUM_PLAN.md` describes the curriculum. See `CONTRIBUTING.md` for workflows and `DESIGN.md` for UI rules. Keep generated `workspace/`, mock remotes, and state files untracked.
 
-3. **規範與對照表參照**
-   - 詳細名詞與字詞對照請參閱 [`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md)。
-   - 在產生或修改 Markdown 文件、Web 前端腳本（`docs/*.js`、`docs/index.html`）、CLI 工具（`git-lab`）或 Python 關卡腳本（`lab/**/*.py`）時，皆須主動檢查並遵循本標準。
+## Build, Test, and Development Commands
+
+Use Python 3.11+, Git 2.28+, and Node.js 24+. No site build step is needed.
+
+- `python3 -m http.server 8000 --directory docs`: serve the site locally.
+- `./git-lab list`; `./git-lab start 00`: list lessons or start a CLI exercise.
+- `python3 tests/test_all_scenarios.py`: run CLI and curriculum acceptance tests.
+- `npm run test:web`: run Web simulator acceptance tests.
+- `npm ci`, then `npx playwright install chromium`: install browser dependencies.
+- `npm run test:browser`: run desktop/mobile Chromium tests; Playwright starts the server.
+- `git diff --check`: check patch whitespace.
+
+## Coding Style & Naming Conventions
+
+Follow existing style: four-space Python and two-space JavaScript/CSS indentation; Python `snake_case`, JavaScript `camelCase`, and `PascalCase` classes. Name lessons like `s01_basics.py` and `Scenario01`. No formatter or linter is configured; check JavaScript with `node --check <file>`.
+
+## Testing Guidelines
+
+Use Python `unittest` (`test_*.py`, `test_*` methods), Node.js assertions, and Playwright (`*.spec.mjs`). Lesson tests should reject initial states and destructive shortcuts, accept intended solutions, and verify contents, refs, or history. No coverage threshold is set. CI's `python3 tests/run_cli_ci.py` rejects skipped tests; install `git-lfs`, `git-filter-repo`, and SSH signing tools for full coverage.
+
+## Curriculum and Interface Changes
+
+Preserve lesson IDs and keep `docs/curriculum.js` parseable as JSON by Python. Update CLI/Web lessons, guides, manifest, and tests together; mark CLI-only electives. Explain protected-text changes and update their fixture. When editing JavaScript, update the cache version in `docs/index.html`.
+
+## Commit & Pull Request Guidelines
+
+History uses prefixes such as `feat:`, `fix:`, `docs:`, `test:`, and `ci:`. Keep PRs focused; use `.github/pull_request_template.md`, describe behavior, link issues, and report validation. Include screenshots and viewport sizes for UI changes; provide 2–3 manual cases for new engine commands. Required CI checks must pass before merging.
