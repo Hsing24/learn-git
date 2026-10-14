@@ -69,7 +69,7 @@ const SCENARIOS_EXTRA = [
 
       return {
         passed: true,
-        message: '🎉 太棒了！你完整掌握了 status、diff、diff --staged、log 與 HEAD~n 的全套檢視指令，具備了精準看清代碼狀態的能力！'
+        message: '🎉 太棒了！你完整掌握了 status、diff、diff --staged、log 與 HEAD~n 的全套檢視指令，具備了精準看清程式碼狀態的能力！'
       };
     }
   },
@@ -248,7 +248,7 @@ const SCENARIOS_EXTRA = [
     hints: [
       '執行 git switch --detach v1.0',
       '提交修改：git commit -am "fix: legacy patch on v1.0"',
-      '建立新分支保全代碼：git switch -c hotfix/v1-legacy',
+      '建立新分支保全變更：git switch -c hotfix/v1-legacy',
       '切回主線：git switch main'
     ],
     setup: (git) => {

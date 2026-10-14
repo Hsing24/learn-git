@@ -110,7 +110,7 @@ class Scenario17(BaseScenario):
             "   git commit -m 'merge: resolve server.py with rerere'\n"
             "   ```\n"
             "   （Git 會提示：`Recorded resolution for 'server.py'`）\n\n"
-            "5. 重演：git switch -c retry main-before，再 git merge feature/modern-api。Git 仍可能以衝突退出碼停下，但工作目錄已重用解法；检查后 add/commit，再 switch main。\n"
+            "5. 重演：git switch -c retry main-before，再 git merge feature/modern-api。Git 仍可能以衝突退出碼停下，但工作目錄已重用解法；檢查後 add/commit，再 switch main。\n"
             "6. 驗收成果：\n"
             "   ```bash\n"
             "   ./git-lab verify\n"

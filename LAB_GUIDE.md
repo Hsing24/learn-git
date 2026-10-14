@@ -179,7 +179,7 @@ Reflog 記錄本機參照移動；它不是遠端備份，也不保存每次未�
 
 ## 歷史整理與衝突
 
-Interactive rebase 的 todo 由舊到新排列。Squash 合併變更與訊息；fixup 合併變更並捨棄修補訊息；reword 改訊息。Amend 只修補最後一筆，不會單独合併之前的多筆提交。第 43 關在真實 Git 用 edit 暫停、mixed reset、分次 add／commit，並用 range-diff 檢查提交序列的差異。
+Interactive rebase 的 todo 由舊到新排列。Squash 合併變更與訊息；fixup 合併變更並捨棄修補訊息；reword 改訊息。Amend 只修補最後一筆，不會單獨合併之前的多筆提交。第 43 關在真實 Git 用 edit 暫停、mixed reset、分次 add／commit，並用 range-diff 檢查提交序列的差異。
 
 Rebase 衝突中 ours 是目前已重放完成的新基底，theirs 是正在套用的提交；不能套用一般 merge 的分支直覺。`--abort` 回到操作前；`--skip` 捨棄目前提交的變更，只有明確可丟棄或已整合的提交才適合略過。第 29 關有獨立 skip 練習，主要功能提交仍須完整保留。
 
