@@ -20,3 +20,5 @@ __pycache__/
 # System files
 .DS_Store
 Thumbs.db
+# Local agent/editor hooks
+/.github/hooks/
